@@ -1,0 +1,61 @@
+import type { KpiConfiguration } from "@/types/atlas";
+
+export const kpiConfigurationsMock: KpiConfiguration[] = [
+  {
+    id: "config-kpi-revenue",
+    kpiId: "kpi-revenue",
+    organizationId: "org-atlas-demo",
+    name: "CA mensuel",
+    category: "revenue",
+    sourceId: "source-erp-csv",
+    formula: "SUM(montant_ht)",
+    businessDefinition: "Chiffre d'affaires hors taxes signé ou facturé sur la période active.",
+    usedFields: ["Date", "ChiffreAffaires", "Client"],
+    calculationMethod: "Somme des montants HT filtrés sur la période active.",
+    target: 65000,
+    alertThreshold: 58000,
+    criticalThreshold: 50000,
+    frequency: "daily",
+    isActive: true,
+    businessOwner: "Direction",
+    expectedImpact: "Identifier rapidement l'écart de croissance."
+  },
+  {
+    id: "config-kpi-margin",
+    kpiId: "kpi-margin",
+    organizationId: "org-atlas-demo",
+    name: "Marge brute",
+    category: "margin",
+    sourceId: "source-margin-excel",
+    formula: "AVG(marge_pct)",
+    businessDefinition: "Marge moyenne des missions suivies sur la période.",
+    usedFields: ["Marge", "Date", "Client"],
+    calculationMethod: "Moyenne ponderee des marges par mission.",
+    target: 35,
+    alertThreshold: 32,
+    criticalThreshold: 28,
+    frequency: "weekly",
+    isActive: true,
+    businessOwner: "Operations",
+    expectedImpact: "Prioriser les missions qui tirent la rentabilite vers le bas."
+  },
+  {
+    id: "config-kpi-cash",
+    kpiId: "kpi-cash",
+    organizationId: "org-atlas-demo",
+    name: "Cash a 30 jours",
+    category: "cash",
+    sourceId: "source-erp-csv",
+    formula: "current_cash + expected_in - expected_out",
+    businessDefinition: "Projection simple du cash disponible a 30 jours.",
+    usedFields: ["Date", "Tresorerie", "ChiffreAffaires"],
+    calculationMethod: "Projection déterministe à partir des encaissements et décaissements attendus.",
+    target: 30000,
+    alertThreshold: 26000,
+    criticalThreshold: 22000,
+    frequency: "daily",
+    isActive: true,
+    businessOwner: "Direction",
+    expectedImpact: "Anticiper une tension de trésorerie avant qu'elle ne bloque les décisions."
+  }
+];

@@ -1,0 +1,348 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  CONSULTANT
+  CLIENT_ADMIN
+  CLIENT_USER
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  INACTIVE
+}
+
+enum OrganizationStatus {
+  ACTIVE
+  WATCH
+  INACTIVE
+}
+
+enum DataSourceType {
+  EXCEL
+  CSV
+  MYSQL
+  POSTGRESQL
+  SQL_SERVER
+}
+
+enum DataSourceStatus {
+  CONNECTED
+  TO_CHECK
+  ERROR
+  INACTIVE
+}
+
+enum ImportStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  PARTIAL
+}
+
+enum MappingStatus {
+  MAPPED
+  UNMAPPED
+  TO_REVIEW
+  IGNORED
+}
+
+enum CalculationType {
+  SUM
+  AVERAGE
+  RATE
+  COUNT
+  DISTINCT_COUNT
+  RATIO
+  PERIOD_CHANGE
+}
+
+enum KPIFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum KPIStatus {
+  HEALTHY
+  WATCH
+  CRITICAL
+}
+
+enum KPITrend {
+  UP
+  DOWN
+  STABLE
+}
+
+enum DataQuality {
+  RELIABLE
+  PARTIAL
+  OUTDATED
+  ERROR
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum AlertStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum ActionPriority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum ActionStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum ReportType {
+  MONTHLY
+  ALERT
+  SUMMARY
+}
+
+enum ReportStatus {
+  DRAFT
+  READY
+  SENT
+}
+
+model Organization {
+  id                String             @id @default(cuid())
+  name              String
+  sector            String
+  size              String
+  status            OrganizationStatus @default(ACTIVE)
+  users             OrganizationUser[]
+  dataSources       DataSource[]
+  importJobs        ImportJob[]
+  columnMappings    ColumnMapping[]
+  kpiConfigurations KPIConfiguration[]
+  kpiResults        KPIResult[]
+  alerts            Alert[]
+  actionPlans       ActionPlan[]
+  reports           Report[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([status])
+}
+
+model User {
+  id            String             @id @default(cuid())
+  name          String
+  email         String             @unique
+  role          UserRole
+  status        UserStatus         @default(ACTIVE)
+  organizations OrganizationUser[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([role])
+  @@index([status])
+}
+
+model OrganizationUser {
+  id             String       @id @default(cuid())
+  userId         String
+  organizationId String
+  role           UserRole
+  status         UserStatus   @default(ACTIVE)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([userId, organizationId])
+  @@index([organizationId, role])
+  @@index([userId])
+}
+
+model DataSource {
+  id                String             @id @default(cuid())
+  organizationId    String
+  name              String
+  type              DataSourceType
+  status            DataSourceStatus   @default(TO_CHECK)
+  usage             String[]
+  syncFrequency     KPIFrequency
+  lastSyncAt        DateTime?
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  importJobs        ImportJob[]
+  columnMappings    ColumnMapping[]
+  kpiConfigurations KPIConfiguration[]
+  alerts            Alert[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([organizationId, status])
+  @@index([organizationId, type])
+}
+
+model ImportJob {
+  id             String       @id @default(cuid())
+  organizationId String
+  dataSourceId   String
+  status         ImportStatus @default(PENDING)
+  rowsRead       Int          @default(0)
+  rowsRejected   Int          @default(0)
+  errorCount     Int          @default(0)
+  durationMs     Int          @default(0)
+  triggeredBy    String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dataSource     DataSource   @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([dataSourceId, createdAt])
+}
+
+model ColumnMapping {
+  id             String        @id @default(cuid())
+  organizationId String
+  dataSourceId   String
+  sourceColumn   String
+  atlasField     String
+  detectedType   String
+  status         MappingStatus @default(TO_REVIEW)
+  qualityScore   Int          @default(0)
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dataSource     DataSource    @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([dataSourceId, sourceColumn])
+  @@index([organizationId, status])
+}
+
+model KPIConfiguration {
+  id              String          @id @default(cuid())
+  organizationId  String
+  name            String
+  category        String
+  dataSourceId    String
+  calculationType CalculationType
+  primaryField    String
+  secondaryField  String?
+  targetValue     Float
+  warningThreshold Float
+  criticalThreshold Float
+  frequency       KPIFrequency
+  owner           String
+  expectedImpact  String
+  isActive        Boolean         @default(true)
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dataSource      DataSource      @relation(fields: [dataSourceId], references: [id], onDelete: Restrict)
+  results         KPIResult[]
+  alerts          ActionPlan[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([organizationId, isActive])
+  @@index([dataSourceId])
+}
+
+model KPIResult {
+  id                 String           @id @default(cuid())
+  organizationId     String
+  kpiConfigurationId String
+  period             String
+  value              Float
+  targetValue        Float
+  gap                Float
+  status             KPIStatus
+  trend              KPITrend
+  dataQuality        DataQuality
+  organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  kpiConfiguration   KPIConfiguration @relation(fields: [kpiConfigurationId], references: [id], onDelete: Cascade)
+  alerts             Alert[]
+  calculatedAt       DateTime         @default(now())
+
+  @@unique([kpiConfigurationId, period])
+  @@index([organizationId, period])
+  @@index([organizationId, status])
+}
+
+model Alert {
+  id             String        @id @default(cuid())
+  organizationId String
+  kpiResultId    String?
+  dataSourceId   String?
+  severity       AlertSeverity
+  title          String
+  cause          String
+  recommendedAction String
+  status         AlertStatus   @default(OPEN)
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  kpiResult      KPIResult?    @relation(fields: [kpiResultId], references: [id], onDelete: SetNull)
+  dataSource     DataSource?   @relation(fields: [dataSourceId], references: [id], onDelete: SetNull)
+  actionPlans    ActionPlan[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([organizationId, status])
+  @@index([organizationId, severity])
+  @@index([kpiResultId])
+  @@index([dataSourceId])
+}
+
+model ActionPlan {
+  id                 String            @id @default(cuid())
+  organizationId     String
+  alertId            String?
+  kpiConfigurationId String?
+  title              String
+  owner              String
+  dueDate            DateTime
+  priority           ActionPriority
+  status             ActionStatus      @default(TODO)
+  expectedImpact     String
+  organization       Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  alert              Alert?            @relation(fields: [alertId], references: [id], onDelete: SetNull)
+  kpiConfiguration   KPIConfiguration? @relation(fields: [kpiConfigurationId], references: [id], onDelete: SetNull)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([organizationId, status])
+  @@index([organizationId, dueDate])
+  @@index([alertId])
+}
+
+model Report {
+  id               String       @id @default(cuid())
+  organizationId   String
+  period           String
+  type             ReportType
+  status           ReportStatus @default(DRAFT)
+  globalScore      Int
+  criticalKpiCount Int
+  alertCount       Int
+  executiveSummary String
+  generatedAt      DateTime?
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([organizationId, period])
+  @@index([organizationId, status])
+}
