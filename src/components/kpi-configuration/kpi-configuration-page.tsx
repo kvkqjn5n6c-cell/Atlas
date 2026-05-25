@@ -5,6 +5,7 @@ import { canConfigureKPI, getActiveUser } from "@/lib/auth/permissions";
 import { KpiCatalogTable } from "./kpi-catalog-table";
 import { KpiConfigPanel } from "./kpi-config-panel";
 import { KpiTestResult } from "./kpi-test-result";
+import { LocalKpiConfigurations } from "./local-kpi-configurations";
 
 export function KpiConfigurationPage() {
   const activeUser = getActiveUser();
@@ -37,6 +38,7 @@ export function KpiConfigurationPage() {
       </section>
 
       <KpiCatalogTable />
+      <LocalKpiConfigurations />
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <KpiConfigPanel />
         <KpiTestResult />

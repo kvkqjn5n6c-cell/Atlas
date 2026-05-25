@@ -12,6 +12,8 @@ import { clearLastLocalImport, getLastLocalImport, saveLastLocalImport } from "@
 import { formatAtlasField } from "@/lib/formatters/status-labels";
 import type { AtlasField } from "@/types/atlas";
 import type { LocalValidatedColumnMapping, LocalValidatedImport } from "@/types/data-import";
+import type { KpiImpactCandidate } from "@/lib/data-pipeline/kpi-impact";
+import { CreateKpiFromImportPanel } from "./create-kpi-from-import-panel";
 
 type LocalCorrectionLog = {
   id: string;
@@ -55,6 +57,8 @@ function formatDate(value: string) {
 export function LocalImportSupervision() {
   const [localImport, setLocalImport] = useState<LocalValidatedImport | null>(null);
   const [corrections, setCorrections] = useState<LocalCorrectionLog[]>([]);
+  const [selectedKpiCandidate, setSelectedKpiCandidate] = useState<KpiImpactCandidate | null>(null);
+  const [localKpiSavedCount, setLocalKpiSavedCount] = useState(0);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -127,6 +131,7 @@ export function LocalImportSupervision() {
     clearLastLocalImport();
     setLocalImport(null);
     setCorrections([]);
+    setSelectedKpiCandidate(null);
   }
 
   if (!localImport) {
@@ -285,6 +290,9 @@ export function LocalImportSupervision() {
             <p className="mt-1 text-sm text-slate-500">
               Estimation déterministe à partir des champs Atlas présents.
             </p>
+            {localKpiSavedCount > 0 ? (
+              <Badge variant="success">{localKpiSavedCount} KPI local créé</Badge>
+            ) : null}
           </CardHeader>
           <CardContent className="space-y-3">
             {kpiImpacts.length > 0 ? (
@@ -303,6 +311,9 @@ export function LocalImportSupervision() {
                   <p className="mt-1 text-xs text-slate-500">
                     Manquants : {impact.missingFields.map(formatAtlasField).join(", ") || "aucun"}
                   </p>
+                  <Button className="mt-3 h-8" onClick={() => setSelectedKpiCandidate(impact)}>
+                    Créer un KPI
+                  </Button>
                 </article>
               ))
             ) : (
@@ -313,6 +324,14 @@ export function LocalImportSupervision() {
           </CardContent>
         </Card>
       </section>
+
+      {selectedKpiCandidate ? (
+        <CreateKpiFromImportPanel
+          importData={localImport}
+          candidate={selectedKpiCandidate}
+          onSaved={() => setLocalKpiSavedCount((current) => current + 1)}
+        />
+      ) : null}
 
       <Card>
         <CardHeader>

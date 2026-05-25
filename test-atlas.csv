@@ -1,0 +1,5 @@
+date;client;region;montant_ht;marge;retard;satisfaction;type_intervention
+2026-05-01;Client A;Est;12000;3200;0;8;Maintenance
+2026-05-08;Client B;Est;8500;1800;1;6;Dépannage
+2026-05-15;Client C;Ouest;15500;4700;0;9;Installation
+2026-05-20;Client D;Nord;9200;2100;2;5;Maintenance
