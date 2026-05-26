@@ -1,4 +1,5 @@
 import type { AtlasField, DataImportJob } from "@/types/atlas";
+import type { ImportStatistics } from "@/lib/data-pipeline/import-statistics";
 
 export type DetectedColumnType = "date" | "number" | "text" | "status" | "boolean" | "empty";
 
@@ -22,6 +23,8 @@ export type ParsedFileResult = {
   rows: FilePreviewRow[];
   totalRows: number;
   errors: string[];
+  warnings: string[];
+  statistics?: ImportStatistics;
 };
 
 export type LocalColumnMapping = {
@@ -68,5 +71,6 @@ export type LocalValidatedImport = {
   mappings: LocalValidatedColumnMapping[];
   previewRows: FilePreviewRow[];
   simulatedImportJob: LocalImportSummary["importJob"];
+  summaryStats?: ImportStatistics;
   persisted: false;
 };

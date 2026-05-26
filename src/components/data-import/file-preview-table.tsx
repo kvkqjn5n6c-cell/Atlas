@@ -1,9 +1,10 @@
+import { MAX_DISPLAY_ROWS } from "@/lib/config/import-limits";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { FilePreviewRow } from "@/types/data-import";
 
 export function FilePreviewTable({ rows }: { rows: FilePreviewRow[] }) {
   const columns = Object.keys(rows[0]?.values ?? {});
-  const previewRows = rows.slice(0, 10);
+  const previewRows = rows.slice(0, MAX_DISPLAY_ROWS);
 
   if (rows.length === 0) return null;
 
@@ -11,7 +12,9 @@ export function FilePreviewTable({ rows }: { rows: FilePreviewRow[] }) {
     <Card>
       <CardHeader>
         <CardTitle>Aperçu des données</CardTitle>
-        <p className="mt-1 text-sm text-slate-500">Les 10 premières lignes sont affichées pour préparer le mapping.</p>
+        <p className="mt-1 text-sm text-slate-500">
+          Les {previewRows.length} premières lignes sont affichées. L&apos;aperçu est limité pour préserver les performances.
+        </p>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto rounded-lg border border-line">

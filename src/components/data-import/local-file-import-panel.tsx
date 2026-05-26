@@ -3,13 +3,14 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { FileSpreadsheet, Upload } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DetectedColumnsTable } from "@/components/data-import/detected-columns-table";
 import { FilePreviewTable } from "@/components/data-import/file-preview-table";
 import { LocalImportSummary } from "@/components/data-import/local-import-summary";
 import { LocalMappingPanel } from "@/components/data-import/local-mapping-panel";
+import { MAX_LOCAL_STORAGE_ROWS } from "@/lib/config/import-limits";
 import { parseCsvFile } from "@/lib/data-pipeline/csv-parser";
 import { buildInitialMappings, validateLocalMapping } from "@/lib/data-pipeline/mapping-suggestions";
 import { saveLastLocalImport } from "@/lib/local/local-import-store";
@@ -20,6 +21,12 @@ import type {
   LocalValidatedImport,
   ParsedFileResult
 } from "@/types/data-import";
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} o`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} Ko`;
+  return `${Math.round((bytes / (1024 * 1024)) * 10) / 10} Mo`;
+}
 
 function buildLocalImportSummary(parsedFile: ParsedFileResult, mappings: LocalColumnMapping[]): LocalImportSummaryType {
   const validation = validateLocalMapping(mappings);
@@ -35,7 +42,7 @@ function buildLocalImportSummary(parsedFile: ParsedFileResult, mappings: LocalCo
     unmappedColumns: validation.unmappedColumns.length,
     detectedErrors: parsedFile.errors.length,
     qualityScore: validation.qualityScore,
-    validationWarnings: [...parsedFile.errors, ...validation.warnings],
+    validationWarnings: [...parsedFile.errors, ...parsedFile.warnings, ...validation.warnings],
     importJob: {
       id: `local-import-${Date.now()}`,
       sourceName: parsedFile.fileName,
@@ -49,7 +56,7 @@ function buildLocalImportSummary(parsedFile: ParsedFileResult, mappings: LocalCo
       rejectedRows: parsedFile.errors.length,
       detectedErrors: parsedFile.errors.length,
       kpiCoverage: validation.qualityScore,
-      durationSeconds: 1,
+      durationSeconds: parsedFile.statistics ? Math.max(1, Math.round(parsedFile.statistics.parsingTimeMs / 1000)) : 1,
       trigger: "manual",
       persisted: false
     }
@@ -63,6 +70,7 @@ export function LocalFileImportPanel() {
   const [summary, setSummary] = useState<LocalImportSummaryType | null>(null);
   const [validatedImport, setValidatedImport] = useState<LocalValidatedImport | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
+  const [storageMessage, setStorageMessage] = useState<string | null>(null);
 
   const canGenerateSummary = useMemo(() => {
     if (!parsedFile || parsedFile.columns.length === 0) return false;
@@ -76,6 +84,7 @@ export function LocalFileImportPanel() {
     setReadError(null);
     setSummary(null);
     setValidatedImport(null);
+    setStorageMessage(null);
 
     try {
       const result = await parseCsvFile(file);
@@ -111,14 +120,21 @@ export function LocalFileImportPanel() {
         detectedType:
           parsedFile.columns.find((column) => column.name === mapping.sourceColumn)?.detectedType ?? "text"
       })),
-      previewRows: parsedFile.rows.slice(0, 10),
+      previewRows: parsedFile.rows.slice(0, MAX_LOCAL_STORAGE_ROWS),
       simulatedImportJob: nextSummary.importJob,
+      summaryStats: parsedFile.statistics,
       persisted: false
     };
+    const storeResult = saveLastLocalImport(nextValidatedImport);
 
-    saveLastLocalImport(nextValidatedImport);
     setSummary(nextSummary);
-    setValidatedImport(nextValidatedImport);
+    setStorageMessage(storeResult.message);
+
+    if (storeResult.success) {
+      setValidatedImport(nextValidatedImport);
+    } else {
+      setValidatedImport(null);
+    }
   }
 
   return (
@@ -131,11 +147,13 @@ export function LocalFileImportPanel() {
                 <Badge variant="brand">Import réel local</Badge>
                 <Badge>Test local</Badge>
                 <Badge>Non persisté</Badge>
+                {parsedFile?.statistics?.isLargeFile ? <Badge variant="warning">Fichier volumineux</Badge> : null}
               </div>
               <CardTitle className="mt-3">Prévisualiser un fichier CSV</CardTitle>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
                 Chargez un fichier local pour détecter les colonnes, préparer le mapping et estimer si la donnée
-                peut alimenter les KPI Atlas. Aucune donnée n&apos;est enregistrée en base.
+                peut alimenter les KPI Atlas. Atlas analyse le fichier, mais ne conserve localement qu&apos;un aperçu
+                limité et des métadonnées.
               </p>
             </div>
             <div className="rounded-md border border-line bg-slate-50 p-3 text-sm text-slate-600">
@@ -169,12 +187,35 @@ export function LocalFileImportPanel() {
           ) : null}
 
           {parsedFile && parsedFile.columns.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-2 rounded-md border border-line bg-white p-4 text-sm">
-              <Upload className="h-4 w-4 text-brand-700" aria-hidden="true" />
-              <span className="font-semibold text-ink">{parsedFile.fileName}</span>
-              <span className="text-slate-500">· {parsedFile.totalRows} lignes lues</span>
-              <span className="text-slate-500">· {parsedFile.columns.length} colonnes détectées</span>
-              {parsedFile.delimiter ? <span className="text-slate-500">· séparateur : {parsedFile.delimiter}</span> : null}
+            <div className="space-y-3 rounded-md border border-line bg-white p-4 text-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <Upload className="h-4 w-4 text-brand-700" aria-hidden="true" />
+                <span className="font-semibold text-ink">{parsedFile.fileName}</span>
+                <span className="text-slate-500">· {parsedFile.totalRows.toLocaleString("fr-FR")} lignes lues</span>
+                <span className="text-slate-500">· {parsedFile.columns.length} colonnes détectées</span>
+                {parsedFile.delimiter ? <span className="text-slate-500">· séparateur : {parsedFile.delimiter}</span> : null}
+              </div>
+
+              {parsedFile.statistics ? (
+                <div className="grid gap-3 md:grid-cols-4">
+                  {[
+                    ["Taille fichier", formatBytes(parsedFile.statistics.fileSizeBytes)],
+                    ["Temps lecture", `${parsedFile.statistics.parsingTimeMs} ms`],
+                    ["Cellules vides", parsedFile.statistics.estimatedEmptyCells.toLocaleString("fr-FR")],
+                    ["Colonnes avec manques", parsedFile.statistics.columnsWithMissingValues.length]
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-md border border-line bg-slate-50 p-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
+                      <p className="mt-1 font-semibold text-ink">{value}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-800">
+                Atlas affiche un aperçu limité pour préserver les performances. Le fichier complet n&apos;est pas stocké
+                localement ; le traitement complet sera géré côté serveur dans une phase ultérieure.
+              </div>
             </div>
           ) : null}
         </CardContent>
@@ -198,6 +239,12 @@ export function LocalFileImportPanel() {
           ) : null}
 
           <LocalImportSummary summary={summary} />
+
+          {storageMessage ? (
+            <div className={`rounded-md border p-4 text-sm ${validatedImport ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+              <p className="font-semibold">{storageMessage}</p>
+            </div>
+          ) : null}
 
           {validatedImport ? (
             <div className="flex flex-col gap-3 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 sm:flex-row sm:items-center sm:justify-between">

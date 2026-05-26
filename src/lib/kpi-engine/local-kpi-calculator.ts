@@ -102,7 +102,9 @@ export function calculateLocalKpiFromImport(
     rowsUsed,
     ignoredRows,
     status: getStatus(value, draft),
-    warning,
+    warning:
+      warning ??
+      "Calcul de test basé sur l'aperçu local stocké, pas sur l'intégralité du fichier importé.",
     period: getPeriod(importData)
   };
 }

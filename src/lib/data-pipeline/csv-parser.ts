@@ -1,7 +1,8 @@
+import { MAX_PREVIEW_ROWS } from "@/lib/config/import-limits";
+import { buildImportStatistics } from "@/lib/data-pipeline/import-statistics";
 import { suggestAtlasField } from "@/lib/data-pipeline/mapping-suggestions";
+import type { ColumnStatistics } from "@/lib/data-pipeline/import-statistics";
 import type { DetectedColumn, DetectedColumnType, FilePreviewRow, ParsedFileResult } from "@/types/data-import";
-
-const maxPreviewRows = 50;
 
 function splitCsvLine(line: string, delimiter: "," | ";") {
   const values: string[] = [];
@@ -36,11 +37,24 @@ function splitCsvLine(line: string, delimiter: "," | ";") {
   return values;
 }
 
-function detectDelimiter(headerLine: string): "," | ";" {
-  const commaCount = (headerLine.match(/,/g) ?? []).length;
-  const semicolonCount = (headerLine.match(/;/g) ?? []).length;
+function countDelimiterOutsideQuotes(line: string, delimiter: "," | ";") {
+  let count = 0;
+  let insideQuotes = false;
 
-  return semicolonCount > commaCount ? ";" : ",";
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    if (char === '"') insideQuotes = !insideQuotes;
+    if (char === delimiter && !insideQuotes) count += 1;
+  }
+
+  return count;
+}
+
+function detectDelimiter(sampleLines: string[]): "," | ";" {
+  const commaScore = sampleLines.reduce((total, line) => total + countDelimiterOutsideQuotes(line, ","), 0);
+  const semicolonScore = sampleLines.reduce((total, line) => total + countDelimiterOutsideQuotes(line, ";"), 0);
+
+  return semicolonScore > commaScore ? ";" : ",";
 }
 
 function isNumeric(value: string) {
@@ -76,97 +90,151 @@ export function detectColumnType(values: string[]): DetectedColumnType {
   return "text";
 }
 
-export function detectColumns(rows: FilePreviewRow[]): DetectedColumn[] {
-  const columnNames = Object.keys(rows[0]?.values ?? {});
-
-  return columnNames.map((name) => {
-    const values = rows.map((row) => row.values[name] ?? "");
-    const examples = Array.from(new Set(values.filter(Boolean))).slice(0, 3);
+function buildDetectedColumns(
+  headers: string[],
+  columnSamples: Record<string, string[]>,
+  emptyCellsByColumn: Record<string, number>,
+  totalRows: number
+) {
+  const columnStatistics: ColumnStatistics[] = headers.map((name) => {
+    const type = detectColumnType(columnSamples[name] ?? []);
 
     return {
       name,
-      detectedType: detectColumnType(values),
-      examples,
-      suggestedAtlasField: suggestAtlasField(name)
+      type,
+      emptyCells: emptyCellsByColumn[name] ?? 0,
+      missingRatio: totalRows > 0 ? Math.round(((emptyCellsByColumn[name] ?? 0) / totalRows) * 100) / 100 : 0
     };
   });
+
+  const columns: DetectedColumn[] = headers.map((name) => ({
+    name,
+    detectedType: columnStatistics.find((column) => column.name === name)?.type ?? "text",
+    examples: Array.from(new Set((columnSamples[name] ?? []).filter(Boolean))).slice(0, 3),
+    suggestedAtlasField: suggestAtlasField(name)
+  }));
+
+  return { columns, columnStatistics };
+}
+
+export function detectColumns(rows: FilePreviewRow[]): DetectedColumn[] {
+  const headers = Object.keys(rows[0]?.values ?? {});
+  const columnSamples = headers.reduce<Record<string, string[]>>((accumulator, header) => {
+    accumulator[header] = rows.map((row) => row.values[header] ?? "");
+    return accumulator;
+  }, {});
+  const emptyCellsByColumn = headers.reduce<Record<string, number>>((accumulator, header) => {
+    accumulator[header] = rows.filter((row) => !row.values[header]?.trim()).length;
+    return accumulator;
+  }, {});
+
+  return buildDetectedColumns(headers, columnSamples, emptyCellsByColumn, rows.length).columns;
+}
+
+function unsupportedResult(file: File, message: string, fileType: ParsedFileResult["fileType"]): ParsedFileResult {
+  return {
+    fileName: file.name,
+    fileType,
+    columns: [],
+    rows: [],
+    totalRows: 0,
+    errors: [message],
+    warnings: []
+  };
 }
 
 export async function parseCsvFile(file: File): Promise<ParsedFileResult> {
   const extension = file.name.split(".").pop()?.toLowerCase();
 
   if (extension === "xlsx") {
-    return {
-      fileName: file.name,
-      fileType: "xlsx",
-      columns: [],
-      rows: [],
-      totalRows: 0,
-      errors: ["Excel sera ajouté dans une prochaine étape. Utilisez CSV pour ce test."]
-    };
+    return unsupportedResult(
+      file,
+      "Excel sera ajouté dans une prochaine étape. Utilisez CSV pour ce test.",
+      "xlsx"
+    );
   }
 
   if (extension !== "csv") {
-    return {
-      fileName: file.name,
-      fileType: "unsupported",
-      columns: [],
-      rows: [],
-      totalRows: 0,
-      errors: ["Format non supporté pour cette phase. Utilisez un fichier CSV."]
-    };
+    return unsupportedResult(file, "Format non supporté pour cette phase. Utilisez un fichier CSV.", "unsupported");
   }
 
   const startedAt = performance.now();
   const text = await file.text();
-  const lines = text
-    .replace(/^\uFEFF/, "")
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+  const rawLines = text.replace(/^\uFEFF/, "").split(/\r?\n/);
+  const lines = rawLines.map((line) => line.trim()).filter(Boolean);
 
   if (lines.length < 2) {
-    return {
-      fileName: file.name,
-      fileType: "csv",
-      columns: [],
-      rows: [],
-      totalRows: 0,
-      errors: ["Le fichier CSV doit contenir une ligne d'en-têtes et au moins une ligne de données."]
-    };
+    return unsupportedResult(
+      file,
+      "Le fichier CSV doit contenir une ligne d'en-têtes et au moins une ligne de données.",
+      "csv"
+    );
   }
 
-  const delimiter = detectDelimiter(lines[0]);
+  const delimiter = detectDelimiter(lines.slice(0, Math.min(lines.length, 20)));
   const headers = splitCsvLine(lines[0], delimiter).map((header, index) => header || `Colonne ${index + 1}`);
   const errors: string[] = [];
-  const rows = lines.slice(1).map((line, rowIndex) => {
-    const values = splitCsvLine(line, delimiter);
+  const warnings: string[] = [
+    `Aperçu limité à ${MAX_PREVIEW_ROWS} lignes pour préserver les performances.`,
+    "Le fichier complet n'est pas stocké localement."
+  ];
+  const previewRows: FilePreviewRow[] = [];
+  const columnSamples = headers.reduce<Record<string, string[]>>((accumulator, header) => {
+    accumulator[header] = [];
+    return accumulator;
+  }, {});
+  const emptyCellsByColumn = headers.reduce<Record<string, number>>((accumulator, header) => {
+    accumulator[header] = 0;
+    return accumulator;
+  }, {});
+  let totalRows = 0;
+
+  for (let lineIndex = 1; lineIndex < lines.length; lineIndex += 1) {
+    const values = splitCsvLine(lines[lineIndex], delimiter);
+    totalRows += 1;
 
     if (values.length !== headers.length) {
-      errors.push(`Ligne ${rowIndex + 2} : nombre de colonnes incohérent.`);
+      errors.push(`Ligne ${lineIndex + 1} : nombre de colonnes incohérent.`);
     }
 
-    return {
-      id: `row-${rowIndex + 1}`,
-      values: headers.reduce<Record<string, string>>((accumulator, header, columnIndex) => {
-        accumulator[header] = values[columnIndex] ?? "";
-        return accumulator;
-      }, {})
-    };
+    const rowValues = headers.reduce<Record<string, string>>((accumulator, header, columnIndex) => {
+      const value = values[columnIndex]?.trim() ?? "";
+      accumulator[header] = value;
+
+      if (!value) emptyCellsByColumn[header] += 1;
+      if (columnSamples[header].length < MAX_PREVIEW_ROWS && value) {
+        columnSamples[header].push(value);
+      }
+
+      return accumulator;
+    }, {});
+
+    if (previewRows.length < MAX_PREVIEW_ROWS) {
+      previewRows.push({
+        id: `row-${totalRows}`,
+        values: rowValues
+      });
+    }
+  }
+
+  const parsingTimeMs = Math.round((performance.now() - startedAt) * 100) / 100;
+  const { columns, columnStatistics } = buildDetectedColumns(headers, columnSamples, emptyCellsByColumn, totalRows);
+  const statistics = buildImportStatistics({
+    rowsRead: totalRows,
+    fileSizeBytes: file.size,
+    parsingTimeMs,
+    columnStatistics
   });
 
-  const previewRows = rows.slice(0, maxPreviewRows);
-  const result = {
+  return {
     fileName: file.name,
-    fileType: "csv" as const,
+    fileType: "csv",
     delimiter,
-    columns: detectColumns(previewRows),
+    columns,
     rows: previewRows,
-    totalRows: rows.length,
-    errors
+    totalRows,
+    errors,
+    warnings,
+    statistics
   };
-
-  performance.measure?.("atlas-local-csv-import", { start: startedAt, end: performance.now() });
-
-  return result;
 }
