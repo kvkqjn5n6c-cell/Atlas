@@ -7,7 +7,7 @@ export const atlasFieldOptions: { value: AtlasField; label: string }[] = [
   { value: "Region", label: "Région" },
   { value: "ChiffreAffaires", label: "Chiffre d'affaires" },
   { value: "Marge", label: "Marge" },
-  { value: "StatutMission", label: "Statut" },
+  { value: "StatutMission", label: "Retard / statut" },
   { value: "Intervention", label: "Type intervention" },
   { value: "Qualite", label: "Satisfaction" },
   { value: "Tresorerie", label: "Montant" },
@@ -48,24 +48,47 @@ export function suggestAtlasField(columnName: string): AtlasField {
   return "NonMappe";
 }
 
+export function getMappingFieldType(mapping: LocalColumnMapping) {
+  if (mapping.fieldType) return mapping.fieldType;
+  return mapping.atlasField === "NonMappe" ? "unused" : "standard";
+}
+
+export function getEffectiveAtlasField(mapping: LocalColumnMapping) {
+  if (getMappingFieldType(mapping) !== "standard") return "NonMappe";
+  return mapping.mappedAtlasField ?? mapping.atlasField;
+}
+
+export function getMappingDisplayLabel(mapping: LocalColumnMapping) {
+  const fieldType = getMappingFieldType(mapping);
+  if (fieldType === "custom") return mapping.customFieldLabel?.trim() || mapping.sourceColumn;
+  if (fieldType === "unused") return "Non utilisé";
+
+  return atlasFieldOptions.find((option) => option.value === getEffectiveAtlasField(mapping))?.label ?? mapping.sourceColumn;
+}
+
 export function buildInitialMappings(columns: DetectedColumn[]): LocalColumnMapping[] {
   return columns.map((column) => ({
     sourceColumn: column.name,
-    atlasField: column.suggestedAtlasField
+    atlasField: column.suggestedAtlasField,
+    mappedAtlasField: column.suggestedAtlasField,
+    fieldType: column.suggestedAtlasField === "NonMappe" ? "unused" : "standard"
   }));
 }
 
 export function validateLocalMapping(mappings: LocalColumnMapping[]): LocalMappingValidation {
-  const usedMappings = mappings.filter((mapping) => mapping.atlasField !== "NonMappe");
-  const hasDate = mappings.some((mapping) => mapping.atlasField === "Date");
-  const hasMeasurableField = mappings.some((mapping) => measurableFields.has(mapping.atlasField));
+  const usedMappings = mappings.filter((mapping) => getMappingFieldType(mapping) !== "unused");
+  const standardFields = mappings.map(getEffectiveAtlasField);
+  const hasDate = standardFields.includes("Date");
+  const hasMeasurableField =
+    standardFields.some((field) => measurableFields.has(field)) ||
+    mappings.some((mapping) => getMappingFieldType(mapping) === "custom");
   const unmappedColumns = mappings
-    .filter((mapping) => mapping.atlasField === "NonMappe")
+    .filter((mapping) => getMappingFieldType(mapping) === "unused")
     .map((mapping) => mapping.sourceColumn);
   const warnings: string[] = [];
 
   if (usedMappings.length === 0) {
-    warnings.push("Aucune colonne n'est mappée vers un champ Atlas.");
+    warnings.push("Aucune colonne n'est mappée vers un champ Atlas ou personnalisé.");
   }
 
   if (!hasDate) {
@@ -76,6 +99,14 @@ export function validateLocalMapping(mappings: LocalColumnMapping[]): LocalMappi
     warnings.push("Aucun champ métier mesurable n'est mappé : les KPI seront peu exploitables.");
   }
 
+  const customWithoutLabel = mappings.filter(
+    (mapping) => getMappingFieldType(mapping) === "custom" && !mapping.customFieldLabel?.trim()
+  );
+
+  if (customWithoutLabel.length > 0) {
+    warnings.push(`${customWithoutLabel.length} champ(s) personnalisé(s) doivent recevoir un nom métier.`);
+  }
+
   if (unmappedColumns.length > 0) {
     warnings.push(`${unmappedColumns.length} colonne(s) resteront non utilisées pour ce test local.`);
   }
@@ -83,7 +114,7 @@ export function validateLocalMapping(mappings: LocalColumnMapping[]): LocalMappi
   const qualityScore = Math.max(0, Math.round((usedMappings.length / Math.max(1, mappings.length)) * 100));
 
   return {
-    isValid: usedMappings.length > 0,
+    isValid: usedMappings.length > 0 && customWithoutLabel.length === 0,
     warnings,
     unmappedColumns,
     mappedColumns: usedMappings.length,

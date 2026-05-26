@@ -1,3 +1,4 @@
+import { getEffectiveAtlasField } from "@/lib/data-pipeline/mapping-suggestions";
 import type { AtlasField } from "@/types/atlas";
 import type { LocalValidatedColumnMapping } from "@/types/data-import";
 
@@ -65,7 +66,7 @@ function confidenceFromCoverage(presentCount: number, requiredCount: number): Kp
 export function getPotentialKpiImpacts(mappings: LocalValidatedColumnMapping[]): KpiImpactCandidate[] {
   const mappedFields = new Set<AtlasField>(
     mappings
-      .map((mapping) => mapping.atlasField)
+      .map(getEffectiveAtlasField)
       .filter((field) => field !== "NonMappe")
   );
 

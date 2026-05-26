@@ -15,6 +15,13 @@ export type DetectedColumn = {
   suggestedAtlasField: AtlasField;
 };
 
+export type CustomAtlasField = {
+  sourceColumn: string;
+  label: string;
+};
+
+export type MappingFieldType = "standard" | "custom" | "unused";
+
 export type ParsedFileResult = {
   fileName: string;
   fileType: "csv" | "xlsx" | "unsupported";
@@ -30,6 +37,9 @@ export type ParsedFileResult = {
 export type LocalColumnMapping = {
   sourceColumn: string;
   atlasField: AtlasField;
+  fieldType?: MappingFieldType;
+  mappedAtlasField?: AtlasField;
+  customFieldLabel?: string;
 };
 
 export type LocalMappingValidation = {

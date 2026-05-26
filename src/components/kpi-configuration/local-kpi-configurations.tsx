@@ -33,6 +33,12 @@ const statusLabels: Record<LocalKpiTestStatus, string> = {
   "not-tested": "Non testé"
 };
 
+function displayPrimaryField(kpi: LocalKpiConfiguration) {
+  if (kpi.displayFieldLabel) return kpi.displayFieldLabel;
+  if (kpi.fieldType === "custom") return kpi.customFieldLabel ?? kpi.sourceColumn ?? "Champ personnalisé";
+  return formatAtlasField(kpi.primaryField);
+}
+
 export function LocalKpiConfigurations() {
   const [kpis, setKpis] = useState<LocalKpiConfiguration[]>([]);
 
@@ -69,7 +75,7 @@ export function LocalKpiConfigurations() {
           </p>
         ) : (
           <div className="overflow-x-auto rounded-lg border border-line">
-            <table className="min-w-[1050px] w-full border-collapse text-left text-sm">
+            <table className="min-w-[1100px] w-full border-collapse text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="px-4 py-3 font-medium">KPI</th>
@@ -92,7 +98,13 @@ export function LocalKpiConfigurations() {
                       <td className="px-4 py-3 font-semibold text-ink">{kpi.name}</td>
                       <td className="px-4 py-3 text-slate-600">{kpi.sourceFileName}</td>
                       <td className="px-4 py-3 text-slate-600">{calculationLabels[kpi.calculationType]}</td>
-                      <td className="px-4 py-3 text-slate-600">{formatAtlasField(kpi.primaryField)}</td>
+                      <td className="px-4 py-3 text-slate-600">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span>{displayPrimaryField(kpi)}</span>
+                          {kpi.fieldType === "custom" ? <Badge variant="brand">Champ personnalisé</Badge> : null}
+                        </div>
+                        {kpi.sourceColumn ? <p className="mt-1 text-xs text-slate-500">Colonne : {kpi.sourceColumn}</p> : null}
+                      </td>
                       <td className="px-4 py-3 text-slate-600">{kpi.targetValue}</td>
                       <td className="px-4 py-3 text-slate-600">
                         {kpi.testResult ? `${kpi.testResult.value} sur ${kpi.testResult.rowsUsed} lignes` : "Non testé"}

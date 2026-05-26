@@ -6,12 +6,13 @@ import { Save, TestTube2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getEffectiveAtlasField, getMappingDisplayLabel, getMappingFieldType } from "@/lib/data-pipeline/mapping-suggestions";
 import { calculateLocalKpiFromImport } from "@/lib/kpi-engine/local-kpi-calculator";
 import { saveLocalKpiConfiguration } from "@/lib/local/local-kpi-store";
 import { formatAtlasField } from "@/lib/formatters/status-labels";
-import type { AtlasField, KPIConfigurationDraft, PerformanceKPI } from "@/types/atlas";
-import type { LocalValidatedImport } from "@/types/data-import";
 import type { KpiImpactCandidate } from "@/lib/data-pipeline/kpi-impact";
+import type { AtlasField, KPIConfigurationDraft, PerformanceKPI } from "@/types/atlas";
+import type { DetectedColumnType, LocalValidatedColumnMapping, LocalValidatedImport, MappingFieldType } from "@/types/data-import";
 import type { LocalKpiConfiguration, LocalKpiDraft, LocalKpiTestResult } from "@/types/local-kpi";
 
 const calculationTypes: { value: KPIConfigurationDraft["calculationType"]; label: string }[] = [
@@ -58,55 +59,139 @@ function primaryFieldFromCandidate(candidate: KpiImpactCandidate): AtlasField {
   return candidate.requiredFieldsPresent[0] ?? "Date";
 }
 
-function validateDraft(draft: LocalKpiDraft) {
+function calculationFromColumnType(type: DetectedColumnType): KPIConfigurationDraft["calculationType"] {
+  if (type === "number") return "sum";
+  if (type === "boolean" || type === "status") return "rate";
+  if (type === "text") return "count";
+  return "count";
+}
+
+function categoryFromColumn(mapping: LocalValidatedColumnMapping): PerformanceKPI["category"] {
+  const label = `${mapping.sourceColumn} ${mapping.customFieldLabel ?? ""}`.toLowerCase();
+  if (label.includes("cout") || label.includes("coût") || label.includes("marge")) return "margin";
+  if (label.includes("montant") || label.includes("cash")) return "cash";
+  if (label.includes("satisfaction") || label.includes("qualite")) return "quality";
+  if (label.includes("intervention") || label.includes("dossier") || label.includes("heure")) return "operations";
+  return "activity";
+}
+
+function buildDraftFromColumn(importData: LocalValidatedImport, mapping: LocalValidatedColumnMapping): LocalKpiDraft {
+  const fieldType = getMappingFieldType(mapping);
+  const effectiveField = getEffectiveAtlasField(mapping);
+  const displayLabel = getMappingDisplayLabel(mapping);
+
+  return {
+    name: `${calculationFromColumnType(mapping.detectedType) === "sum" ? "Somme" : "KPI"} ${displayLabel}`,
+    organizationId: "org-atlas-demo",
+    sourceFileName: importData.fileName,
+    category: categoryFromColumn(mapping),
+    calculationType: calculationFromColumnType(mapping.detectedType),
+    primaryField: fieldType === "standard" ? effectiveField : "NonMappe",
+    sourceColumn: mapping.sourceColumn,
+    fieldType,
+    customFieldLabel: fieldType === "custom" ? mapping.customFieldLabel : undefined,
+    displayFieldLabel: displayLabel,
+    targetValue: 0,
+    warningThreshold: 0,
+    criticalThreshold: 0,
+    frequency: "monthly",
+    owner: "Direction",
+    expectedImpact: `Suivre ${displayLabel} à partir du fichier importé.`
+  };
+}
+
+function buildDraftFromCandidate(importData: LocalValidatedImport, candidate: KpiImpactCandidate): LocalKpiDraft {
+  const primaryField = primaryFieldFromCandidate(candidate);
+  const sourceColumn = importData.mappings.find((mapping) => getEffectiveAtlasField(mapping) === primaryField)?.sourceColumn;
+
+  return {
+    name: candidate.name,
+    organizationId: "org-atlas-demo",
+    sourceFileName: importData.fileName,
+    category: categoryFromCandidate(candidate),
+    calculationType: calculationFromCandidate(candidate),
+    primaryField,
+    secondaryField: candidate.requiredFieldsPresent.find((field) => field !== primaryField),
+    sourceColumn,
+    fieldType: "standard",
+    displayFieldLabel: formatAtlasField(primaryField),
+    targetValue: 0,
+    warningThreshold: 0,
+    criticalThreshold: 0,
+    frequency: "monthly",
+    owner: "Direction",
+    expectedImpact: candidate.businessNote
+  };
+}
+
+function validateDraft(draft: LocalKpiDraft, detectedType?: DetectedColumnType) {
   const errors: string[] = [];
+  const warnings: string[] = [];
+
   if (!draft.name.trim()) errors.push("Le nom du KPI est obligatoire.");
   if (!draft.calculationType) errors.push("Le type de calcul est obligatoire.");
-  if (draft.calculationType !== "count" && !draft.primaryField) {
+  if (draft.fieldType === "custom" && !draft.customFieldLabel?.trim()) {
+    errors.push("Le nom métier du champ personnalisé est obligatoire.");
+  }
+  if (draft.calculationType !== "count" && !draft.primaryField && !draft.sourceColumn) {
     errors.push("Le champ principal est obligatoire hors comptage simple.");
   }
   if (Number.isNaN(draft.targetValue)) errors.push("L'objectif doit être numérique.");
   if (draft.criticalThreshold > draft.warningThreshold) {
     errors.push("Le seuil critique doit rester inférieur ou égal au seuil de surveillance.");
   }
-  return errors;
+  if (detectedType === "text" && !["count", "distinct-count"].includes(draft.calculationType)) {
+    warnings.push("Cette colonne texte est généralement plus fiable en comptage ou comptage unique.");
+  }
+  if (detectedType === "date") {
+    warnings.push("Une date seule sert surtout à périodiser un KPI, pas à le mesurer.");
+  }
+
+  return { errors, warnings };
 }
 
 export function CreateKpiFromImportPanel({
   importData,
   candidate,
+  mapping,
   onSaved
 }: {
   importData: LocalValidatedImport;
-  candidate: KpiImpactCandidate;
+  candidate?: KpiImpactCandidate;
+  mapping?: LocalValidatedColumnMapping;
   onSaved: () => void;
 }) {
-  const availableFields = useMemo(
-    () => Array.from(new Set(importData.mappings.map((mapping) => mapping.atlasField).filter((field) => field !== "NonMappe"))),
+  const availableMappings = useMemo(
+    () => importData.mappings.filter((item) => getMappingFieldType(item) !== "unused"),
     [importData.mappings]
   );
-  const [draft, setDraft] = useState<LocalKpiDraft>({
-    name: candidate.name,
-    organizationId: "org-atlas-demo",
-    sourceFileName: importData.fileName,
-    category: categoryFromCandidate(candidate),
-    calculationType: calculationFromCandidate(candidate),
-    primaryField: primaryFieldFromCandidate(candidate),
-    secondaryField: candidate.requiredFieldsPresent.find((field) => field !== primaryFieldFromCandidate(candidate)),
-    targetValue: 100,
-    warningThreshold: 80,
-    criticalThreshold: 60,
-    frequency: "monthly",
-    owner: "Direction",
-    expectedImpact: candidate.businessNote
-  });
+  const [draft, setDraft] = useState<LocalKpiDraft>(() =>
+    mapping ? buildDraftFromColumn(importData, mapping) : buildDraftFromCandidate(importData, candidate as KpiImpactCandidate)
+  );
   const [testResult, setTestResult] = useState<LocalKpiTestResult | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const validationErrors = validateDraft(draft);
+  const validation = validateDraft(draft, mapping?.detectedType);
 
   function update<K extends keyof LocalKpiDraft>(key: K, value: LocalKpiDraft[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
     setSaveMessage(null);
+  }
+
+  function selectPrimaryMapping(sourceColumn: string) {
+    const selected = availableMappings.find((item) => item.sourceColumn === sourceColumn);
+    if (!selected) return;
+    const fieldType = getMappingFieldType(selected);
+    const effectiveField = getEffectiveAtlasField(selected);
+    const displayLabel = getMappingDisplayLabel(selected);
+
+    setDraft((current) => ({
+      ...current,
+      sourceColumn: selected.sourceColumn,
+      fieldType,
+      primaryField: fieldType === "standard" ? effectiveField : "NonMappe",
+      customFieldLabel: fieldType === "custom" ? selected.customFieldLabel : undefined,
+      displayFieldLabel: displayLabel
+    }));
   }
 
   function testCalculation() {
@@ -114,7 +199,7 @@ export function CreateKpiFromImportPanel({
   }
 
   function saveKpi() {
-    if (validationErrors.length > 0) return;
+    if (validation.errors.length > 0) return;
     const nextTestResult = testResult ?? calculateLocalKpiFromImport(importData, draft);
     const kpi: LocalKpiConfiguration = {
       ...draft,
@@ -137,7 +222,7 @@ export function CreateKpiFromImportPanel({
           <div>
             <CardTitle>Créer un KPI à partir de cet import</CardTitle>
             <p className="mt-1 text-sm text-slate-500">
-              Préremplissage local depuis le fichier {importData.fileName}. Aucune donnée n&apos;est persistée.
+              Préremplissage local depuis le fichier {importData.fileName}. Atlas accepte les champs standards et personnalisés.
             </p>
           </div>
           <Badge variant="brand">KPI local</Badge>
@@ -180,36 +265,17 @@ export function CreateKpiFromImportPanel({
           <label className="rounded-md border border-line bg-slate-50 p-3">
             <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Champ principal</span>
             <select
-              value={draft.primaryField}
-              onChange={(event) => update("primaryField", event.target.value as AtlasField)}
+              value={draft.sourceColumn ?? ""}
+              onChange={(event) => selectPrimaryMapping(event.target.value)}
               className="mt-2 h-9 w-full rounded-md border border-line bg-white px-3 text-sm font-medium text-ink"
             >
-              {availableFields.map((field) => (
-                <option key={field} value={field}>{formatAtlasField(field)}</option>
+              {availableMappings.map((item) => (
+                <option key={item.sourceColumn} value={item.sourceColumn}>
+                  {getMappingDisplayLabel(item)} ({item.sourceColumn})
+                </option>
               ))}
             </select>
-          </label>
-          <label className="rounded-md border border-line bg-slate-50 p-3">
-            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Champ secondaire</span>
-            <select
-              value={draft.secondaryField ?? ""}
-              onChange={(event) => update("secondaryField", (event.target.value || undefined) as AtlasField | undefined)}
-              className="mt-2 h-9 w-full rounded-md border border-line bg-white px-3 text-sm font-medium text-ink"
-            >
-              <option value="">Aucun</option>
-              {availableFields.map((field) => (
-                <option key={field} value={field}>{formatAtlasField(field)}</option>
-              ))}
-            </select>
-          </label>
-          <label className="rounded-md border border-line bg-slate-50 p-3">
-            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Filtre optionnel</span>
-            <input
-              value={draft.filterValue ?? ""}
-              onChange={(event) => update("filterValue", event.target.value)}
-              placeholder="Ex : Est, payé, maintenance"
-              className="mt-2 h-9 w-full rounded-md border border-line bg-white px-3 text-sm font-medium text-ink"
-            />
+            {draft.fieldType === "custom" ? <Badge className="mt-2">Champ personnalisé</Badge> : null}
           </label>
           {[
             ["Objectif", "targetValue", draft.targetValue],
@@ -257,11 +323,11 @@ export function CreateKpiFromImportPanel({
           />
         </label>
 
-        {validationErrors.length > 0 ? (
+        {validation.errors.length > 0 || validation.warnings.length > 0 ? (
           <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
             <p className="font-semibold">Validation</p>
             <ul className="mt-2 list-disc pl-5">
-              {validationErrors.map((error) => <li key={error}>{error}</li>)}
+              {[...validation.errors, ...validation.warnings].map((message) => <li key={message}>{message}</li>)}
             </ul>
           </div>
         ) : null}
@@ -271,7 +337,7 @@ export function CreateKpiFromImportPanel({
             <TestTube2 className="h-4 w-4" aria-hidden="true" />
             Tester le calcul
           </Button>
-          <Button variant="primary" onClick={saveKpi} disabled={validationErrors.length > 0}>
+          <Button variant="primary" onClick={saveKpi} disabled={validation.errors.length > 0}>
             <Save className="h-4 w-4" aria-hidden="true" />
             Enregistrer localement le KPI
           </Button>

@@ -1,4 +1,5 @@
 import type { AtlasField, KPIConfigurationDraft, PerformanceKPI } from "@/types/atlas";
+import type { MappingFieldType } from "@/types/data-import";
 
 export type LocalKpiTestStatus = "healthy" | "watch" | "critical" | "not-tested";
 
@@ -23,6 +24,11 @@ export type LocalKpiConfiguration = {
   secondaryField?: AtlasField;
   filterField?: AtlasField;
   filterValue?: string;
+  sourceColumn?: string;
+  secondarySourceColumn?: string;
+  fieldType?: MappingFieldType;
+  customFieldLabel?: string;
+  displayFieldLabel?: string;
   targetValue: number;
   warningThreshold: number;
   criticalThreshold: number;

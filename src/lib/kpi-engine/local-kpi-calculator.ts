@@ -1,6 +1,7 @@
 import type { AtlasField } from "@/types/atlas";
 import type { LocalValidatedImport } from "@/types/data-import";
 import type { LocalKpiDraft, LocalKpiTestResult } from "@/types/local-kpi";
+import { getEffectiveAtlasField, getMappingFieldType } from "@/lib/data-pipeline/mapping-suggestions";
 
 function parseNumericValue(value: string | undefined) {
   if (!value) return null;
@@ -9,9 +10,16 @@ function parseNumericValue(value: string | undefined) {
   return Number.isFinite(parsedValue) ? parsedValue : null;
 }
 
-function sourceColumnForField(importData: LocalValidatedImport, field?: AtlasField) {
+function sourceColumnForField(importData: LocalValidatedImport, field?: AtlasField, explicitSourceColumn?: string) {
+  if (explicitSourceColumn) return explicitSourceColumn;
   if (!field) return undefined;
-  return importData.mappings.find((mapping) => mapping.atlasField === field)?.sourceColumn;
+  return importData.mappings.find((mapping) => getEffectiveAtlasField(mapping) === field)?.sourceColumn;
+}
+
+function sourceColumnForFilter(importData: LocalValidatedImport, draft: LocalKpiDraft) {
+  if (draft.filterField) return sourceColumnForField(importData, draft.filterField);
+  if (draft.fieldType === "custom" && draft.sourceColumn) return draft.sourceColumn;
+  return undefined;
 }
 
 function getStatus(value: number, draft: LocalKpiDraft): LocalKpiTestResult["status"] {
@@ -30,7 +38,7 @@ function getPeriod(importData: LocalValidatedImport) {
 
 function filterRows(importData: LocalValidatedImport, draft: LocalKpiDraft) {
   if (!draft.filterField || !draft.filterValue) return importData.previewRows;
-  const filterColumn = sourceColumnForField(importData, draft.filterField);
+  const filterColumn = sourceColumnForFilter(importData, draft);
   if (!filterColumn) return importData.previewRows;
 
   return importData.previewRows.filter((row) =>
@@ -43,8 +51,8 @@ export function calculateLocalKpiFromImport(
   draft: LocalKpiDraft
 ): LocalKpiTestResult {
   const rows = filterRows(importData, draft);
-  const primaryColumn = sourceColumnForField(importData, draft.primaryField);
-  const secondaryColumn = sourceColumnForField(importData, draft.secondaryField);
+  const primaryColumn = sourceColumnForField(importData, draft.primaryField, draft.sourceColumn);
+  const secondaryColumn = sourceColumnForField(importData, draft.secondaryField, draft.secondarySourceColumn);
 
   if (draft.calculationType !== "count" && !primaryColumn) {
     return {
@@ -56,6 +64,11 @@ export function calculateLocalKpiFromImport(
       period: getPeriod(importData)
     };
   }
+
+  const mapping = draft.sourceColumn
+    ? importData.mappings.find((item) => item.sourceColumn === draft.sourceColumn)
+    : undefined;
+  const isCustomField = mapping ? getMappingFieldType(mapping) === "custom" : draft.fieldType === "custom";
 
   const primaryValues = primaryColumn
     ? rows.map((row) => row.values[primaryColumn]).filter((value): value is string => Boolean(value))
@@ -104,6 +117,9 @@ export function calculateLocalKpiFromImport(
     status: getStatus(value, draft),
     warning:
       warning ??
+      (isCustomField
+        ? "Calcul de test basé sur un champ personnalisé et sur l'aperçu local stocké."
+        : undefined) ??
       "Calcul de test basé sur l'aperçu local stocké, pas sur l'intégralité du fichier importé.",
     period: getPeriod(importData)
   };
