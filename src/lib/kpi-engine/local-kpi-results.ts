@@ -1,17 +1,14 @@
 import type { LocalKpiConfiguration, LocalKpiTestResult } from "@/types/local-kpi";
+import type { LocalKpiHistoryPoint } from "@/types/local-kpi-history";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
+import { calculateLocalKpiTrend } from "@/lib/kpi-engine/local-kpi-trends";
 
 export function buildLocalKpiResult(
   kpi: LocalKpiConfiguration,
   testResult: LocalKpiTestResult,
   previousResult?: LocalKpiResult
 ): LocalKpiResult {
-  const trend =
-    previousResult && testResult.value > previousResult.value
-      ? "up"
-      : previousResult && testResult.value < previousResult.value
-        ? "down"
-        : "stable";
+  const trend = calculateLocalKpiTrend(testResult.value, previousResult?.value);
 
   return {
     id: `local-kpi-result-${kpi.id}`,
@@ -25,9 +22,28 @@ export function buildLocalKpiResult(
     warningThreshold: kpi.warningThreshold,
     criticalThreshold: kpi.criticalThreshold,
     status: testResult.status,
-    trend,
+    trend: trend.trend,
+    variation: trend.variation,
     calculatedAt: new Date().toISOString(),
     sourceFileName: kpi.sourceFileName,
+    persisted: false
+  };
+}
+
+export function buildLocalKpiHistoryPoint(result: LocalKpiResult): LocalKpiHistoryPoint {
+  return {
+    id: `local-kpi-history-${result.kpiId}-${Date.now()}`,
+    kpiId: result.kpiId,
+    importId: result.importId,
+    calculatedAt: result.calculatedAt,
+    value: result.value,
+    status: result.status,
+    targetValue: result.targetValue,
+    warningThreshold: result.warningThreshold,
+    criticalThreshold: result.criticalThreshold,
+    sourceFileName: result.sourceFileName,
+    trend: result.trend,
+    variation: result.variation,
     persisted: false
   };
 }

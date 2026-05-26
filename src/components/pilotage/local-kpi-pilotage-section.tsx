@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { calculateScoreWithLocalKpis } from "@/lib/kpi-engine/local-kpi-results";
+import { formatVariation } from "@/lib/kpi-engine/local-kpi-trends";
+import { getLocalKpiHistoryByKpiId } from "@/lib/local/local-kpi-history-store";
 import { getLocalKpiResults } from "@/lib/local/local-kpi-results-store";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
 
@@ -103,30 +105,48 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 lg:grid-cols-2">
-            {results.map((result) => (
-              <article key={result.id} className="rounded-md border border-line bg-slate-50 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="font-semibold text-ink">{result.name}</h3>
-                    <p className="mt-1 text-xs text-slate-500">{calculationLabels[result.calculationType]} - {result.sourceFileName}</p>
+            {results.map((result) => {
+              const history = getLocalKpiHistoryByKpiId(result.kpiId);
+
+              return (
+                <article key={result.id} className="rounded-md border border-line bg-slate-50 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-semibold text-ink">{result.name}</h3>
+                      <p className="mt-1 text-xs text-slate-500">{calculationLabels[result.calculationType]} - {result.sourceFileName}</p>
+                    </div>
+                    <Badge variant={statusVariant[result.status]}>{statusLabels[result.status]}</Badge>
                   </div>
-                  <Badge variant={statusVariant[result.status]}>{statusLabels[result.status]}</Badge>
-                </div>
-                <div className="mt-4 flex items-end justify-between gap-3">
-                  <p className="text-2xl font-semibold text-ink">{result.value}</p>
-                  <div className="flex items-center gap-2 text-sm text-slate-500">
-                    <TrendIcon trend={result.trend} />
-                    {result.trend === "up" ? "hausse" : result.trend === "down" ? "baisse" : "stable"}
+                  <div className="mt-4 flex items-end justify-between gap-3">
+                    <p className="text-2xl font-semibold text-ink">{result.value}</p>
+                    <div className="flex items-center gap-2 text-sm text-slate-500">
+                      <TrendIcon trend={result.trend} />
+                      {formatVariation(result.variation)}
+                    </div>
                   </div>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {result.displayFieldLabel ? <Badge>Champ personnalisé</Badge> : null}
-                  <Badge>Local</Badge>
-                  <Badge>Non persisté</Badge>
-                </div>
-                <p className="mt-3 text-xs text-slate-500">Calculé le {formatDate(result.calculatedAt)}</p>
-              </article>
-            ))}
+                  {history.length > 1 ? (
+                    <div className="mt-3 flex h-8 items-end gap-1">
+                      {history.slice(0, 8).reverse().map((point) => {
+                        const maxValue = Math.max(...history.slice(0, 8).map((item) => Math.abs(item.value)), 1);
+                        return (
+                          <span
+                            key={point.id}
+                            className="flex-1 rounded-t bg-brand-200"
+                            style={{ height: `${Math.max(20, (Math.abs(point.value) / maxValue) * 100)}%` }}
+                          />
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {result.displayFieldLabel ? <Badge>Champ personnalisé</Badge> : null}
+                    <Badge>Local</Badge>
+                    <Badge>Non persisté</Badge>
+                  </div>
+                  <p className="mt-3 text-xs text-slate-500">Calculé le {formatDate(result.calculatedAt)}</p>
+                </article>
+              );
+            })}
           </div>
         </CardContent>
       </Card>

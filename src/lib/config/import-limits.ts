@@ -3,3 +3,4 @@ export const MAX_LOCAL_STORAGE_ROWS = 50;
 export const MAX_DISPLAY_ROWS = 10;
 export const LARGE_FILE_ROW_THRESHOLD = 10000;
 export const MAX_LOCAL_IMPORT_STORAGE_BYTES = 450000;
+export const MAX_KPI_HISTORY_POINTS = 100;

@@ -1,15 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Trash2 } from "lucide-react";
+import { RefreshCw, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatAtlasField } from "@/lib/formatters/status-labels";
+import { calculateLocalKpiFromImport } from "@/lib/kpi-engine/local-kpi-calculator";
+import { buildLocalKpiHistoryPoint, buildLocalKpiResult } from "@/lib/kpi-engine/local-kpi-results";
+import { formatVariation } from "@/lib/kpi-engine/local-kpi-trends";
 import { getLocalImportById, updateLocalImport } from "@/lib/local/local-import-store";
-import { deleteLocalKpiResult } from "@/lib/local/local-kpi-results-store";
-import { deleteLocalKpiConfiguration, getLocalKpiConfigurations } from "@/lib/local/local-kpi-store";
+import {
+  deleteLocalKpiHistoryByKpiId,
+  getLocalKpiHistoryByKpiId,
+  saveLocalKpiHistoryPoint
+} from "@/lib/local/local-kpi-history-store";
+import { deleteLocalKpiResult, getLocalKpiResults, saveLocalKpiResult } from "@/lib/local/local-kpi-results-store";
+import { deleteLocalKpiConfiguration, getLocalKpiConfigurations, saveLocalKpiConfiguration } from "@/lib/local/local-kpi-store";
 import type { LocalKpiConfiguration, LocalKpiTestStatus } from "@/types/local-kpi";
+import { EditLocalKpiThresholds } from "./edit-local-kpi-thresholds";
 
 const calculationLabels: Record<LocalKpiConfiguration["calculationType"], string> = {
   sum: "Somme",
@@ -49,16 +58,38 @@ function formatDate(value?: string) {
   }).format(new Date(value));
 }
 
+function trendLabel(trend?: "up" | "down" | "stable") {
+  if (trend === "up") return "▲ hausse";
+  if (trend === "down") return "▼ baisse";
+  return "→ stable";
+}
+
 export function LocalKpiConfigurations() {
   const [kpis, setKpis] = useState<LocalKpiConfiguration[]>([]);
 
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      setKpis(getLocalKpiConfigurations());
-    }, 0);
+  function reloadKpis() {
+    setKpis(getLocalKpiConfigurations());
+  }
 
+  useEffect(() => {
+    const timeoutId = window.setTimeout(reloadKpis, 0);
     return () => window.clearTimeout(timeoutId);
   }, []);
+
+  function recalculateKpi(kpi: LocalKpiConfiguration) {
+    const sourceImport = kpi.importId ? getLocalImportById(kpi.importId) : null;
+    if (!sourceImport) return;
+
+    const nextTestResult = calculateLocalKpiFromImport(sourceImport, kpi);
+    const nextKpi = { ...kpi, testResult: nextTestResult };
+    const previousResult = getLocalKpiResults().find((result) => result.kpiId === kpi.id);
+    const nextResult = buildLocalKpiResult(nextKpi, nextTestResult, previousResult);
+
+    saveLocalKpiConfiguration(nextKpi);
+    saveLocalKpiResult(nextResult);
+    saveLocalKpiHistoryPoint(buildLocalKpiHistoryPoint(nextResult));
+    reloadKpis();
+  }
 
   function deleteKpi(id: string) {
     const kpi = kpis.find((item) => item.id === id);
@@ -72,7 +103,8 @@ export function LocalKpiConfigurations() {
     }
     deleteLocalKpiConfiguration(id);
     deleteLocalKpiResult(id);
-    setKpis(getLocalKpiConfigurations());
+    deleteLocalKpiHistoryByKpiId(id);
+    reloadKpis();
   }
 
   return (
@@ -94,67 +126,82 @@ export function LocalKpiConfigurations() {
             Aucun KPI local pour l&apos;instant. Créez-en un depuis Imports & mappings après validation d&apos;un import CSV.
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-line">
-            <table className="min-w-[1100px] w-full border-collapse text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-4 py-3 font-medium">KPI</th>
-                  <th className="px-4 py-3 font-medium">Source fichier</th>
-                  <th className="px-4 py-3 font-medium">Type calcul</th>
-                  <th className="px-4 py-3 font-medium">Champ principal</th>
-                  <th className="px-4 py-3 font-medium">Objectif</th>
-                  <th className="px-4 py-3 font-medium">Dernier test</th>
-                  <th className="px-4 py-3 font-medium">Statut</th>
-                  <th className="px-4 py-3 font-medium">Persistance</th>
-                  <th className="px-4 py-3 font-medium">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line bg-white">
-                {kpis.map((kpi) => {
-                  const status = kpi.testResult?.status ?? "not-tested";
-                  const sourceImport = kpi.importId ? getLocalImportById(kpi.importId) : null;
-                  const sourceDeleted = Boolean(kpi.importId && !sourceImport);
+          <div className="space-y-4">
+            {kpis.map((kpi) => {
+              const status = kpi.testResult?.status ?? "not-tested";
+              const sourceImport = kpi.importId ? getLocalImportById(kpi.importId) : null;
+              const sourceDeleted = Boolean(kpi.importId && !sourceImport);
+              const history = getLocalKpiHistoryByKpiId(kpi.id);
+              const latestHistory = history[0];
 
-                  return (
-                    <tr key={kpi.id} className="transition hover:bg-slate-50">
-                      <td className="px-4 py-3 font-semibold text-ink">{kpi.name}</td>
-                      <td className="px-4 py-3 text-slate-600">
-                        <div className="space-y-1">
-                          <p>{kpi.sourceFileName}</p>
-                          {kpi.importId ? <p className="text-xs text-slate-500">Import : {kpi.importId}</p> : null}
-                          <p className="text-xs text-slate-500">
-                            Date import : {formatDate(sourceImport?.createdAt ?? kpi.importCreatedAt)}
-                          </p>
-                          {sourceDeleted ? <Badge variant="warning">Import source supprimé</Badge> : null}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">{calculationLabels[kpi.calculationType]}</td>
-                      <td className="px-4 py-3 text-slate-600">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span>{displayPrimaryField(kpi)}</span>
-                          {kpi.fieldType === "custom" ? <Badge variant="brand">Champ personnalisé</Badge> : null}
-                        </div>
-                        {kpi.sourceColumn ? <p className="mt-1 text-xs text-slate-500">Colonne : {kpi.sourceColumn}</p> : null}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">{kpi.targetValue}</td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {kpi.testResult ? `${kpi.testResult.value} sur ${kpi.testResult.rowsUsed} lignes` : "Non testé"}
-                      </td>
-                      <td className="px-4 py-3">
+              return (
+                <article key={kpi.id} className="rounded-lg border border-line bg-white p-4">
+                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-semibold text-ink">{kpi.name}</h3>
                         <Badge variant={statusVariant[status]}>{statusLabels[status]}</Badge>
-                      </td>
-                      <td className="px-4 py-3"><Badge>persisted: false</Badge></td>
-                      <td className="px-4 py-3">
-                        <Button className="h-8" onClick={() => deleteKpi(kpi.id)}>
-                          <Trash2 className="h-4 w-4" aria-hidden="true" />
-                          Supprimer
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        {kpi.fieldType === "custom" ? <Badge variant="brand">Champ personnalisé</Badge> : null}
+                        {sourceDeleted ? <Badge variant="warning">Import source supprimé</Badge> : null}
+                      </div>
+                      <div className="mt-3 grid gap-3 md:grid-cols-4">
+                        <div className="rounded-md border border-line bg-slate-50 p-3">
+                          <p className="text-xs text-slate-500">Source</p>
+                          <p className="mt-1 text-sm font-semibold text-ink">{kpi.sourceFileName}</p>
+                          <p className="mt-1 text-xs text-slate-500">Import : {kpi.importId ?? "non lié"}</p>
+                        </div>
+                        <div className="rounded-md border border-line bg-slate-50 p-3">
+                          <p className="text-xs text-slate-500">Calcul</p>
+                          <p className="mt-1 text-sm font-semibold text-ink">{calculationLabels[kpi.calculationType]}</p>
+                          <p className="mt-1 text-xs text-slate-500">{displayPrimaryField(kpi)}</p>
+                        </div>
+                        <div className="rounded-md border border-line bg-slate-50 p-3">
+                          <p className="text-xs text-slate-500">Dernier test</p>
+                          <p className="mt-1 text-sm font-semibold text-ink">
+                            {kpi.testResult ? `${kpi.testResult.value} sur ${kpi.testResult.rowsUsed} lignes` : "Non testé"}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">Objectif : {kpi.targetValue}</p>
+                        </div>
+                        <div className="rounded-md border border-line bg-slate-50 p-3">
+                          <p className="text-xs text-slate-500">Tendance</p>
+                          <p className="mt-1 text-sm font-semibold text-ink">{trendLabel(latestHistory?.trend)}</p>
+                          <p className="mt-1 text-xs text-slate-500">{formatVariation(latestHistory?.variation)}</p>
+                        </div>
+                      </div>
+
+                      {history.length > 0 ? (
+                        <div className="mt-4">
+                          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Historique récent</p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {history.slice(0, 6).map((point) => (
+                              <div key={point.id} className="rounded-md border border-line bg-slate-50 px-3 py-2 text-xs">
+                                <p className="font-semibold text-ink">{point.value}</p>
+                                <p className="text-slate-500">{formatDate(point.calculatedAt)}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <Button className="h-9 justify-center" onClick={() => recalculateKpi(kpi)} disabled={!sourceImport}>
+                        <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                        Recalculer
+                      </Button>
+                      <Button className="h-9 justify-center" onClick={() => deleteKpi(kpi.id)}>
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        Supprimer
+                      </Button>
+                      <Badge>persisted: false</Badge>
+                      <p className="text-xs text-slate-500">Date import : {formatDate(sourceImport?.createdAt ?? kpi.importCreatedAt)}</p>
+                    </div>
+                  </div>
+
+                  <EditLocalKpiThresholds kpi={kpi} onUpdated={reloadKpis} />
+                </article>
+              );
+            })}
           </div>
         )}
       </CardContent>

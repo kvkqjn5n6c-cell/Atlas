@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getEffectiveAtlasField, getMappingDisplayLabel, getMappingFieldType } from "@/lib/data-pipeline/mapping-suggestions";
 import { calculateLocalKpiFromImport } from "@/lib/kpi-engine/local-kpi-calculator";
-import { buildLocalKpiResult } from "@/lib/kpi-engine/local-kpi-results";
+import { buildLocalKpiHistoryPoint, buildLocalKpiResult } from "@/lib/kpi-engine/local-kpi-results";
 import { saveLocalKpiConfiguration } from "@/lib/local/local-kpi-store";
+import { saveLocalKpiHistoryPoint } from "@/lib/local/local-kpi-history-store";
 import { getLocalKpiResults, saveLocalKpiResult } from "@/lib/local/local-kpi-results-store";
 import { updateLocalImport } from "@/lib/local/local-import-store";
 import { registerBusinessFieldUsage } from "@/lib/local/business-dictionary-store";
@@ -218,12 +219,15 @@ export function CreateKpiFromImportPanel({
       persisted: false
     };
 
-    saveLocalKpiConfiguration(kpi);
-    saveLocalKpiResult(buildLocalKpiResult(
+    const localKpiResult = buildLocalKpiResult(
       kpi,
       nextTestResult,
       getLocalKpiResults().find((result) => result.kpiId === kpi.id)
-    ));
+    );
+
+    saveLocalKpiConfiguration(kpi);
+    saveLocalKpiResult(localKpiResult);
+    saveLocalKpiHistoryPoint(buildLocalKpiHistoryPoint(localKpiResult));
     updateLocalImport({
       ...importData,
       updatedAt: new Date().toISOString(),

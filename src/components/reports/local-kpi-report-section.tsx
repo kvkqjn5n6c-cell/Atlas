@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatVariation } from "@/lib/kpi-engine/local-kpi-trends";
 import { getLocalKpiResults } from "@/lib/local/local-kpi-results-store";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
 
@@ -64,6 +65,7 @@ export function LocalKpiReportSection() {
               <tr>
                 <th className="px-4 py-3 font-medium">KPI</th>
                 <th className="px-4 py-3 font-medium">Résultat</th>
+                <th className="px-4 py-3 font-medium">Tendance</th>
                 <th className="px-4 py-3 font-medium">Statut</th>
                 <th className="px-4 py-3 font-medium">Source</th>
                 <th className="px-4 py-3 font-medium">Impact potentiel</th>
@@ -74,6 +76,9 @@ export function LocalKpiReportSection() {
                 <tr key={result.id} className="transition hover:bg-slate-50">
                   <td className="px-4 py-3 font-semibold text-ink">{result.name}</td>
                   <td className="px-4 py-3 text-slate-600">{result.value}</td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {result.trend === "up" ? "▲" : result.trend === "down" ? "▼" : "→"} {formatVariation(result.variation)}
+                  </td>
                   <td className="px-4 py-3">
                     <Badge variant={statusVariant[result.status]}>{statusLabels[result.status]}</Badge>
                   </td>

@@ -1,5 +1,6 @@
 import type { AtlasField, KPIConfigurationDraft, PerformanceKPI } from "@/types/atlas";
 import type { MappingFieldType } from "@/types/data-import";
+import type { LocalKpiThresholdChange } from "@/types/local-kpi-history";
 
 export type LocalKpiTestStatus = "healthy" | "watch" | "critical" | "not-tested";
 
@@ -38,6 +39,7 @@ export type LocalKpiConfiguration = {
   owner: string;
   expectedImpact: string;
   testResult?: LocalKpiTestResult;
+  thresholdChanges?: LocalKpiThresholdChange[];
   persisted: false;
 };
 

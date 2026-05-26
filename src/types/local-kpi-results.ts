@@ -14,6 +14,7 @@ export type LocalKpiResult = {
   criticalThreshold?: number;
   status: LocalKpiTestStatus;
   trend?: "up" | "down" | "stable";
+  variation?: number;
   calculatedAt: string;
   sourceFileName: string;
   persisted: false;
