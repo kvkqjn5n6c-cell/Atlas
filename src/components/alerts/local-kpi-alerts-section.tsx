@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
 import { generateLocalKpiAlerts, type LocalKpiAlert } from "@/lib/kpi-engine/local-kpi-alerts";
 import { getLocalKpiResults } from "@/lib/local/local-kpi-results-store";
 
@@ -53,8 +54,13 @@ export function LocalKpiAlertsSection() {
                   {alert.severity === "critical" ? "Critique" : "À surveiller"}
                 </Badge>
                 <Badge>Local</Badge>
+                <Badge>KPI personnalisé</Badge>
+                <Badge>{formatKpiDirection(alert.direction)}</Badge>
               </div>
               <p className="mt-3 text-sm text-slate-600">Cause probable : {alert.cause}</p>
+              <p className="mt-2 text-sm text-slate-600">
+                Valeur : {alert.value} - Objectif : {alert.targetValue ?? "non défini"} - Surveillance : {alert.warningThreshold ?? "non définie"} - Critique : {alert.criticalThreshold ?? "non défini"}
+              </p>
               <p className="mt-2 text-sm font-medium text-slate-700">Impact : {alert.businessImpact}</p>
               <p className="mt-3 text-sm font-semibold text-ink">{alert.recommendedAction}</p>
               <p className="mt-3 text-xs text-slate-500">

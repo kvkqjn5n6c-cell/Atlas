@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getEffectiveAtlasField, getMappingDisplayLabel, getMappingFieldType } from "@/lib/data-pipeline/mapping-suggestions";
 import { calculateLocalKpiFromImport } from "@/lib/kpi-engine/local-kpi-calculator";
+import { formatKpiDirection, inferKpiDirection, validateThresholdOrder } from "@/lib/kpi-engine/local-kpi-direction";
 import { buildLocalKpiHistoryPoint, buildLocalKpiResult } from "@/lib/kpi-engine/local-kpi-results";
 import { saveLocalKpiConfiguration } from "@/lib/local/local-kpi-store";
 import { saveLocalKpiHistoryPoint } from "@/lib/local/local-kpi-history-store";
@@ -99,6 +100,13 @@ function buildDraftFromColumn(importData: LocalValidatedImport, mapping: LocalVa
     fieldType,
     customFieldLabel: fieldType === "custom" ? mapping.customFieldLabel : undefined,
     displayFieldLabel: displayLabel,
+    direction: inferKpiDirection({
+      name: displayLabel,
+      sourceColumn: mapping.sourceColumn,
+      customFieldLabel: mapping.customFieldLabel,
+      displayFieldLabel: displayLabel,
+      category: categoryFromColumn(mapping)
+    }),
     targetValue: 0,
     warningThreshold: 0,
     criticalThreshold: 0,
@@ -125,6 +133,11 @@ function buildDraftFromCandidate(importData: LocalValidatedImport, candidate: Kp
     sourceColumn,
     fieldType: "standard",
     displayFieldLabel: formatAtlasField(primaryField),
+    direction: inferKpiDirection({
+      name: candidate.name,
+      displayFieldLabel: formatAtlasField(primaryField),
+      category: categoryFromCandidate(candidate)
+    }),
     targetValue: 0,
     warningThreshold: 0,
     criticalThreshold: 0,
@@ -147,8 +160,12 @@ function validateDraft(draft: LocalKpiDraft, detectedType?: DetectedColumnType) 
     errors.push("Le champ principal est obligatoire hors comptage simple.");
   }
   if (Number.isNaN(draft.targetValue)) errors.push("L'objectif doit être numérique.");
-  if (draft.criticalThreshold > draft.warningThreshold) {
-    errors.push("Le seuil critique doit rester inférieur ou égal au seuil de surveillance.");
+  if (!validateThresholdOrder(inferKpiDirection(draft), draft.targetValue, draft.warningThreshold, draft.criticalThreshold)) {
+    errors.push(
+      inferKpiDirection(draft) === "lower_is_better"
+        ? "Pour ce KPI, l'ordre attendu est objectif < surveillance < critique."
+        : "Pour ce KPI, l'ordre attendu est critique < surveillance < objectif."
+    );
   }
   if (detectedType === "text" && !["count", "distinct-count"].includes(draft.calculationType)) {
     warnings.push("Cette colonne texte est généralement plus fiable en comptage ou comptage unique.");
@@ -200,7 +217,14 @@ export function CreateKpiFromImportPanel({
       fieldType,
       primaryField: fieldType === "standard" ? effectiveField : "NonMappe",
       customFieldLabel: fieldType === "custom" ? selected.customFieldLabel : undefined,
-      displayFieldLabel: displayLabel
+      displayFieldLabel: displayLabel,
+      direction: inferKpiDirection({
+        name: current.name,
+        sourceColumn: selected.sourceColumn,
+        customFieldLabel: selected.customFieldLabel,
+        displayFieldLabel: displayLabel,
+        category: current.category
+      })
     }));
   }
 
@@ -303,6 +327,18 @@ export function CreateKpiFromImportPanel({
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
+          </label>
+          <label className="rounded-md border border-line bg-slate-50 p-3">
+            <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Sens de lecture du KPI</span>
+            <select
+              value={inferKpiDirection(draft)}
+              onChange={(event) => update("direction", event.target.value as LocalKpiDraft["direction"])}
+              className="mt-2 h-9 w-full rounded-md border border-line bg-white px-3 text-sm font-medium text-ink"
+            >
+              <option value="higher_is_better">Plus haut = meilleur</option>
+              <option value="lower_is_better">Plus bas = meilleur</option>
+            </select>
+            <p className="mt-2 text-xs text-slate-500">Lecture actuelle : {formatKpiDirection(draft.direction)}</p>
           </label>
           <label className="rounded-md border border-line bg-slate-50 p-3">
             <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Champ principal</span>

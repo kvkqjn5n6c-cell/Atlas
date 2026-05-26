@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
 import { formatVariation } from "@/lib/kpi-engine/local-kpi-trends";
 import { getLocalKpiResults } from "@/lib/local/local-kpi-results-store";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
@@ -68,6 +69,7 @@ export function LocalKpiReportSection() {
                 <th className="px-4 py-3 font-medium">Tendance</th>
                 <th className="px-4 py-3 font-medium">Statut</th>
                 <th className="px-4 py-3 font-medium">Source</th>
+                <th className="px-4 py-3 font-medium">Sens</th>
                 <th className="px-4 py-3 font-medium">Impact potentiel</th>
               </tr>
             </thead>
@@ -83,6 +85,7 @@ export function LocalKpiReportSection() {
                     <Badge variant={statusVariant[result.status]}>{statusLabels[result.status]}</Badge>
                   </td>
                   <td className="px-4 py-3 text-slate-600">{result.sourceFileName}</td>
+                  <td className="px-4 py-3 text-slate-600">{formatKpiDirection(result.direction)}</td>
                   <td className="px-4 py-3 font-medium text-ink">{impactForResult(result)}</td>
                 </tr>
               ))}

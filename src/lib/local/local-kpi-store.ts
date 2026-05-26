@@ -1,4 +1,5 @@
 import type { LocalKpiConfiguration } from "@/types/local-kpi";
+import { inferKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
 
 const storageKey = "atlas:local-kpi-configurations";
 
@@ -13,7 +14,9 @@ export function getLocalKpiConfigurations(): LocalKpiConfiguration[] {
     const rawValue = window.localStorage.getItem(storageKey);
     if (!rawValue) return [];
     const parsedValue = JSON.parse(rawValue);
-    return Array.isArray(parsedValue) ? (parsedValue as LocalKpiConfiguration[]) : [];
+    return Array.isArray(parsedValue)
+      ? (parsedValue as LocalKpiConfiguration[]).map((kpi) => ({ ...kpi, direction: inferKpiDirection(kpi) }))
+      : [];
   } catch (error) {
     console.warn("Impossible de relire les KPI locaux Atlas.", error);
     return [];
@@ -25,7 +28,7 @@ export function saveLocalKpiConfiguration(kpi: LocalKpiConfiguration) {
 
   try {
     const existingKpis = getLocalKpiConfigurations().filter((item) => item.id !== kpi.id);
-    window.localStorage.setItem(storageKey, JSON.stringify([kpi, ...existingKpis]));
+    window.localStorage.setItem(storageKey, JSON.stringify([{ ...kpi, direction: inferKpiDirection(kpi) }, ...existingKpis]));
   } catch (error) {
     console.warn("Impossible d'enregistrer le KPI local Atlas.", error);
   }

@@ -1,5 +1,5 @@
 import type { KPIConfigurationDraft } from "@/types/atlas";
-import type { LocalKpiTestStatus } from "@/types/local-kpi";
+import type { KpiDirection, LocalKpiTestStatus } from "@/types/local-kpi";
 
 export type LocalKpiResult = {
   id: string;
@@ -8,6 +8,7 @@ export type LocalKpiResult = {
   name: string;
   displayFieldLabel?: string;
   calculationType: KPIConfigurationDraft["calculationType"];
+  direction?: KpiDirection;
   value: number;
   targetValue?: number;
   warningThreshold?: number;

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatAtlasField } from "@/lib/formatters/status-labels";
 import { calculateLocalKpiFromImport } from "@/lib/kpi-engine/local-kpi-calculator";
+import { formatKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
 import { buildLocalKpiHistoryPoint, buildLocalKpiResult } from "@/lib/kpi-engine/local-kpi-results";
 import { formatVariation } from "@/lib/kpi-engine/local-kpi-trends";
 import { getLocalImportById, updateLocalImport } from "@/lib/local/local-import-store";
@@ -141,6 +142,7 @@ export function LocalKpiConfigurations() {
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="font-semibold text-ink">{kpi.name}</h3>
                         <Badge variant={statusVariant[status]}>{statusLabels[status]}</Badge>
+                        <Badge>{formatKpiDirection(kpi.direction)}</Badge>
                         {kpi.fieldType === "custom" ? <Badge variant="brand">Champ personnalisé</Badge> : null}
                         {sourceDeleted ? <Badge variant="warning">Import source supprimé</Badge> : null}
                       </div>

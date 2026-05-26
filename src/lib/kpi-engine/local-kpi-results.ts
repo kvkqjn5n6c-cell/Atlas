@@ -1,6 +1,7 @@
 import type { LocalKpiConfiguration, LocalKpiTestResult } from "@/types/local-kpi";
 import type { LocalKpiHistoryPoint } from "@/types/local-kpi-history";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
+import { inferKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
 import { calculateLocalKpiTrend } from "@/lib/kpi-engine/local-kpi-trends";
 
 export function buildLocalKpiResult(
@@ -17,6 +18,7 @@ export function buildLocalKpiResult(
     name: kpi.name,
     displayFieldLabel: kpi.displayFieldLabel,
     calculationType: kpi.calculationType,
+    direction: inferKpiDirection(kpi),
     value: testResult.value,
     targetValue: kpi.targetValue,
     warningThreshold: kpi.warningThreshold,
@@ -38,6 +40,7 @@ export function buildLocalKpiHistoryPoint(result: LocalKpiResult): LocalKpiHisto
     calculatedAt: result.calculatedAt,
     value: result.value,
     status: result.status,
+    direction: result.direction,
     targetValue: result.targetValue,
     warningThreshold: result.warningThreshold,
     criticalThreshold: result.criticalThreshold,

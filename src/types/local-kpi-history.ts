@@ -1,4 +1,4 @@
-import type { LocalKpiTestStatus } from "@/types/local-kpi";
+import type { KpiDirection, LocalKpiTestStatus } from "@/types/local-kpi";
 
 export type LocalKpiHistoryPoint = {
   id: string;
@@ -7,6 +7,7 @@ export type LocalKpiHistoryPoint = {
   calculatedAt: string;
   value: number;
   status: LocalKpiTestStatus;
+  direction?: KpiDirection;
   targetValue?: number;
   warningThreshold?: number;
   criticalThreshold?: number;

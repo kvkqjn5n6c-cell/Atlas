@@ -5,6 +5,7 @@ import { ArrowDownRight, ArrowRight, ArrowUpRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { formatKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
 import { calculateScoreWithLocalKpis } from "@/lib/kpi-engine/local-kpi-results";
 import { formatVariation } from "@/lib/kpi-engine/local-kpi-trends";
 import { getLocalKpiHistoryByKpiId } from "@/lib/local/local-kpi-history-store";
@@ -139,8 +140,9 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
                     </div>
                   ) : null}
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {result.displayFieldLabel ? <Badge>Champ personnalisé</Badge> : null}
-                    <Badge>Local</Badge>
+                  {result.displayFieldLabel ? <Badge>Champ personnalisé</Badge> : null}
+                  <Badge>{formatKpiDirection(result.direction)}</Badge>
+                  <Badge>Local</Badge>
                     <Badge>Non persisté</Badge>
                   </div>
                   <p className="mt-3 text-xs text-slate-500">Calculé le {formatDate(result.calculatedAt)}</p>

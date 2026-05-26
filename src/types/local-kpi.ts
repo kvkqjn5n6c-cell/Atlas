@@ -3,6 +3,7 @@ import type { MappingFieldType } from "@/types/data-import";
 import type { LocalKpiThresholdChange } from "@/types/local-kpi-history";
 
 export type LocalKpiTestStatus = "healthy" | "watch" | "critical" | "not-tested";
+export type KpiDirection = "higher_is_better" | "lower_is_better";
 
 export type LocalKpiTestResult = {
   value: number;
@@ -23,6 +24,7 @@ export type LocalKpiConfiguration = {
   createdAt: string;
   category: PerformanceKPI["category"];
   calculationType: KPIConfigurationDraft["calculationType"];
+  direction?: KpiDirection;
   primaryField: AtlasField;
   secondaryField?: AtlasField;
   filterField?: AtlasField;

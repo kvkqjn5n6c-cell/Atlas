@@ -1,4 +1,5 @@
 import type { LocalKpiResult } from "@/types/local-kpi-results";
+import { inferKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
 
 const storageKey = "atlas:local-kpi-results";
 
@@ -12,6 +13,13 @@ function sortResults(results: LocalKpiResult[]) {
   );
 }
 
+function normalizeResult(result: LocalKpiResult): LocalKpiResult {
+  return {
+    ...result,
+    direction: inferKpiDirection(result)
+  };
+}
+
 export function getLocalKpiResults(): LocalKpiResult[] {
   if (!canUseLocalStorage()) return [];
 
@@ -19,7 +27,7 @@ export function getLocalKpiResults(): LocalKpiResult[] {
     const rawValue = window.localStorage.getItem(storageKey);
     if (!rawValue) return [];
     const parsedValue = JSON.parse(rawValue);
-    return Array.isArray(parsedValue) ? sortResults(parsedValue as LocalKpiResult[]) : [];
+    return Array.isArray(parsedValue) ? sortResults((parsedValue as LocalKpiResult[]).map(normalizeResult)) : [];
   } catch (error) {
     console.warn("Impossible de relire les résultats KPI locaux Atlas.", error);
     return [];
@@ -35,7 +43,7 @@ export function saveLocalKpiResult(result: LocalKpiResult) {
 
   try {
     const results = getLocalKpiResults().filter((item) => item.kpiId !== result.kpiId);
-    window.localStorage.setItem(storageKey, JSON.stringify(sortResults([result, ...results])));
+    window.localStorage.setItem(storageKey, JSON.stringify(sortResults([normalizeResult(result), ...results])));
   } catch (error) {
     console.warn("Impossible d'enregistrer le résultat KPI local Atlas.", error);
   }

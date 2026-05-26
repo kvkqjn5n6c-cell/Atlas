@@ -2,6 +2,7 @@ import type { AtlasField } from "@/types/atlas";
 import type { LocalValidatedImport } from "@/types/data-import";
 import type { LocalKpiDraft, LocalKpiTestResult } from "@/types/local-kpi";
 import { getEffectiveAtlasField, getMappingFieldType } from "@/lib/data-pipeline/mapping-suggestions";
+import { getLocalKpiStatus } from "@/lib/kpi-engine/local-kpi-direction";
 
 function parseNumericValue(value: string | undefined) {
   if (!value) return null;
@@ -23,9 +24,7 @@ function sourceColumnForFilter(importData: LocalValidatedImport, draft: LocalKpi
 }
 
 function getStatus(value: number, draft: LocalKpiDraft): LocalKpiTestResult["status"] {
-  if (value <= draft.criticalThreshold) return "critical";
-  if (value <= draft.warningThreshold) return "watch";
-  return "healthy";
+  return getLocalKpiStatus(value, draft);
 }
 
 function getPeriod(importData: LocalValidatedImport) {
@@ -114,7 +113,7 @@ export function calculateLocalKpiFromImport(
     value: Math.round(value * 100) / 100,
     rowsUsed,
     ignoredRows,
-    status: getStatus(value, draft),
+    status: getStatus(Math.round(value * 100) / 100, draft),
     warning:
       warning ??
       (isCustomField

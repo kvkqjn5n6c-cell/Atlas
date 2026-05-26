@@ -1,3 +1,5 @@
+import { formatKpiDirection, inferKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
+import type { KpiDirection } from "@/types/local-kpi";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
 
 export type LocalKpiAlert = {
@@ -5,6 +7,11 @@ export type LocalKpiAlert = {
   kpiId: string;
   title: string;
   severity: "warning" | "critical";
+  value: number;
+  targetValue?: number;
+  warningThreshold?: number;
+  criticalThreshold?: number;
+  direction: KpiDirection;
   cause: string;
   businessImpact: string;
   recommendedAction: string;
@@ -13,23 +20,39 @@ export type LocalKpiAlert = {
   persisted: false;
 };
 
+function buildCause(result: LocalKpiResult, direction: KpiDirection) {
+  const isCritical = result.status === "critical";
+  const threshold = isCritical ? result.criticalThreshold : result.warningThreshold;
+  const directionLabel = formatKpiDirection(direction);
+
+  if (threshold !== undefined) {
+    const verb = direction === "lower_is_better" ? "dépasse" : "passe sous";
+    return `${result.name} ${verb} le seuil ${isCritical ? "critique" : "de surveillance"} : ${result.value} pour un seuil de ${threshold}. Le KPI est configuré en "${directionLabel}".`;
+  }
+
+  return `${result.name} affiche ${result.value}. Le KPI est configuré en "${directionLabel}".`;
+}
+
 export function generateLocalKpiAlerts(results: LocalKpiResult[]): LocalKpiAlert[] {
   return results
     .filter((result) => result.status === "watch" || result.status === "critical")
     .map((result) => {
       const isCritical = result.status === "critical";
-      const threshold = isCritical ? result.criticalThreshold : result.warningThreshold;
+      const direction = inferKpiDirection(result);
 
       return {
         id: `local-alert-${result.kpiId}`,
         kpiId: result.kpiId,
         title: isCritical ? `${result.name} en zone critique` : `${result.name} à surveiller`,
         severity: isCritical ? "critical" : "warning",
-        cause: threshold !== undefined
-          ? `Résultat local ${result.value} comparé au seuil ${threshold}.`
-          : `Résultat local ${result.value} sous surveillance.`,
-        businessImpact: "Ce KPI personnalisé peut modifier la lecture dirigeant si la tendance se confirme sur un import complet.",
-        recommendedAction: "Vérifier le mapping, confirmer le seuil métier puis intégrer ce KPI au prochain rapport.",
+        value: result.value,
+        targetValue: result.targetValue,
+        warningThreshold: result.warningThreshold,
+        criticalThreshold: result.criticalThreshold,
+        direction,
+        cause: buildCause(result, direction),
+        businessImpact: "Ce KPI personnalisé influence la lecture dirigeant et peut déclencher un plan d'action métier.",
+        recommendedAction: "Vérifier le mapping, confirmer le seuil métier puis prioriser une action corrective si l'écart est confirmé.",
         sourceFileName: result.sourceFileName,
         calculatedAt: result.calculatedAt,
         persisted: false
