@@ -93,10 +93,10 @@ export function EditLocalKpiThresholds({
       saveLocalKpiConfiguration(nextKpiWithResult);
       saveLocalKpiResult(nextResult);
       saveLocalKpiHistoryPoint(buildLocalKpiHistoryPoint(nextResult));
-      setMessage("Seuils modifiÃ©s localement, KPI recalculÃ© et historique mis Ã  jour.");
+      setMessage("Seuils modifiés localement, KPI recalculé et historique mis à jour.");
     } else {
       saveLocalKpiConfiguration(nextKpi);
-      setMessage("Seuils modifiÃ©s localement. Recalcul impossible : import source absent.");
+      setMessage("Seuils modifiés localement. Recalcul impossible : import source absent.");
     }
 
     setLastChange(thresholdChange);
@@ -108,7 +108,7 @@ export function EditLocalKpiThresholds({
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="brand">Seuils modifiables</Badge>
         <Badge>Local</Badge>
-        {lastChange ? <Badge variant="warning">Seuils modifiÃ©s localement</Badge> : null}
+        {lastChange ? <Badge variant="warning">Seuils modifiés localement</Badge> : null}
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-4">
         <label>
@@ -160,9 +160,9 @@ export function EditLocalKpiThresholds({
 
       {lastChange ? (
         <p className="mt-3 text-xs text-slate-500">
-          DerniÃ¨re modification : objectif {lastChange.previousTargetValue} â†’ {lastChange.nextTargetValue},
-          surveillance {lastChange.previousWarningThreshold} â†’ {lastChange.nextWarningThreshold},
-          critique {lastChange.previousCriticalThreshold} â†’ {lastChange.nextCriticalThreshold}.
+          Dernière modification : objectif {lastChange.previousTargetValue} → {lastChange.nextTargetValue},
+          surveillance {lastChange.previousWarningThreshold} → {lastChange.nextWarningThreshold},
+          critique {lastChange.previousCriticalThreshold} → {lastChange.nextCriticalThreshold}.
         </p>
       ) : null}
 

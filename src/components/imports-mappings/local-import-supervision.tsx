@@ -78,7 +78,7 @@ function formatMappingValue(mapping: LocalValidatedColumnMapping) {
 }
 
 function isHighConfidence(confidence: string) {
-  return confidence === "élevée" || confidence === "Ã©levÃ©e";
+  return confidence === "élevée";
 }
 
 export function LocalImportSupervision() {
