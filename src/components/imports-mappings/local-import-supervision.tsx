@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Trash2 } from "lucide-react";
+import { ArrowRight, FileSpreadsheet, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +14,7 @@ import {
   getMappingFieldType,
   validateLocalMapping
 } from "@/lib/data-pipeline/mapping-suggestions";
-import { clearLastLocalImport, getLastLocalImport, saveLastLocalImport } from "@/lib/local/local-import-store";
+import { deleteLocalImport, getLocalImports, updateLocalImport } from "@/lib/local/local-import-store";
 import { formatAtlasField } from "@/lib/formatters/status-labels";
 import { registerBusinessFieldUsage } from "@/lib/local/business-dictionary-store";
 import { registerBusinessFieldUsageAction } from "@/lib/actions/business-dictionary-actions";
@@ -36,6 +36,8 @@ type LocalCorrectionLog = {
 type KpiCreationSelection =
   | { mode: "candidate"; candidate: KpiImpactCandidate }
   | { mode: "column"; mapping: LocalValidatedColumnMapping };
+
+type CorrectionsByImport = Record<string, LocalCorrectionLog[]>;
 
 const mappingStatusVariant = {
   mapped: "success",
@@ -75,37 +77,62 @@ function formatMappingValue(mapping: LocalValidatedColumnMapping) {
   return formatAtlasField(getEffectiveAtlasField(mapping));
 }
 
+function isHighConfidence(confidence: string) {
+  return confidence === "élevée" || confidence === "Ã©levÃ©e";
+}
+
 export function LocalImportSupervision() {
-  const [localImport, setLocalImport] = useState<LocalValidatedImport | null>(null);
-  const [corrections, setCorrections] = useState<LocalCorrectionLog[]>([]);
+  const [localImports, setLocalImports] = useState<LocalValidatedImport[]>([]);
+  const [activeImportId, setActiveImportId] = useState<string | null>(null);
+  const [correctionsByImport, setCorrectionsByImport] = useState<CorrectionsByImport>({});
   const [kpiSelection, setKpiSelection] = useState<KpiCreationSelection | null>(null);
   const [localKpiSavedCount, setLocalKpiSavedCount] = useState(0);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      setLocalImport(getLastLocalImport());
+      const imports = getLocalImports();
+      setLocalImports(imports);
+      setActiveImportId((current) => current ?? imports[0]?.id ?? null);
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
   }, []);
+
+  const localImport = useMemo(() => {
+    if (localImports.length === 0) return null;
+    return localImports.find((item) => item.id === activeImportId) ?? localImports[0];
+  }, [activeImportId, localImports]);
+
+  const corrections = localImport ? correctionsByImport[localImport.id] ?? [] : [];
 
   const kpiImpacts = useMemo(
     () => (localImport ? getPotentialKpiImpacts(localImport.mappings) : []),
     [localImport]
   );
 
+  function reloadImports(preferredId?: string | null) {
+    const imports = getLocalImports();
+    setLocalImports(imports);
+    setActiveImportId((current) => {
+      const nextId = preferredId ?? current;
+      if (nextId && imports.some((item) => item.id === nextId)) return nextId;
+      return imports[0]?.id ?? null;
+    });
+  }
+
   function persistImport(nextImport: LocalValidatedImport) {
     const validation = validateLocalMapping(nextImport.mappings);
     const updatedImport = {
       ...nextImport,
+      updatedAt: new Date().toISOString(),
       mappedColumns: validation.mappedColumns,
       unmappedColumns: validation.unmappedColumns.length,
       mappingQualityScore: validation.qualityScore,
       persisted: false as const
     };
 
-    saveLastLocalImport(updatedImport);
-    setLocalImport(updatedImport);
+    updateLocalImport(updatedImport);
+    reloadImports(updatedImport.id);
   }
 
   function addCorrection(
@@ -114,18 +141,22 @@ export function LocalImportSupervision() {
     nextValue: string,
     action: LocalCorrectionLog["action"]
   ) {
-    setCorrections((current) => [
-      {
-        id: `local-correction-${Date.now()}-${column}`,
-        date: new Date().toISOString(),
-        column,
-        previousValue,
-        nextValue,
-        action,
-        persisted: false
-      },
-      ...current
-    ]);
+    if (!localImport) return;
+    setCorrectionsByImport((current) => ({
+      ...current,
+      [localImport.id]: [
+        {
+          id: `local-correction-${Date.now()}-${column}`,
+          date: new Date().toISOString(),
+          column,
+          previousValue,
+          nextValue,
+          action,
+          persisted: false
+        },
+        ...(current[localImport.id] ?? [])
+      ]
+    }));
   }
 
   function updateMapping(sourceColumn: string, patch: Partial<LocalValidatedColumnMapping>, action: LocalCorrectionLog["action"]) {
@@ -199,18 +230,23 @@ export function LocalImportSupervision() {
     );
   }
 
-  function clearImport() {
-    clearLastLocalImport();
-    setLocalImport(null);
-    setCorrections([]);
-    setKpiSelection(null);
+  function deleteImport(importId: string) {
+    const deletedActiveImport = importId === localImport?.id;
+    deleteLocalImport(importId);
+    setCorrectionsByImport((current) => {
+      const next = { ...current };
+      delete next[importId];
+      return next;
+    });
+    if (deletedActiveImport) setKpiSelection(null);
+    reloadImports(deletedActiveImport ? null : localImport?.id ?? null);
   }
 
   if (!localImport) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Dernier import local</CardTitle>
+          <CardTitle>Workspace d&apos;imports locaux</CardTitle>
           <p className="mt-1 text-sm text-slate-500">
             Aucun import CSV local n&apos;est prêt pour supervision.
           </p>
@@ -230,12 +266,111 @@ export function LocalImportSupervision() {
 
   return (
     <section className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-start">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="brand">Workspace local</Badge>
+                <Badge>{localImports.length} import{localImports.length > 1 ? "s" : ""}</Badge>
+                <Badge>Non persisté</Badge>
+              </div>
+              <CardTitle className="mt-3">Imports locaux disponibles</CardTitle>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Atlas conserve plusieurs imports locaux. Chaque fichier garde son mapping, ses corrections et ses KPI liés sans écraser les précédents.
+              </p>
+            </div>
+            <Link
+              href="/data-sources"
+              className="inline-flex h-9 items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            >
+              Importer un autre CSV
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 xl:grid-cols-2">
+            {localImports.map((importItem) => {
+              const isActive = importItem.id === localImport.id;
+              const linkedKpisCount = importItem.linkedLocalKpiIds?.length ?? importItem.linkedLocalKpiNames?.length ?? 0;
+
+              return (
+                <article
+                  key={importItem.id}
+                  className={`rounded-lg border p-4 transition ${
+                    isActive ? "border-brand-200 bg-brand-50/50" : "border-line bg-white hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <FileSpreadsheet className="h-4 w-4 text-brand-600" aria-hidden="true" />
+                        <h3 className="truncate font-semibold text-ink">{importItem.fileName}</h3>
+                        {isActive ? <Badge variant="success">Import actif</Badge> : null}
+                      </div>
+                      <p className="mt-2 text-xs text-slate-500">
+                        Créé le {formatDate(importItem.createdAt)}
+                        {importItem.updatedAt ? ` · Mis à jour le ${formatDate(importItem.updatedAt)}` : ""}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button className="h-8" onClick={() => { setActiveImportId(importItem.id); setKpiSelection(null); }}>
+                        {isActive ? "Superviser" : "Ouvrir"}
+                      </Button>
+                      <Link
+                        href="/data-sources"
+                        className="inline-flex h-8 items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                      >
+                        Réimporter
+                      </Link>
+                      <Link
+                        href="/kpi-configuration"
+                        className="inline-flex h-8 items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                      >
+                        Voir KPI liés
+                      </Link>
+                      <Button className="h-8" onClick={() => deleteImport(importItem.id)}>
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        Supprimer
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="mt-4 grid gap-2 sm:grid-cols-4">
+                    <div className="rounded-md border border-line bg-white p-3">
+                      <p className="text-xs text-slate-500">Lignes</p>
+                      <p className="font-semibold text-ink">{importItem.rowsRead.toLocaleString("fr-FR")}</p>
+                    </div>
+                    <div className="rounded-md border border-line bg-white p-3">
+                      <p className="text-xs text-slate-500">Qualité</p>
+                      <p className="font-semibold text-ink">{importItem.mappingQualityScore}%</p>
+                    </div>
+                    <div className="rounded-md border border-line bg-white p-3">
+                      <p className="text-xs text-slate-500">KPI liés</p>
+                      <p className="font-semibold text-ink">{linkedKpisCount}</p>
+                    </div>
+                    <div className="rounded-md border border-line bg-white p-3">
+                      <p className="text-xs text-slate-500">Statut</p>
+                      <p className="font-semibold text-ink">Local</p>
+                    </div>
+                  </div>
+                  {importItem.linkedLocalKpiNames?.length ? (
+                    <p className="mt-3 text-xs text-slate-500">
+                      KPI : {importItem.linkedLocalKpiNames.join(", ")}
+                    </p>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
       <Card className="border-brand-100">
         <CardHeader>
           <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-start">
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="brand">Dernier import local</Badge>
+                <Badge variant="brand">Import actif</Badge>
                 <Badge>Non persisté</Badge>
                 <Badge variant={localImport.mappingQualityScore >= 70 ? "success" : "warning"}>
                   Qualité mapping : {localImport.mappingQualityScore}%
@@ -254,9 +389,9 @@ export function LocalImportSupervision() {
               >
                 Retourner aux sources
               </Link>
-              <Button onClick={clearImport}>
+              <Button onClick={() => deleteImport(localImport.id)}>
                 <Trash2 className="h-4 w-4" aria-hidden="true" />
-                Effacer l&apos;import local
+                Supprimer cet import
               </Button>
             </div>
           </div>
@@ -407,7 +542,7 @@ export function LocalImportSupervision() {
                 <article key={impact.id} className="rounded-md border border-line bg-slate-50 p-4">
                   <div className="flex items-center justify-between gap-3">
                     <h3 className="font-semibold text-ink">{impact.name}</h3>
-                    <Badge variant={impact.confidence === "élevée" ? "success" : "warning"}>
+                    <Badge variant={isHighConfidence(impact.confidence) ? "success" : "warning"}>
                       Confiance {impact.confidence}
                     </Badge>
                   </div>
@@ -437,7 +572,10 @@ export function LocalImportSupervision() {
           importData={localImport}
           candidate={kpiSelection.mode === "candidate" ? kpiSelection.candidate : undefined}
           mapping={kpiSelection.mode === "column" ? kpiSelection.mapping : undefined}
-          onSaved={() => setLocalKpiSavedCount((current) => current + 1)}
+          onSaved={() => {
+            setLocalKpiSavedCount((current) => current + 1);
+            reloadImports(localImport.id);
+          }}
         />
       ) : null}
 
@@ -476,7 +614,7 @@ export function LocalImportSupervision() {
             </div>
           ) : (
             <p className="rounded-md border border-line bg-slate-50 p-4 text-sm text-slate-600">
-              Aucune correction locale pour l&apos;instant.
+              Aucune correction locale pour cet import.
             </p>
           )}
         </CardContent>

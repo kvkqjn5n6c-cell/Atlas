@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KpiDataQualityBadge } from "@/components/indicators/kpi-data-quality-badge";
 import { Progress } from "@/components/ui/progress";
+import { LocalKpiPilotageSection } from "@/components/pilotage/local-kpi-pilotage-section";
 import {
   calculatePerformanceScore,
   formatKpiValue,
@@ -210,6 +211,8 @@ export function AtlasPilotagePage() {
           </div>
         </CardContent>
       </Card>
+
+      <LocalKpiPilotageSection baseScore={score} />
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <Card>

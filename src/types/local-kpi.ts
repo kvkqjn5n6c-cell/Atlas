@@ -16,7 +16,9 @@ export type LocalKpiConfiguration = {
   id: string;
   name: string;
   organizationId: string;
+  importId?: string;
   sourceFileName: string;
+  importCreatedAt?: string;
   createdAt: string;
   category: PerformanceKPI["category"];
   calculationType: KPIConfigurationDraft["calculationType"];

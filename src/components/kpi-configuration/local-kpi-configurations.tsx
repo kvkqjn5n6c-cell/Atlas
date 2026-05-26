@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatAtlasField } from "@/lib/formatters/status-labels";
+import { getLocalImportById, updateLocalImport } from "@/lib/local/local-import-store";
+import { deleteLocalKpiResult } from "@/lib/local/local-kpi-results-store";
 import { deleteLocalKpiConfiguration, getLocalKpiConfigurations } from "@/lib/local/local-kpi-store";
 import type { LocalKpiConfiguration, LocalKpiTestStatus } from "@/types/local-kpi";
 
@@ -39,6 +41,14 @@ function displayPrimaryField(kpi: LocalKpiConfiguration) {
   return formatAtlasField(kpi.primaryField);
 }
 
+function formatDate(value?: string) {
+  if (!value) return "Date inconnue";
+  return new Intl.DateTimeFormat("fr-FR", {
+    dateStyle: "short",
+    timeStyle: "short"
+  }).format(new Date(value));
+}
+
 export function LocalKpiConfigurations() {
   const [kpis, setKpis] = useState<LocalKpiConfiguration[]>([]);
 
@@ -51,7 +61,17 @@ export function LocalKpiConfigurations() {
   }, []);
 
   function deleteKpi(id: string) {
+    const kpi = kpis.find((item) => item.id === id);
+    const sourceImport = kpi?.importId ? getLocalImportById(kpi.importId) : null;
+    if (kpi && sourceImport) {
+      updateLocalImport({
+        ...sourceImport,
+        linkedLocalKpiIds: (sourceImport.linkedLocalKpiIds ?? []).filter((item) => item !== kpi.id),
+        linkedLocalKpiNames: (sourceImport.linkedLocalKpiNames ?? []).filter((item) => item !== kpi.name)
+      });
+    }
     deleteLocalKpiConfiguration(id);
+    deleteLocalKpiResult(id);
     setKpis(getLocalKpiConfigurations());
   }
 
@@ -92,11 +112,22 @@ export function LocalKpiConfigurations() {
               <tbody className="divide-y divide-line bg-white">
                 {kpis.map((kpi) => {
                   const status = kpi.testResult?.status ?? "not-tested";
+                  const sourceImport = kpi.importId ? getLocalImportById(kpi.importId) : null;
+                  const sourceDeleted = Boolean(kpi.importId && !sourceImport);
 
                   return (
                     <tr key={kpi.id} className="transition hover:bg-slate-50">
                       <td className="px-4 py-3 font-semibold text-ink">{kpi.name}</td>
-                      <td className="px-4 py-3 text-slate-600">{kpi.sourceFileName}</td>
+                      <td className="px-4 py-3 text-slate-600">
+                        <div className="space-y-1">
+                          <p>{kpi.sourceFileName}</p>
+                          {kpi.importId ? <p className="text-xs text-slate-500">Import : {kpi.importId}</p> : null}
+                          <p className="text-xs text-slate-500">
+                            Date import : {formatDate(sourceImport?.createdAt ?? kpi.importCreatedAt)}
+                          </p>
+                          {sourceDeleted ? <Badge variant="warning">Import source supprimé</Badge> : null}
+                        </div>
+                      </td>
                       <td className="px-4 py-3 text-slate-600">{calculationLabels[kpi.calculationType]}</td>
                       <td className="px-4 py-3 text-slate-600">
                         <div className="flex flex-wrap items-center gap-2">

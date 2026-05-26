@@ -76,6 +76,7 @@ export type LocalValidatedImport = {
   id: string;
   fileName: string;
   createdAt: string;
+  updatedAt?: string;
   rowsRead: number;
   columnsDetected: number;
   mappedColumns: number;
@@ -85,5 +86,8 @@ export type LocalValidatedImport = {
   previewRows: FilePreviewRow[];
   simulatedImportJob: LocalImportSummary["importJob"];
   summaryStats?: ImportStatistics;
+  linkedLocalKpiIds?: string[];
+  linkedLocalKpiNames?: string[];
+  dictionaryUsages?: string[];
   persisted: false;
 };

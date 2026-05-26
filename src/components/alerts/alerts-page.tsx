@@ -6,6 +6,7 @@ import { dataSourcesMock } from "@/lib/mock/data-sources";
 import { formatAlertSeverity, formatAlertStatus, formatAlertUrgency } from "@/lib/formatters/status-labels";
 import { performanceKpisMock } from "@/lib/mock/kpis";
 import { organizationsMock } from "@/lib/mock/organizations";
+import { LocalKpiAlertsSection } from "./local-kpi-alerts-section";
 
 export function AlertsPage() {
   return (
@@ -85,6 +86,8 @@ export function AlertsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <LocalKpiAlertsSection />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatReportStatus } from "@/lib/formatters/status-labels";
 import { organizationsMock } from "@/lib/mock/organizations";
 import { reportsMock } from "@/lib/mock/reports";
+import { LocalKpiReportSection } from "./local-kpi-report-section";
 
 const reportTypeLabel = {
   monthly: "mensuel",
@@ -71,6 +72,8 @@ export function ReportsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <LocalKpiReportSection />
 
       <Card>
         <CardHeader>

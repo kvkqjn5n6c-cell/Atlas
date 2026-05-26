@@ -13,7 +13,7 @@ import { LocalMappingPanel } from "@/components/data-import/local-mapping-panel"
 import { MAX_LOCAL_STORAGE_ROWS } from "@/lib/config/import-limits";
 import { parseCsvFile } from "@/lib/data-pipeline/csv-parser";
 import { buildInitialMappings, validateLocalMapping } from "@/lib/data-pipeline/mapping-suggestions";
-import { saveLastLocalImport } from "@/lib/local/local-import-store";
+import { getLocalImports, saveLocalImport } from "@/lib/local/local-import-store";
 import type { DataImportJob } from "@/types/atlas";
 import type {
   LocalColumnMapping,
@@ -71,6 +71,7 @@ export function LocalFileImportPanel() {
   const [validatedImport, setValidatedImport] = useState<LocalValidatedImport | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
   const [storageMessage, setStorageMessage] = useState<string | null>(null);
+  const [localImportCount, setLocalImportCount] = useState(() => getLocalImports().length);
 
   const canGenerateSummary = useMemo(() => {
     if (!parsedFile || parsedFile.columns.length === 0) return false;
@@ -110,6 +111,7 @@ export function LocalFileImportPanel() {
       id: nextSummary.importJob.id,
       fileName: parsedFile.fileName,
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       rowsRead: nextSummary.rowsRead,
       columnsDetected: nextSummary.columnsDetected,
       mappedColumns: nextSummary.mappedColumns,
@@ -123,12 +125,16 @@ export function LocalFileImportPanel() {
       previewRows: parsedFile.rows.slice(0, MAX_LOCAL_STORAGE_ROWS),
       simulatedImportJob: nextSummary.importJob,
       summaryStats: parsedFile.statistics,
+      linkedLocalKpiIds: [],
+      linkedLocalKpiNames: [],
+      dictionaryUsages: [],
       persisted: false
     };
-    const storeResult = saveLastLocalImport(nextValidatedImport);
+    const storeResult = saveLocalImport(nextValidatedImport);
 
     setSummary(nextSummary);
     setStorageMessage(storeResult.message);
+    setLocalImportCount(getLocalImports().length);
 
     if (storeResult.success) {
       setValidatedImport(nextValidatedImport);
@@ -148,6 +154,7 @@ export function LocalFileImportPanel() {
                 <Badge>Test local</Badge>
                 <Badge>Non persisté</Badge>
                 {parsedFile?.statistics?.isLargeFile ? <Badge variant="warning">Fichier volumineux</Badge> : null}
+                <Badge>{localImportCount} imports locaux disponibles</Badge>
               </div>
               <CardTitle className="mt-3">Prévisualiser un fichier CSV</CardTitle>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
@@ -220,6 +227,13 @@ export function LocalFileImportPanel() {
           ) : null}
         </CardContent>
       </Card>
+
+      <div className="rounded-md border border-line bg-white p-4 text-sm text-slate-600">
+        Atlas conserve maintenant plusieurs imports locaux dans un workspace. Chaque nouvel import est ajouté sans remplacer les précédents.
+        <Link href="/imports-mappings" className="ml-2 font-semibold text-brand-700 hover:underline">
+          Voir Imports & mappings
+        </Link>
+      </div>
 
       {parsedFile ? (
         <>

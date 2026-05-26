@@ -8,7 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getEffectiveAtlasField, getMappingDisplayLabel, getMappingFieldType } from "@/lib/data-pipeline/mapping-suggestions";
 import { calculateLocalKpiFromImport } from "@/lib/kpi-engine/local-kpi-calculator";
+import { buildLocalKpiResult } from "@/lib/kpi-engine/local-kpi-results";
 import { saveLocalKpiConfiguration } from "@/lib/local/local-kpi-store";
+import { getLocalKpiResults, saveLocalKpiResult } from "@/lib/local/local-kpi-results-store";
+import { updateLocalImport } from "@/lib/local/local-import-store";
 import { registerBusinessFieldUsage } from "@/lib/local/business-dictionary-store";
 import { registerBusinessFieldUsageAction } from "@/lib/actions/business-dictionary-actions";
 import { formatAtlasField } from "@/lib/formatters/status-labels";
@@ -85,7 +88,9 @@ function buildDraftFromColumn(importData: LocalValidatedImport, mapping: LocalVa
   return {
     name: `${calculationFromColumnType(mapping.detectedType) === "sum" ? "Somme" : "KPI"} ${displayLabel}`,
     organizationId: "org-atlas-demo",
+    importId: importData.id,
     sourceFileName: importData.fileName,
+    importCreatedAt: importData.createdAt,
     category: categoryFromColumn(mapping),
     calculationType: calculationFromColumnType(mapping.detectedType),
     primaryField: fieldType === "standard" ? effectiveField : "NonMappe",
@@ -109,7 +114,9 @@ function buildDraftFromCandidate(importData: LocalValidatedImport, candidate: Kp
   return {
     name: candidate.name,
     organizationId: "org-atlas-demo",
+    importId: importData.id,
     sourceFileName: importData.fileName,
+    importCreatedAt: importData.createdAt,
     category: categoryFromCandidate(candidate),
     calculationType: calculationFromCandidate(candidate),
     primaryField,
@@ -212,6 +219,17 @@ export function CreateKpiFromImportPanel({
     };
 
     saveLocalKpiConfiguration(kpi);
+    saveLocalKpiResult(buildLocalKpiResult(
+      kpi,
+      nextTestResult,
+      getLocalKpiResults().find((result) => result.kpiId === kpi.id)
+    ));
+    updateLocalImport({
+      ...importData,
+      updatedAt: new Date().toISOString(),
+      linkedLocalKpiIds: Array.from(new Set([...(importData.linkedLocalKpiIds ?? []), kpi.id])),
+      linkedLocalKpiNames: Array.from(new Set([...(importData.linkedLocalKpiNames ?? []), kpi.name]))
+    });
     if (draft.fieldType === "custom" && draft.customFieldLabel && draft.sourceColumn) {
       registerBusinessFieldUsage({
         organizationId: draft.organizationId,
