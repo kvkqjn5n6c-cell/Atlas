@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { BookOpenText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,25 +8,33 @@ import { BusinessFieldCard } from "@/components/business-dictionary/business-fie
 import { BusinessFieldDetails } from "@/components/business-dictionary/business-field-details";
 import { activeOrganizationId } from "@/lib/context/scope-defaults";
 import { deleteBusinessDictionaryField, getBusinessDictionary } from "@/lib/local/business-dictionary-store";
+import { deleteBusinessDictionaryFieldAction } from "@/lib/actions/business-dictionary-actions";
 import type { BusinessDictionaryField } from "@/types/business-dictionary";
+import type { BusinessDictionaryData } from "@/lib/services/business-dictionary.service";
+import type { ServiceResult } from "@/types/service-results";
 
-export function BusinessDictionaryPage() {
-  const [fields, setFields] = useState<BusinessDictionaryField[]>([]);
+export function BusinessDictionaryPage({ result }: { result: ServiceResult<BusinessDictionaryData> }) {
+  const [fields, setFields] = useState<BusinessDictionaryField[]>(result.data.fields);
   const [selectedField, setSelectedField] = useState<BusinessDictionaryField | undefined>();
 
-  function refreshFields() {
-    const nextFields = getBusinessDictionary(activeOrganizationId);
+  const refreshFields = useCallback(() => {
+    const localFields = getBusinessDictionary(activeOrganizationId);
+    const fieldMap = new Map<string, BusinessDictionaryField>();
+    for (const field of result.data.fields) fieldMap.set(field.id, field);
+    for (const field of localFields) fieldMap.set(field.id, field);
+    const nextFields = Array.from(fieldMap.values());
     setFields(nextFields);
     setSelectedField((current) => nextFields.find((field) => field.id === current?.id) ?? nextFields[0]);
-  }
+  }, [result.data.fields]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(refreshFields, 0);
     return () => window.clearTimeout(timeoutId);
-  }, []);
+  }, [refreshFields]);
 
   function deleteField(id: string) {
     deleteBusinessDictionaryField(id);
+    void deleteBusinessDictionaryFieldAction(id);
     refreshFields();
   }
 
@@ -37,14 +45,15 @@ export function BusinessDictionaryPage() {
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="brand">Dictionnaire métier</Badge>
-              <Badge>Local</Badge>
+              <Badge>{result.data.source === "prisma" ? "Prisma" : result.data.source === "fallback" ? "Fallback local" : "Local"}</Badge>
+              {result.warning ? <Badge variant="warning">{result.warning}</Badge> : null}
             </div>
             <h2 className="mt-4 text-3xl font-semibold tracking-tight text-ink">
               Vocabulaire métier de l&apos;organisation
             </h2>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
               Atlas mémorise les champs personnalisés, colonnes sources, synonymes et KPI liés pour réutiliser
-              le vocabulaire métier dans les prochains imports.
+              le vocabulaire métier dans les prochains imports. Organisation active : {result.data.organizationId}.
             </p>
           </div>
           <div className="rounded-md border border-line bg-slate-50 p-3 text-sm text-slate-600">

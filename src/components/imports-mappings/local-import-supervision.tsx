@@ -17,6 +17,7 @@ import {
 import { clearLastLocalImport, getLastLocalImport, saveLastLocalImport } from "@/lib/local/local-import-store";
 import { formatAtlasField } from "@/lib/formatters/status-labels";
 import { registerBusinessFieldUsage } from "@/lib/local/business-dictionary-store";
+import { registerBusinessFieldUsageAction } from "@/lib/actions/business-dictionary-actions";
 import type { AtlasField } from "@/types/atlas";
 import type { KpiImpactCandidate } from "@/lib/data-pipeline/kpi-impact";
 import type { LocalValidatedColumnMapping, LocalValidatedImport, MappingFieldType } from "@/types/data-import";
@@ -150,6 +151,13 @@ export function LocalImportSupervision() {
         nextMapping.dictionaryConfidence = 100;
         nextMapping.dictionaryReason = "Champ métier mémorisé localement.";
       }
+      void registerBusinessFieldUsageAction({
+        organizationId: localImport.simulatedImportJob.organizationId,
+        label: nextMapping.customFieldLabel,
+        sourceColumn: nextMapping.sourceColumn,
+        detectedType: nextMapping.detectedType,
+        tags: ["mapping-local"]
+      });
     }
 
     addCorrection(sourceColumn, formatMappingValue(previousMapping), formatMappingValue(nextMapping), action);

@@ -1,0 +1,4 @@
+date;client;region;montant_ht;cout_sous_traitance;nb_dossiers_traites
+2026-05-01;Client A;Est;12000;3500;14
+2026-05-08;Client B;Est;8500;2800;9
+2026-05-15;Client C;Ouest;15500;4200;18

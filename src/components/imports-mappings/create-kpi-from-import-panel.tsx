@@ -10,6 +10,7 @@ import { getEffectiveAtlasField, getMappingDisplayLabel, getMappingFieldType } f
 import { calculateLocalKpiFromImport } from "@/lib/kpi-engine/local-kpi-calculator";
 import { saveLocalKpiConfiguration } from "@/lib/local/local-kpi-store";
 import { registerBusinessFieldUsage } from "@/lib/local/business-dictionary-store";
+import { registerBusinessFieldUsageAction } from "@/lib/actions/business-dictionary-actions";
 import { formatAtlasField } from "@/lib/formatters/status-labels";
 import type { KpiImpactCandidate } from "@/lib/data-pipeline/kpi-impact";
 import type { AtlasField, KPIConfigurationDraft, PerformanceKPI } from "@/types/atlas";
@@ -213,6 +214,14 @@ export function CreateKpiFromImportPanel({
     saveLocalKpiConfiguration(kpi);
     if (draft.fieldType === "custom" && draft.customFieldLabel && draft.sourceColumn) {
       registerBusinessFieldUsage({
+        organizationId: draft.organizationId,
+        label: draft.customFieldLabel,
+        sourceColumn: draft.sourceColumn,
+        detectedType: mapping?.detectedType ?? "text",
+        linkedKpi: draft.name,
+        tags: ["kpi-local"]
+      });
+      void registerBusinessFieldUsageAction({
         organizationId: draft.organizationId,
         label: draft.customFieldLabel,
         sourceColumn: draft.sourceColumn,

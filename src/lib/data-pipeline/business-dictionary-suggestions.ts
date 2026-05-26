@@ -1,5 +1,6 @@
 import { getBusinessDictionary, normalizeBusinessLabel } from "@/lib/local/business-dictionary-store";
 import type { BusinessDictionarySuggestion } from "@/types/business-dictionary";
+import type { BusinessDictionaryField } from "@/types/business-dictionary";
 
 function tokenize(value: string) {
   return normalizeBusinessLabel(value)
@@ -24,6 +25,13 @@ export function suggestBusinessDictionaryField(
   sourceColumn: string
 ): BusinessDictionarySuggestion {
   const fields = getBusinessDictionary(organizationId);
+  return suggestBusinessDictionaryFieldFromFields(fields, sourceColumn);
+}
+
+export function suggestBusinessDictionaryFieldFromFields(
+  fields: BusinessDictionaryField[],
+  sourceColumn: string
+): BusinessDictionarySuggestion {
   let bestSuggestion: BusinessDictionarySuggestion = {
     matched: false,
     confidence: 0,

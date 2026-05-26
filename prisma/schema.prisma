@@ -142,6 +142,7 @@ model Organization {
   alerts            Alert[]
   actionPlans       ActionPlan[]
   reports           Report[]
+  businessDictionaryFields BusinessDictionaryField[]
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
@@ -255,6 +256,7 @@ model KPIConfiguration {
   dataSource      DataSource      @relation(fields: [dataSourceId], references: [id], onDelete: Restrict)
   results         KPIResult[]
   alerts          ActionPlan[]
+  businessDictionaryLinks BusinessDictionaryLinkedKpi[]
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
@@ -345,4 +347,50 @@ model Report {
 
   @@index([organizationId, period])
   @@index([organizationId, status])
+}
+
+model BusinessDictionaryField {
+  id              String                           @id @default(cuid())
+  organizationId  String
+  label           String
+  normalizedLabel String
+  detectedType    String
+  usageCount      Int                              @default(0)
+  persistedSource String                           @default("prisma")
+  metadata        Json?
+  organization    Organization                     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sourceColumns   BusinessDictionarySourceColumn[]
+  linkedKpis      BusinessDictionaryLinkedKpi[]
+  createdAt       DateTime                         @default(now())
+  updatedAt       DateTime                         @updatedAt
+
+  @@unique([organizationId, normalizedLabel])
+  @@index([organizationId])
+  @@index([normalizedLabel])
+}
+
+model BusinessDictionarySourceColumn {
+  id           String                  @id @default(cuid())
+  fieldId      String
+  sourceColumn String
+  usageCount   Int                     @default(0)
+  field        BusinessDictionaryField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+
+  @@unique([fieldId, sourceColumn])
+  @@index([sourceColumn])
+}
+
+model BusinessDictionaryLinkedKpi {
+  id                 String                  @id @default(cuid())
+  fieldId            String
+  kpiConfigurationId String?
+  localKpiName       String?
+  field              BusinessDictionaryField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  kpiConfiguration   KPIConfiguration?       @relation(fields: [kpiConfigurationId], references: [id], onDelete: SetNull)
+  createdAt          DateTime                @default(now())
+
+  @@index([fieldId])
+  @@index([kpiConfigurationId])
 }

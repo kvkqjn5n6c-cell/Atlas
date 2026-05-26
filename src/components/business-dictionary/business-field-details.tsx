@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { updateBusinessDictionaryField } from "@/lib/local/business-dictionary-store";
+import { updateBusinessDictionaryFieldAction } from "@/lib/actions/business-dictionary-actions";
 import type { BusinessDictionaryField } from "@/types/business-dictionary";
 
 export function BusinessFieldDetails({
@@ -33,7 +34,9 @@ export function BusinessFieldDetails({
 
   function renameField() {
     if (!field) return;
-    updateBusinessDictionaryField({ ...field, label });
+    const updatedField = { ...field, label };
+    updateBusinessDictionaryField(updatedField);
+    void updateBusinessDictionaryFieldAction(updatedField);
     onUpdated();
   }
 
