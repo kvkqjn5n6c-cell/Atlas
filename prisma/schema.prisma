@@ -84,6 +84,11 @@ enum KPITrend {
   STABLE
 }
 
+enum KpiDirection {
+  HIGHER_IS_BETTER
+  LOWER_IS_BETTER
+}
+
 enum DataQuality {
   RELIABLE
   PARTIAL
@@ -143,6 +148,9 @@ model Organization {
   actionPlans       ActionPlan[]
   reports           Report[]
   businessDictionaryFields BusinessDictionaryField[]
+  localKpiConfigurations LocalKpiConfiguration[]
+  localKpiResults   LocalKpiResult[]
+  localKpiHistoryPoints LocalKpiHistoryPoint[]
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
@@ -361,6 +369,7 @@ model BusinessDictionaryField {
   organization    Organization                     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   sourceColumns   BusinessDictionarySourceColumn[]
   linkedKpis      BusinessDictionaryLinkedKpi[]
+  localKpiConfigurations LocalKpiConfiguration[]
   createdAt       DateTime                         @default(now())
   updatedAt       DateTime                         @updatedAt
 
@@ -393,4 +402,102 @@ model BusinessDictionaryLinkedKpi {
 
   @@index([fieldId])
   @@index([kpiConfigurationId])
+}
+
+model LocalKpiConfiguration {
+  id                String       @id
+  organizationId    String
+  businessDictionaryFieldId String?
+  importId          String?
+  sourceFileName    String
+  name              String
+  category          String
+  calculationType   String
+  direction         KpiDirection @default(HIGHER_IS_BETTER)
+  primaryField      String
+  secondaryField    String?
+  sourceColumn      String?
+  secondarySourceColumn String?
+  fieldType         String?
+  customFieldLabel  String?
+  displayFieldLabel String?
+  filterField       String?
+  filterValue       String?
+  targetValue       Float
+  warningThreshold  Float
+  criticalThreshold Float
+  frequency         String
+  owner             String
+  expectedImpact    String
+  testResult        Json?
+  thresholdChanges  Json?
+  persistedSource   String       @default("prisma")
+  metadata          Json?
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  businessDictionaryField BusinessDictionaryField? @relation(fields: [businessDictionaryFieldId], references: [id], onDelete: SetNull)
+  results           LocalKpiResult[]
+  historyPoints     LocalKpiHistoryPoint[]
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([organizationId, createdAt])
+  @@index([businessDictionaryFieldId])
+}
+
+model LocalKpiResult {
+  id                String       @id
+  organizationId    String
+  kpiId             String
+  importId          String?
+  name              String
+  displayFieldLabel String?
+  calculationType   String
+  direction         KpiDirection @default(HIGHER_IS_BETTER)
+  value             Float
+  targetValue       Float?
+  warningThreshold  Float?
+  criticalThreshold Float?
+  status            String
+  trend             String?
+  variation         Float?
+  sourceFileName    String
+  persistedSource   String       @default("prisma")
+  metadata          Json?
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  kpiConfiguration  LocalKpiConfiguration @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+  calculatedAt      DateTime
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([kpiId])
+  @@index([calculatedAt])
+}
+
+model LocalKpiHistoryPoint {
+  id                String       @id
+  organizationId    String
+  kpiId             String
+  importId          String?
+  calculatedAt      DateTime
+  value             Float
+  status            String
+  direction         KpiDirection @default(HIGHER_IS_BETTER)
+  targetValue       Float?
+  warningThreshold  Float?
+  criticalThreshold Float?
+  sourceFileName    String?
+  trend             String?
+  variation         Float?
+  persistedSource   String       @default("prisma")
+  metadata          Json?
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  kpiConfiguration  LocalKpiConfiguration @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([kpiId])
+  @@index([calculatedAt])
 }

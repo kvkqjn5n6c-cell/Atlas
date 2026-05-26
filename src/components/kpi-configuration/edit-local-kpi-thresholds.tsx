@@ -11,6 +11,7 @@ import { getLocalImportById } from "@/lib/local/local-import-store";
 import { saveLocalKpiConfiguration } from "@/lib/local/local-kpi-store";
 import { saveLocalKpiHistoryPoint } from "@/lib/local/local-kpi-history-store";
 import { getLocalKpiResults, saveLocalKpiResult } from "@/lib/local/local-kpi-results-store";
+import { persistLocalKpiSnapshotAction } from "@/lib/actions/local-kpi-persistence-actions";
 import type { KpiDirection, LocalKpiConfiguration } from "@/types/local-kpi";
 import type { LocalKpiThresholdChange } from "@/types/local-kpi-history";
 
@@ -92,7 +93,14 @@ export function EditLocalKpiThresholds({
 
       saveLocalKpiConfiguration(nextKpiWithResult);
       saveLocalKpiResult(nextResult);
-      saveLocalKpiHistoryPoint(buildLocalKpiHistoryPoint(nextResult));
+      const historyPoint = buildLocalKpiHistoryPoint(nextResult);
+      saveLocalKpiHistoryPoint(historyPoint);
+      void persistLocalKpiSnapshotAction({
+        organizationId: nextKpiWithResult.organizationId,
+        kpi: nextKpiWithResult,
+        result: nextResult,
+        historyPoint
+      });
       setMessage("Seuils modifiés localement, KPI recalculé et historique mis à jour.");
     } else {
       saveLocalKpiConfiguration(nextKpi);

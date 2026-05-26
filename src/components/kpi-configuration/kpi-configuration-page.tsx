@@ -2,6 +2,7 @@ import { Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { canConfigureKPI, getActiveUser } from "@/lib/auth/permissions";
+import { getDataMode } from "@/lib/config/data-mode";
 import { KpiCatalogTable } from "./kpi-catalog-table";
 import { KpiConfigPanel } from "./kpi-config-panel";
 import { KpiTestResult } from "./kpi-test-result";
@@ -10,13 +11,17 @@ import { LocalKpiConfigurations } from "./local-kpi-configurations";
 export function KpiConfigurationPage() {
   const activeUser = getActiveUser();
   const canEdit = canConfigureKPI(activeUser);
+  const dataMode = getDataMode();
 
   return (
     <div className="space-y-6">
       <section className="rounded-lg border border-line bg-white p-6 shadow-soft">
         <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
           <div>
-            <Badge variant="brand">Configuration KPI</Badge>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="brand">Configuration KPI</Badge>
+              <Badge>{dataMode === "prisma" ? "Mode Prisma" : "Mode local"}</Badge>
+            </div>
             <h2 className="mt-4 text-3xl font-semibold tracking-tight text-ink">
               Règles de calcul et objectifs
             </h2>

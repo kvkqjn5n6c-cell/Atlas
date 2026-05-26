@@ -13,6 +13,12 @@ import type { BusinessDictionaryField } from "@/types/business-dictionary";
 import type { BusinessDictionaryData } from "@/lib/services/business-dictionary.service";
 import type { ServiceResult } from "@/types/service-results";
 
+function formatSourceBadge(source: BusinessDictionaryData["source"]) {
+  if (source === "prisma") return "Mode Prisma";
+  if (source === "fallback") return "Fallback local actif";
+  return "Mode local";
+}
+
 export function BusinessDictionaryPage({ result }: { result: ServiceResult<BusinessDictionaryData> }) {
   const [fields, setFields] = useState<BusinessDictionaryField[]>(result.data.fields);
   const [selectedField, setSelectedField] = useState<BusinessDictionaryField | undefined>();
@@ -45,7 +51,7 @@ export function BusinessDictionaryPage({ result }: { result: ServiceResult<Busin
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="brand">Dictionnaire métier</Badge>
-              <Badge>{result.data.source === "prisma" ? "Prisma" : result.data.source === "fallback" ? "Fallback local" : "Local"}</Badge>
+              <Badge>{formatSourceBadge(result.data.source)}</Badge>
               {result.warning ? <Badge variant="warning">{result.warning}</Badge> : null}
             </div>
             <h2 className="mt-4 text-3xl font-semibold tracking-tight text-ink">

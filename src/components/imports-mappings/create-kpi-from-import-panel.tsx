@@ -16,6 +16,7 @@ import { getLocalKpiResults, saveLocalKpiResult } from "@/lib/local/local-kpi-re
 import { updateLocalImport } from "@/lib/local/local-import-store";
 import { registerBusinessFieldUsage } from "@/lib/local/business-dictionary-store";
 import { registerBusinessFieldUsageAction } from "@/lib/actions/business-dictionary-actions";
+import { persistLocalKpiSnapshotAction } from "@/lib/actions/local-kpi-persistence-actions";
 import { formatAtlasField } from "@/lib/formatters/status-labels";
 import type { KpiImpactCandidate } from "@/lib/data-pipeline/kpi-impact";
 import type { AtlasField, KPIConfigurationDraft, PerformanceKPI } from "@/types/atlas";
@@ -251,7 +252,14 @@ export function CreateKpiFromImportPanel({
 
     saveLocalKpiConfiguration(kpi);
     saveLocalKpiResult(localKpiResult);
-    saveLocalKpiHistoryPoint(buildLocalKpiHistoryPoint(localKpiResult));
+    const historyPoint = buildLocalKpiHistoryPoint(localKpiResult);
+    saveLocalKpiHistoryPoint(historyPoint);
+    void persistLocalKpiSnapshotAction({
+      organizationId: kpi.organizationId,
+      kpi,
+      result: localKpiResult,
+      historyPoint
+    });
     updateLocalImport({
       ...importData,
       updatedAt: new Date().toISOString(),

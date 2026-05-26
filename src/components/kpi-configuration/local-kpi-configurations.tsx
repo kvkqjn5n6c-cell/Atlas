@@ -18,6 +18,7 @@ import {
 } from "@/lib/local/local-kpi-history-store";
 import { deleteLocalKpiResult, getLocalKpiResults, saveLocalKpiResult } from "@/lib/local/local-kpi-results-store";
 import { deleteLocalKpiConfiguration, getLocalKpiConfigurations, saveLocalKpiConfiguration } from "@/lib/local/local-kpi-store";
+import { deleteLocalKpiSnapshotAction, persistLocalKpiSnapshotAction } from "@/lib/actions/local-kpi-persistence-actions";
 import type { LocalKpiConfiguration, LocalKpiTestStatus } from "@/types/local-kpi";
 import { EditLocalKpiThresholds } from "./edit-local-kpi-thresholds";
 
@@ -88,7 +89,14 @@ export function LocalKpiConfigurations() {
 
     saveLocalKpiConfiguration(nextKpi);
     saveLocalKpiResult(nextResult);
-    saveLocalKpiHistoryPoint(buildLocalKpiHistoryPoint(nextResult));
+    const historyPoint = buildLocalKpiHistoryPoint(nextResult);
+    saveLocalKpiHistoryPoint(historyPoint);
+    void persistLocalKpiSnapshotAction({
+      organizationId: nextKpi.organizationId,
+      kpi: nextKpi,
+      result: nextResult,
+      historyPoint
+    });
     reloadKpis();
   }
 
@@ -105,6 +113,7 @@ export function LocalKpiConfigurations() {
     deleteLocalKpiConfiguration(id);
     deleteLocalKpiResult(id);
     deleteLocalKpiHistoryByKpiId(id);
+    void deleteLocalKpiSnapshotAction({ kpiId: id, resultId: id });
     reloadKpis();
   }
 

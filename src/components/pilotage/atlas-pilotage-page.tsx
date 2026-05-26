@@ -28,6 +28,7 @@ import {
 } from "@/lib/formatters/status-labels";
 import { actionPlansMock } from "@/lib/mock/action-plans";
 import { alertsMock } from "@/lib/mock/alerts";
+import { getDataMode } from "@/lib/config/data-mode";
 import { activeOrganization } from "@/lib/mock/organizations";
 import { performanceKpisMock } from "@/lib/mock/kpis";
 import { reportsMock } from "@/lib/mock/reports";
@@ -137,6 +138,7 @@ function GlobalTrendCard({ trend }: { trend: PerformanceTrend }) {
 }
 
 export function AtlasPilotagePage() {
+  const dataMode = getDataMode();
   const score = calculatePerformanceScore(performanceKpisMock, alertsMock);
   const kpis = splitKpisByPriority(performanceKpisMock);
   const executiveSummary = generateExecutiveSummary(performanceKpisMock, alertsMock, reportsMock);
@@ -150,7 +152,10 @@ export function AtlasPilotagePage() {
     <div className="space-y-6">
       <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="rounded-lg border border-line bg-white p-6 shadow-soft">
-          <Badge variant="brand">Pilotage Atlas</Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="brand">Pilotage Atlas</Badge>
+            <Badge>{dataMode === "prisma" ? "Mode Prisma" : "Mode local"}</Badge>
+          </div>
           <h2 className="mt-4 text-3xl font-semibold tracking-tight text-ink">
             {activeOrganization.name}
           </h2>
