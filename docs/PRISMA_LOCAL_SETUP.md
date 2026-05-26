@@ -49,6 +49,54 @@ Pour valider le schéma sans base active :
 npx.cmd prisma validate
 ```
 
+## Préparer PostgreSQL local
+
+Atlas attend une base PostgreSQL locale accessible avec :
+
+```env
+DATABASE_URL="postgresql://atlas:atlas@localhost:5432/atlas"
+```
+
+Option PostgreSQL installé localement :
+
+1. Installer PostgreSQL pour Windows depuis l'installeur officiel ou via un gestionnaire local déjà utilisé sur la machine.
+2. Créer l'utilisateur et la base :
+
+```sql
+CREATE USER atlas WITH PASSWORD 'atlas';
+CREATE DATABASE atlas OWNER atlas;
+GRANT ALL PRIVILEGES ON DATABASE atlas TO atlas;
+```
+
+3. Définir les variables dans un fichier `.env` local ou dans le terminal courant :
+
+```powershell
+$env:DATA_MODE="prisma"
+$env:DATABASE_URL="postgresql://atlas:atlas@localhost:5432/atlas"
+```
+
+4. Lancer :
+
+```powershell
+npx.cmd prisma validate
+npx.cmd prisma migrate dev
+npm.cmd run prisma:generate
+npm.cmd run prisma:seed
+```
+
+Docker n'est pas requis par Atlas. Il peut être utilisé plus tard si l'équipe veut standardiser l'environnement, mais cette phase reste compatible avec une installation PostgreSQL locale classique.
+
+## Résultat de validation Phase 26
+
+Validation réalisée dans cet environnement :
+
+- `npx.cmd prisma validate` : OK avec `DATABASE_URL` temporaire.
+- `npm.cmd run prisma:generate` : OK.
+- `npx.cmd prisma migrate dev` : bloqué, car aucun serveur PostgreSQL local n'est disponible sur `localhost:5432`.
+- `DATA_MODE=prisma` : les repositories tentent bien l'écriture Prisma et repassent en fallback local lorsque la base est indisponible.
+
+Le blocage est donc infrastructurel, pas applicatif : installer/démarrer PostgreSQL local et créer la base `atlas` permettra d'exécuter la migration.
+
 ## Migration douce
 
 Les composants continuent d'écrire d'abord dans les stores locaux pour préserver l'expérience utilisateur. Une action serveur tente ensuite une persistance Prisma non bloquante :

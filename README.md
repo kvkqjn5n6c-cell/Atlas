@@ -102,3 +102,11 @@ Le cockpit principal est disponible sur `http://localhost:3000/pilotage`.
 ## Mode De Donnees
 
 Atlas utilise `DATA_MODE=mock` par defaut. `DATA_MODE=prisma` active progressivement les repositories compatibles Prisma, avec fallback mock/local si la base n'est pas disponible.
+
+Pour tester une vraie base locale, Atlas attend par convention :
+
+```env
+DATABASE_URL="postgresql://atlas:atlas@localhost:5432/atlas"
+```
+
+Les etapes PostgreSQL locales sont detaillees dans [docs/PRISMA_LOCAL_SETUP.md](docs/PRISMA_LOCAL_SETUP.md).
