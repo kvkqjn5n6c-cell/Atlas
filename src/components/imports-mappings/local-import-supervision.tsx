@@ -16,6 +16,7 @@ import {
 } from "@/lib/data-pipeline/mapping-suggestions";
 import { clearLastLocalImport, getLastLocalImport, saveLastLocalImport } from "@/lib/local/local-import-store";
 import { formatAtlasField } from "@/lib/formatters/status-labels";
+import { registerBusinessFieldUsage } from "@/lib/local/business-dictionary-store";
 import type { AtlasField } from "@/types/atlas";
 import type { KpiImpactCandidate } from "@/lib/data-pipeline/kpi-impact";
 import type { LocalValidatedColumnMapping, LocalValidatedImport, MappingFieldType } from "@/types/data-import";
@@ -135,6 +136,21 @@ export function LocalImportSupervision() {
       mapping.sourceColumn === sourceColumn ? { ...mapping, ...patch } : mapping
     );
     const nextMapping = nextMappings.find((mapping) => mapping.sourceColumn === sourceColumn) ?? previousMapping;
+
+    if (getMappingFieldType(nextMapping) === "custom" && nextMapping.customFieldLabel?.trim()) {
+      const dictionaryField = registerBusinessFieldUsage({
+        organizationId: localImport.simulatedImportJob.organizationId,
+        label: nextMapping.customFieldLabel,
+        sourceColumn: nextMapping.sourceColumn,
+        detectedType: nextMapping.detectedType,
+        tags: ["mapping-local"]
+      });
+      if (dictionaryField) {
+        nextMapping.dictionaryFieldId = dictionaryField.id;
+        nextMapping.dictionaryConfidence = 100;
+        nextMapping.dictionaryReason = "Champ métier mémorisé localement.";
+      }
+    }
 
     addCorrection(sourceColumn, formatMappingValue(previousMapping), formatMappingValue(nextMapping), action);
     persistImport({ ...localImport, mappings: nextMappings });
@@ -285,7 +301,20 @@ export function LocalImportSupervision() {
                     return (
                       <tr key={mapping.sourceColumn} className="hover:bg-slate-50">
                         <td className="px-4 py-3 font-semibold text-ink">{mapping.sourceColumn}</td>
-                        <td className="px-4 py-3 text-slate-600">{mapping.detectedType}</td>
+                        <td className="px-4 py-3 text-slate-600">
+                          <div className="space-y-1">
+                            <p>{mapping.detectedType}</p>
+                            {mapping.dictionaryFieldId ? (
+                              <div className="flex flex-wrap gap-1">
+                                <Badge variant="brand">Reconnu</Badge>
+                                <Badge variant="success">Confiance {mapping.dictionaryConfidence}%</Badge>
+                              </div>
+                            ) : null}
+                            {mapping.dictionaryReason ? (
+                              <p className="text-xs text-slate-500">{mapping.dictionaryReason}</p>
+                            ) : null}
+                          </div>
+                        </td>
                         <td className="px-4 py-3">
                           <select
                             value={fieldType}

@@ -40,6 +40,9 @@ export type LocalColumnMapping = {
   fieldType?: MappingFieldType;
   mappedAtlasField?: AtlasField;
   customFieldLabel?: string;
+  dictionaryFieldId?: string;
+  dictionaryConfidence?: number;
+  dictionaryReason?: string;
 };
 
 export type LocalMappingValidation = {

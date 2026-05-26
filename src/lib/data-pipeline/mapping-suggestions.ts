@@ -1,5 +1,6 @@
 import type { AtlasField } from "@/types/atlas";
 import type { DetectedColumn, LocalColumnMapping, LocalMappingValidation } from "@/types/data-import";
+import { suggestBusinessDictionaryField } from "@/lib/data-pipeline/business-dictionary-suggestions";
 
 export const atlasFieldOptions: { value: AtlasField; label: string }[] = [
   { value: "Date", label: "Date" },
@@ -66,13 +67,30 @@ export function getMappingDisplayLabel(mapping: LocalColumnMapping) {
   return atlasFieldOptions.find((option) => option.value === getEffectiveAtlasField(mapping))?.label ?? mapping.sourceColumn;
 }
 
-export function buildInitialMappings(columns: DetectedColumn[]): LocalColumnMapping[] {
-  return columns.map((column) => ({
-    sourceColumn: column.name,
-    atlasField: column.suggestedAtlasField,
-    mappedAtlasField: column.suggestedAtlasField,
-    fieldType: column.suggestedAtlasField === "NonMappe" ? "unused" : "standard"
-  }));
+export function buildInitialMappings(columns: DetectedColumn[], organizationId = "org-atlas-demo"): LocalColumnMapping[] {
+  return columns.map((column) => {
+    const dictionarySuggestion = suggestBusinessDictionaryField(organizationId, column.name);
+
+    if (dictionarySuggestion.matched && dictionarySuggestion.suggestedField) {
+      return {
+        sourceColumn: column.name,
+        atlasField: "NonMappe",
+        mappedAtlasField: "NonMappe",
+        fieldType: "custom",
+        customFieldLabel: dictionarySuggestion.suggestedField.label,
+        dictionaryFieldId: dictionarySuggestion.suggestedField.id,
+        dictionaryConfidence: dictionarySuggestion.confidence,
+        dictionaryReason: dictionarySuggestion.reason
+      };
+    }
+
+    return {
+      sourceColumn: column.name,
+      atlasField: column.suggestedAtlasField,
+      mappedAtlasField: column.suggestedAtlasField,
+      fieldType: column.suggestedAtlasField === "NonMappe" ? "unused" : "standard"
+    };
+  });
 }
 
 export function validateLocalMapping(mappings: LocalColumnMapping[]): LocalMappingValidation {

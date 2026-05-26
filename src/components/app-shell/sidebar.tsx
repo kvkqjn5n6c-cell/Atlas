@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
+  BookOpenText,
   Building2,
   ClipboardList,
   Database,
@@ -50,6 +51,7 @@ const adminNavigation = [
   { name: "Sources de données", href: "/data-sources", icon: Database },
   { name: "Configuration KPI", href: "/kpi-configuration", icon: Gauge },
   { name: "Imports & mappings", href: "/imports-mappings", icon: UploadCloud },
+  { name: "Dictionnaire métier", href: "/business-dictionary", icon: BookOpenText },
   { name: "Utilisateurs", href: "/users", icon: Users },
   { name: "Paramètres", href: "/settings", icon: Settings }
 ];
