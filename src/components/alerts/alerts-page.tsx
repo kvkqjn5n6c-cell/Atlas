@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
 import { generateLocalKpiAlerts, type LocalKpiAlert } from "@/lib/kpi-engine/local-kpi-alerts";
+import { getLocalAlertRules } from "@/lib/local/local-alert-rules-store";
+import { getLocalKpiHistory } from "@/lib/local/local-kpi-history-store";
 import { getLocalKpiResults } from "@/lib/local/local-kpi-results-store";
 import { actionPlansMock } from "@/lib/mock/action-plans";
 import { alertsMock } from "@/lib/mock/alerts";
@@ -89,14 +91,18 @@ function buildLocalAlerts(localAlerts: LocalKpiAlert[]): UnifiedAlert[] {
     linkedLabel: alert.title.replace(" en zone critique", "").replace(" à surveiller", ""),
     linkedHref: "/kpi-configuration",
     cause: alert.cause,
-    message: `Valeur ${alert.value}. Objectif ${alert.targetValue ?? "non défini"}. ${formatKpiDirection(alert.direction)}.`,
+    message: alert.alertSource === "rule"
+      ? `Règle déclenchée : ${alert.ruleName}. Condition : ${alert.condition}. Valeur observée : ${alert.observedValue ?? alert.value}.`
+      : `Valeur ${alert.value}. Objectif ${alert.targetValue ?? "non défini"}. ${formatKpiDirection(alert.direction)}.`,
     businessImpact: alert.businessImpact,
     executiveRisk: "performance locale",
     recommendedAction: alert.recommendedAction,
     status: "open",
     actionPlan: "À créer depuis le KPI personnalisé",
     type: "local",
-    badges: ["Alerte locale", "KPI personnalisé", "Donnée locale"],
+    badges: alert.alertSource === "rule"
+      ? ["Alerte locale", "KPI personnalisé", "Donnée locale", "Règle personnalisée"]
+      : ["Alerte locale", "KPI personnalisé", "Donnée locale"],
     localAlert: alert
   }));
 }
@@ -109,7 +115,7 @@ export function AlertsPage() {
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      setLocalAlerts(generateLocalKpiAlerts(getLocalKpiResults()));
+      setLocalAlerts(generateLocalKpiAlerts(getLocalKpiResults(), getLocalKpiHistory(), getLocalAlertRules()));
     }, 0);
 
     return () => window.clearTimeout(timeoutId);

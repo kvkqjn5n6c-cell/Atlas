@@ -21,6 +21,7 @@ import { deleteLocalKpiConfiguration, getLocalKpiConfigurations, saveLocalKpiCon
 import { deleteLocalKpiSnapshotAction, persistLocalKpiSnapshotAction } from "@/lib/actions/local-kpi-persistence-actions";
 import type { LocalKpiConfiguration, LocalKpiTestStatus } from "@/types/local-kpi";
 import { EditLocalKpiThresholds } from "./edit-local-kpi-thresholds";
+import { LocalAlertRulesPanel } from "./local-alert-rules-panel";
 
 const calculationLabels: Record<LocalKpiConfiguration["calculationType"], string> = {
   sum: "Somme",
@@ -210,6 +211,7 @@ export function LocalKpiConfigurations() {
                   </div>
 
                   <EditLocalKpiThresholds kpi={kpi} onUpdated={reloadKpis} />
+                  <LocalAlertRulesPanel kpi={kpi} />
                 </article>
               );
             })}

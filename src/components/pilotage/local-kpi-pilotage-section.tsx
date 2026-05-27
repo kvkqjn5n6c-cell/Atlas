@@ -6,9 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { formatKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
+import { generateLocalKpiAlerts } from "@/lib/kpi-engine/local-kpi-alerts";
 import { calculateScoreWithLocalKpis } from "@/lib/kpi-engine/local-kpi-results";
 import { formatVariation } from "@/lib/kpi-engine/local-kpi-trends";
-import { getLocalKpiHistoryByKpiId } from "@/lib/local/local-kpi-history-store";
+import { getLocalAlertRules } from "@/lib/local/local-alert-rules-store";
+import { getLocalKpiHistory, getLocalKpiHistoryByKpiId } from "@/lib/local/local-kpi-history-store";
 import { getLocalKpiResults } from "@/lib/local/local-kpi-results-store";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
 
@@ -72,6 +74,8 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
   const adjustedScore = calculateScoreWithLocalKpis(baseScore, results);
   const criticalCount = results.filter((result) => result.status === "critical").length;
   const watchCount = results.filter((result) => result.status === "watch").length;
+  const ruleAlertCount = generateLocalKpiAlerts(results, getLocalKpiHistory(), getLocalAlertRules())
+    .filter((alert) => alert.alertSource === "rule").length;
 
   return (
     <section className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
@@ -93,6 +97,7 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
           <div className="mt-4 flex flex-wrap gap-2">
             <Badge variant={criticalCount > 0 ? "danger" : "default"}>{criticalCount} critiques</Badge>
             <Badge variant={watchCount > 0 ? "warning" : "default"}>{watchCount} à surveiller</Badge>
+            {ruleAlertCount > 0 ? <Badge variant="warning">{ruleAlertCount} règle(s) déclenchée(s)</Badge> : null}
           </div>
         </CardContent>
       </Card>

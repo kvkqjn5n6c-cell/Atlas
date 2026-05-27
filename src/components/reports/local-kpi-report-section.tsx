@@ -3,8 +3,11 @@
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { generateLocalKpiAlerts } from "@/lib/kpi-engine/local-kpi-alerts";
 import { formatKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
 import { formatVariation } from "@/lib/kpi-engine/local-kpi-trends";
+import { getLocalAlertRules } from "@/lib/local/local-alert-rules-store";
+import { getLocalKpiHistory } from "@/lib/local/local-kpi-history-store";
 import { getLocalKpiResults } from "@/lib/local/local-kpi-results-store";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
 
@@ -31,9 +34,17 @@ function impactForResult(result: LocalKpiResult) {
 
 export function LocalKpiReportSection() {
   const [results, setResults] = useState<LocalKpiResult[]>([]);
+  const [ruleAlertCount, setRuleAlertCount] = useState(0);
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => setResults(getLocalKpiResults().slice(0, 6)), 0);
+    const timeoutId = window.setTimeout(() => {
+      const localResults = getLocalKpiResults();
+      setResults(localResults.slice(0, 6));
+      setRuleAlertCount(
+        generateLocalKpiAlerts(localResults, getLocalKpiHistory(), getLocalAlertRules())
+          .filter((alert) => alert.alertSource === "rule").length
+      );
+    }, 0);
     return () => window.clearTimeout(timeoutId);
   }, []);
 
@@ -57,6 +68,7 @@ export function LocalKpiReportSection() {
           <CardTitle>KPI personnalisés récents</CardTitle>
           <Badge variant="brand">Données importées</Badge>
           <Badge>Non persisté</Badge>
+          {ruleAlertCount > 0 ? <Badge variant="warning">{ruleAlertCount} règle(s) personnalisée(s) déclenchée(s)</Badge> : null}
         </div>
       </CardHeader>
       <CardContent>
