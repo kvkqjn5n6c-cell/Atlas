@@ -108,6 +108,28 @@ enum AlertStatus {
   RESOLVED
 }
 
+enum AlertRuleType {
+  THRESHOLD
+  TARGET_GAP
+  VARIATION
+  PERSISTENCE
+}
+
+enum AlertRuleSeverity {
+  WARNING
+  CRITICAL
+}
+
+enum AlertComparisonOperator {
+  GREATER_THAN
+  LESS_THAN
+  TARGET_GAP_GREATER_THAN
+  TARGET_GAP_LESS_THAN
+  VARIATION_UP_GREATER_THAN
+  VARIATION_DOWN_GREATER_THAN
+  CONSECUTIVE_PERIODS
+}
+
 enum ActionPriority {
   HIGH
   MEDIUM
@@ -151,6 +173,7 @@ model Organization {
   localKpiConfigurations LocalKpiConfiguration[]
   localKpiResults   LocalKpiResult[]
   localKpiHistoryPoints LocalKpiHistoryPoint[]
+  localAlertRules   LocalAlertRule[]
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
@@ -265,6 +288,7 @@ model KPIConfiguration {
   results         KPIResult[]
   alerts          ActionPlan[]
   businessDictionaryLinks BusinessDictionaryLinkedKpi[]
+  localAlertRules LocalAlertRule[]
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
@@ -437,6 +461,7 @@ model LocalKpiConfiguration {
   businessDictionaryField BusinessDictionaryField? @relation(fields: [businessDictionaryFieldId], references: [id], onDelete: SetNull)
   results           LocalKpiResult[]
   historyPoints     LocalKpiHistoryPoint[]
+  alertRules        LocalAlertRule[]
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
@@ -473,6 +498,35 @@ model LocalKpiResult {
   @@index([organizationId])
   @@index([kpiId])
   @@index([calculatedAt])
+}
+
+model LocalAlertRule {
+  id                      String                  @id
+  organizationId          String
+  localKpiConfigurationId String?
+  kpiConfigurationId      String?
+  name                    String
+  isActive                Boolean                 @default(true)
+  ruleType                AlertRuleType
+  severity                AlertRuleSeverity
+  comparisonOperator      AlertComparisonOperator
+  thresholdValue          Float?
+  consecutivePeriods      Int?
+  variationPercent        Float?
+  message                 String?
+  recommendedAction       String?
+  persistedSource         String                  @default("prisma")
+  metadata                Json?
+  organization            Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  localKpiConfiguration   LocalKpiConfiguration?  @relation(fields: [localKpiConfigurationId], references: [id], onDelete: Cascade)
+  kpiConfiguration        KPIConfiguration?       @relation(fields: [kpiConfigurationId], references: [id], onDelete: SetNull)
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+
+  @@index([organizationId])
+  @@index([localKpiConfigurationId])
+  @@index([kpiConfigurationId])
+  @@index([isActive])
 }
 
 model LocalKpiHistoryPoint {

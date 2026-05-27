@@ -23,6 +23,7 @@ Le document produit de reference est disponible dans [docs/PRODUCT_BLUEPRINT.md]
 Le modele de donnees cible est documente dans [docs/DATA_MODEL.md](docs/DATA_MODEL.md).
 La strategie de persistance progressive est decrite dans [docs/DATA_PERSISTENCE.md](docs/DATA_PERSISTENCE.md).
 La persistance Prisma locale optionnelle est decrite dans [docs/PRISMA_LOCAL_SETUP.md](docs/PRISMA_LOCAL_SETUP.md).
+Les regles d'alerte KPI sont documentees dans [docs/ALERT_RULES.md](docs/ALERT_RULES.md).
 
 ## Navigation Cible
 

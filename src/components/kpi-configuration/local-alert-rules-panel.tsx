@@ -10,6 +10,12 @@ import {
   saveLocalAlertRule,
   updateLocalAlertRule
 } from "@/lib/local/local-alert-rules-store";
+import {
+  deleteLocalAlertRuleAction,
+  saveLocalAlertRuleAction,
+  toggleLocalAlertRuleAction,
+  updateLocalAlertRuleAction
+} from "@/lib/actions/local-alert-rules-actions";
 import type {
   LocalAlertComparisonOperator,
   LocalAlertRule,
@@ -17,6 +23,8 @@ import type {
   LocalAlertRuleType
 } from "@/types/local-alert-rules";
 import type { LocalKpiConfiguration } from "@/types/local-kpi";
+
+type PersistenceSource = "local" | "prisma" | "fallback";
 
 const ruleTypeOptions: { value: LocalAlertRuleType; label: string }[] = [
   { value: "threshold", label: "Seuil simple" },
@@ -45,6 +53,7 @@ function defaultDraft(kpi: LocalKpiConfiguration): LocalAlertRule {
 
   return {
     id: `local-alert-rule-${kpi.id}-${Date.now()}`,
+    organizationId: kpi.organizationId,
     kpiId: kpi.id,
     name: isLowerBetter ? "Dépassement à surveiller" : "Sous-performance à surveiller",
     isActive: true,
@@ -91,15 +100,23 @@ function validateRule(rule: LocalAlertRule) {
 }
 
 function conditionLabel(rule: LocalAlertRule) {
+  const operatorLabel = operatorOptions.find((option) => option.value === rule.comparisonOperator)?.label;
   if (needsPeriods(rule)) return `${rule.consecutivePeriods ?? 2} périodes consécutives`;
-  if (needsVariation(rule)) return `${operatorOptions.find((option) => option.value === rule.comparisonOperator)?.label} ${rule.variationPercent ?? 0} %`;
-  return `${operatorOptions.find((option) => option.value === rule.comparisonOperator)?.label} ${rule.thresholdValue ?? 0}`;
+  if (needsVariation(rule)) return `${operatorLabel} ${rule.variationPercent ?? 0} %`;
+  return `${operatorLabel} ${rule.thresholdValue ?? 0}`;
+}
+
+function sourceLabel(source: PersistenceSource) {
+  if (source === "prisma") return "Prisma";
+  if (source === "fallback") return "Fallback local";
+  return "Local";
 }
 
 export function LocalAlertRulesPanel({ kpi }: { kpi: LocalKpiConfiguration }) {
   const [isOpen, setIsOpen] = useState(false);
   const [rules, setRules] = useState<LocalAlertRule[]>([]);
   const [draft, setDraft] = useState<LocalAlertRule>(() => defaultDraft(kpi));
+  const [source, setSource] = useState<PersistenceSource>("local");
 
   const reloadRules = useCallback(() => {
     setRules(getLocalAlertRulesByKpiId(kpi.id));
@@ -126,13 +143,21 @@ export function LocalAlertRulesPanel({ kpi }: { kpi: LocalKpiConfiguration }) {
     }));
   }
 
+  function persistSource(promise: Promise<{ source: PersistenceSource }>) {
+    void promise.then((result) => setSource(result.source)).catch(() => setSource("fallback"));
+  }
+
   function saveRule() {
     if (validation.errors.length > 0) return;
-    saveLocalAlertRule({
+    const nextRule = {
       ...draft,
+      organizationId: kpi.organizationId,
       condition: conditionLabel(draft),
       updatedAt: new Date().toISOString()
-    });
+    };
+
+    saveLocalAlertRule(nextRule);
+    persistSource(saveLocalAlertRuleAction({ organizationId: kpi.organizationId, rule: nextRule }));
     setDraft(defaultDraft(kpi));
     reloadRules();
   }
@@ -143,12 +168,15 @@ export function LocalAlertRulesPanel({ kpi }: { kpi: LocalKpiConfiguration }) {
   }
 
   function toggleRule(rule: LocalAlertRule) {
-    updateLocalAlertRule({ ...rule, isActive: !rule.isActive });
+    const nextRule = { ...rule, isActive: !rule.isActive, updatedAt: new Date().toISOString() };
+    updateLocalAlertRule(nextRule);
+    persistSource(toggleLocalAlertRuleAction({ organizationId: kpi.organizationId, rule }));
     reloadRules();
   }
 
   function deleteRule(id: string) {
     deleteLocalAlertRule(id);
+    persistSource(deleteLocalAlertRuleAction(id));
     reloadRules();
   }
 
@@ -156,13 +184,13 @@ export function LocalAlertRulesPanel({ kpi }: { kpi: LocalKpiConfiguration }) {
     <div className="mt-4 rounded-md border border-line bg-slate-50 p-4">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="brand">R?gles d&apos;alerte</Badge>
+          <Badge variant="brand">Règles d&apos;alerte</Badge>
           <Badge>{rules.length} règle(s)</Badge>
-          <Badge>Local</Badge>
+          <Badge variant={source === "fallback" ? "warning" : "default"}>{sourceLabel(source)}</Badge>
         </div>
         <Button className="h-9 justify-center" onClick={() => setIsOpen((current) => !current)}>
           <BellRing className="h-4 w-4" aria-hidden="true" />
-          R?gles d&apos;alerte
+          Règles d&apos;alerte
         </Button>
       </div>
 

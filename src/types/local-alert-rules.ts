@@ -11,7 +11,9 @@ export type LocalAlertComparisonOperator =
 
 export type LocalAlertRule = {
   id: string;
+  organizationId?: string;
   kpiId: string;
+  kpiConfigurationId?: string;
   name: string;
   isActive: boolean;
   ruleType: LocalAlertRuleType;
