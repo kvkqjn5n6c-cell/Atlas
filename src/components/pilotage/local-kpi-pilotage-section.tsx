@@ -5,6 +5,7 @@ import { ArrowDownRight, ArrowRight, ArrowUpRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { generateLocalKpiInsights } from "@/lib/insights/local-insights-engine";
 import { formatKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
 import { generateLocalKpiAlerts } from "@/lib/kpi-engine/local-kpi-alerts";
 import { calculateScoreWithLocalKpis } from "@/lib/kpi-engine/local-kpi-results";
@@ -12,6 +13,7 @@ import { formatVariation } from "@/lib/kpi-engine/local-kpi-trends";
 import { getLocalAlertRules } from "@/lib/local/local-alert-rules-store";
 import { getLocalKpiHistory, getLocalKpiHistoryByKpiId } from "@/lib/local/local-kpi-history-store";
 import { getLocalKpiResults } from "@/lib/local/local-kpi-results-store";
+import type { LocalInsight } from "@/types/local-insights";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
 
 const statusVariant = {
@@ -38,6 +40,18 @@ const calculationLabels: Record<LocalKpiResult["calculationType"], string> = {
   "period-change": "Évolution période"
 };
 
+const insightVariant = {
+  info: "default",
+  watch: "warning",
+  critical: "danger"
+} as const;
+
+const insightLabels = {
+  info: "Information",
+  watch: "À surveiller",
+  critical: "Critique"
+} as const;
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("fr-FR", {
     dateStyle: "short",
@@ -52,9 +66,17 @@ function TrendIcon({ trend }: { trend?: LocalKpiResult["trend"] }) {
 
 export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
   const [results, setResults] = useState<LocalKpiResult[]>([]);
+  const [insights, setInsights] = useState<LocalInsight[]>([]);
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => setResults(getLocalKpiResults()), 0);
+    const timeoutId = window.setTimeout(() => {
+      const localResults = getLocalKpiResults();
+      const localHistory = getLocalKpiHistory();
+      const localRules = getLocalAlertRules();
+      const localAlerts = generateLocalKpiAlerts(localResults, localHistory, localRules);
+      setResults(localResults);
+      setInsights(generateLocalKpiInsights(localResults, localHistory, localAlerts, localRules));
+    }, 0);
     return () => window.clearTimeout(timeoutId);
   }, []);
 
@@ -78,6 +100,7 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
     .filter((alert) => alert.alertSource === "rule").length;
 
   return (
+    <div className="space-y-6">
     <section className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
       <Card className="border-brand-100">
         <CardContent className="p-5">
@@ -158,5 +181,44 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
         </CardContent>
       </Card>
     </section>
+
+      <Card className="border-brand-100">
+        <CardHeader>
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle>Lecture Atlas des KPI personnalisés</CardTitle>
+            <Badge variant="brand">Déterministe</Badge>
+          </div>
+          <p className="mt-1 text-sm text-slate-500">
+            Analyse locale basée sur les valeurs, seuils, tendances, règles d&apos;alerte et historique disponible.
+          </p>
+        </CardHeader>
+        <CardContent>
+          {insights.length === 0 ? (
+            <p className="rounded-md border border-line bg-slate-50 p-4 text-sm text-slate-600">
+              Aucun insight local prioritaire pour l&apos;instant. Recalculez un KPI ou ajoutez une règle d&apos;alerte pour enrichir la lecture.
+            </p>
+          ) : (
+            <div className="grid gap-3 lg:grid-cols-2">
+              {insights.slice(0, 5).map((insight) => (
+                <article key={insight.id} className="rounded-md border border-line bg-slate-50 p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-semibold text-ink">{insight.title}</h3>
+                    <Badge variant={insightVariant[insight.severity]}>{insightLabels[insight.severity]}</Badge>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">{insight.summary}</p>
+                  {insight.evidence[0] ? (
+                    <p className="mt-2 text-xs text-slate-500">
+                      Preuve : {insight.evidence[0].kpiName} = {insight.evidence[0].value}
+                      {insight.evidence[0].variation !== undefined ? ` (${formatVariation(insight.evidence[0].variation)})` : ""}
+                    </p>
+                  ) : null}
+                  <p className="mt-3 text-sm font-medium text-ink">{insight.recommendedAction}</p>
+                </article>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }

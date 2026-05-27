@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatAlertSeverity, formatAlertStatus, formatAlertUrgency } from "@/lib/formatters/status-labels";
+import { generateLocalKpiInsights } from "@/lib/insights/local-insights-engine";
 import { formatKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
 import { generateLocalKpiAlerts, type LocalKpiAlert } from "@/lib/kpi-engine/local-kpi-alerts";
 import { getLocalAlertRules } from "@/lib/local/local-alert-rules-store";
@@ -12,9 +14,9 @@ import { getLocalKpiResults } from "@/lib/local/local-kpi-results-store";
 import { actionPlansMock } from "@/lib/mock/action-plans";
 import { alertsMock } from "@/lib/mock/alerts";
 import { dataSourcesMock } from "@/lib/mock/data-sources";
-import { formatAlertSeverity, formatAlertStatus, formatAlertUrgency } from "@/lib/formatters/status-labels";
 import { performanceKpisMock } from "@/lib/mock/kpis";
 import { organizationsMock } from "@/lib/mock/organizations";
+import type { LocalInsight } from "@/types/local-insights";
 
 type AlertSeverityFilter = "all" | "warning" | "critical";
 type AlertStatusFilter = "all" | "open" | "in-progress" | "resolved";
@@ -38,6 +40,7 @@ type UnifiedAlert = {
   type: "model" | "local";
   badges: string[];
   localAlert?: LocalKpiAlert;
+  insight?: LocalInsight;
 };
 
 const severityVariant = {
@@ -81,48 +84,62 @@ function buildModelAlerts(): UnifiedAlert[] {
   });
 }
 
-function buildLocalAlerts(localAlerts: LocalKpiAlert[]): UnifiedAlert[] {
-  return localAlerts.map((alert) => ({
-    id: alert.id,
-    title: alert.title,
-    organization: "Organisation active",
-    severity: alert.severity,
-    urgency: alert.severity === "critical" ? "Immédiate" : "Cette semaine",
-    linkedLabel: alert.title.replace(" en zone critique", "").replace(" à surveiller", ""),
-    linkedHref: "/kpi-configuration",
-    cause: alert.cause,
-    message: alert.alertSource === "rule"
-      ? `Règle déclenchée : ${alert.ruleName}. Condition : ${alert.condition}. Valeur observée : ${alert.observedValue ?? alert.value}.`
-      : `Valeur ${alert.value}. Objectif ${alert.targetValue ?? "non défini"}. ${formatKpiDirection(alert.direction)}.`,
-    businessImpact: alert.businessImpact,
-    executiveRisk: "performance locale",
-    recommendedAction: alert.recommendedAction,
-    status: "open",
-    actionPlan: "À créer depuis le KPI personnalisé",
-    type: "local",
-    badges: alert.alertSource === "rule"
-      ? ["Alerte locale", "KPI personnalisé", "Donnée locale", "Règle personnalisée"]
-      : ["Alerte locale", "KPI personnalisé", "Donnée locale"],
-    localAlert: alert
-  }));
+function buildLocalAlerts(localAlerts: LocalKpiAlert[], insights: LocalInsight[]): UnifiedAlert[] {
+  return localAlerts.map((alert) => {
+    const linkedInsight = insights.find((insight) =>
+      insight.relatedAlertIds?.includes(alert.id) || insight.relatedKpiIds.includes(alert.kpiId)
+    );
+
+    return {
+      id: alert.id,
+      title: alert.title,
+      organization: "Organisation active",
+      severity: alert.severity,
+      urgency: alert.severity === "critical" ? "Immédiate" : "Cette semaine",
+      linkedLabel: alert.title.replace(" en zone critique", "").replace(" à surveiller", ""),
+      linkedHref: "/kpi-configuration",
+      cause: alert.cause,
+      message: alert.alertSource === "rule"
+        ? `Règle déclenchée : ${alert.ruleName}. Condition : ${alert.condition}. Valeur observée : ${alert.observedValue ?? alert.value}.`
+        : `Valeur ${alert.value}. Objectif ${alert.targetValue ?? "non défini"}. ${formatKpiDirection(alert.direction)}.`,
+      businessImpact: alert.businessImpact,
+      executiveRisk: "performance locale",
+      recommendedAction: alert.recommendedAction,
+      status: "open",
+      actionPlan: "À créer depuis le KPI personnalisé",
+      type: "local",
+      badges: alert.alertSource === "rule"
+        ? ["Alerte locale", "KPI personnalisé", "Donnée locale", "Règle personnalisée"]
+        : ["Alerte locale", "KPI personnalisé", "Donnée locale"],
+      localAlert: alert,
+      insight: linkedInsight
+    };
+  });
 }
 
 export function AlertsPage() {
   const [localAlerts, setLocalAlerts] = useState<LocalKpiAlert[]>([]);
+  const [localInsights, setLocalInsights] = useState<LocalInsight[]>([]);
   const [severityFilter, setSeverityFilter] = useState<AlertSeverityFilter>("all");
   const [statusFilter, setStatusFilter] = useState<AlertStatusFilter>("all");
   const [typeFilter, setTypeFilter] = useState<AlertTypeFilter>("all");
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      setLocalAlerts(generateLocalKpiAlerts(getLocalKpiResults(), getLocalKpiHistory(), getLocalAlertRules()));
+      const localResults = getLocalKpiResults();
+      const localHistory = getLocalKpiHistory();
+      const localRules = getLocalAlertRules();
+      const nextAlerts = generateLocalKpiAlerts(localResults, localHistory, localRules);
+
+      setLocalAlerts(nextAlerts);
+      setLocalInsights(generateLocalKpiInsights(localResults, localHistory, nextAlerts, localRules));
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
   }, []);
 
   const alerts = useMemo(() => {
-    const mergedAlerts = [...buildModelAlerts(), ...buildLocalAlerts(localAlerts)];
+    const mergedAlerts = [...buildModelAlerts(), ...buildLocalAlerts(localAlerts, localInsights)];
 
     return mergedAlerts.filter((alert) => {
       const severityMatches = severityFilter === "all" || alert.severity === severityFilter;
@@ -130,7 +147,7 @@ export function AlertsPage() {
       const typeMatches = typeFilter === "all" || alert.type === typeFilter;
       return severityMatches && statusMatches && typeMatches;
     });
-  }, [localAlerts, severityFilter, statusFilter, typeFilter]);
+  }, [localAlerts, localInsights, severityFilter, statusFilter, typeFilter]);
 
   const criticalCount = alerts.filter((alert) => alert.severity === "critical").length;
   const localCount = localAlerts.length;
@@ -270,6 +287,11 @@ export function AlertsPage() {
                     <td className="px-4 py-4 text-slate-600">
                       <p>{alert.cause}</p>
                       {alert.message ? <p className="mt-2 text-xs text-slate-500">{alert.message}</p> : null}
+                      {alert.insight ? (
+                        <p className="mt-2 rounded-md bg-brand-50 px-2 py-1 text-xs font-medium text-brand-700">
+                          Insight Atlas : {alert.insight.summary}
+                        </p>
+                      ) : null}
                     </td>
                     <td className="px-4 py-4 font-medium text-slate-700">{alert.businessImpact}</td>
                     <td className="px-4 py-4"><Badge variant="brand">{alert.executiveRisk}</Badge></td>

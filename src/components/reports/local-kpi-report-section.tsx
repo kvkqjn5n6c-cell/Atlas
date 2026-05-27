@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { generateExecutiveLocalSummary, generateLocalKpiInsights } from "@/lib/insights/local-insights-engine";
 import { generateLocalKpiAlerts } from "@/lib/kpi-engine/local-kpi-alerts";
 import { formatKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
 import { formatVariation } from "@/lib/kpi-engine/local-kpi-trends";
@@ -10,6 +11,7 @@ import { getLocalAlertRules } from "@/lib/local/local-alert-rules-store";
 import { getLocalKpiHistory } from "@/lib/local/local-kpi-history-store";
 import { getLocalKpiResults } from "@/lib/local/local-kpi-results-store";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
+import type { LocalInsight } from "@/types/local-insights";
 
 const statusVariant = {
   healthy: "success",
@@ -35,15 +37,19 @@ function impactForResult(result: LocalKpiResult) {
 export function LocalKpiReportSection() {
   const [results, setResults] = useState<LocalKpiResult[]>([]);
   const [ruleAlertCount, setRuleAlertCount] = useState(0);
+  const [insights, setInsights] = useState<LocalInsight[]>([]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       const localResults = getLocalKpiResults();
+      const localHistory = getLocalKpiHistory();
+      const localRules = getLocalAlertRules();
+      const localAlerts = generateLocalKpiAlerts(localResults, localHistory, localRules);
       setResults(localResults.slice(0, 6));
       setRuleAlertCount(
-        generateLocalKpiAlerts(localResults, getLocalKpiHistory(), getLocalAlertRules())
-          .filter((alert) => alert.alertSource === "rule").length
+        localAlerts.filter((alert) => alert.alertSource === "rule").length
       );
+      setInsights(generateLocalKpiInsights(localResults, localHistory, localAlerts, localRules));
     }, 0);
     return () => window.clearTimeout(timeoutId);
   }, []);
@@ -72,6 +78,27 @@ export function LocalKpiReportSection() {
         </div>
       </CardHeader>
       <CardContent>
+        <div className="mb-5 rounded-md border border-brand-100 bg-brand-50 p-4">
+          <Badge variant="brand">Analyse déterministe des KPI personnalisés</Badge>
+          <p className="mt-3 text-sm font-medium text-ink">{generateExecutiveLocalSummary(insights)}</p>
+          {insights.length > 0 ? (
+            <div className="mt-4 grid gap-3 lg:grid-cols-3">
+              {insights.slice(0, 6).map((insight) => (
+                <article key={insight.id} className="rounded-md bg-white p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-semibold text-ink">{insight.title}</p>
+                    <Badge variant={insight.severity === "critical" ? "danger" : insight.severity === "watch" ? "warning" : "default"}>
+                      {insight.severity === "critical" ? "Critique" : insight.severity === "watch" ? "À surveiller" : "Info"}
+                    </Badge>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-slate-600">{insight.summary}</p>
+                  <p className="mt-2 text-xs font-medium text-ink">{insight.recommendedAction}</p>
+                </article>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
         <div className="overflow-x-auto rounded-lg border border-line">
           <table className="min-w-[900px] w-full border-collapse text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
