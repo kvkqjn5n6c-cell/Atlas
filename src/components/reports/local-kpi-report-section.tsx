@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { generateLocalExecutiveSummary } from "@/lib/insights/local-executive-summary-engine";
 import { generateExecutiveLocalSummary, generateLocalKpiInsights } from "@/lib/insights/local-insights-engine";
 import { generateLocalKpiAlerts } from "@/lib/kpi-engine/local-kpi-alerts";
 import { formatKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
@@ -10,8 +11,9 @@ import { formatVariation } from "@/lib/kpi-engine/local-kpi-trends";
 import { getLocalAlertRules } from "@/lib/local/local-alert-rules-store";
 import { getLocalKpiHistory } from "@/lib/local/local-kpi-history-store";
 import { getLocalKpiResults } from "@/lib/local/local-kpi-results-store";
-import type { LocalKpiResult } from "@/types/local-kpi-results";
+import type { LocalExecutiveSummary } from "@/types/local-executive-summary";
 import type { LocalInsight } from "@/types/local-insights";
+import type { LocalKpiResult } from "@/types/local-kpi-results";
 
 const statusVariant = {
   healthy: "success",
@@ -34,10 +36,26 @@ function impactForResult(result: LocalKpiResult) {
   return "Donnée à recalculer avant diffusion.";
 }
 
+function ReportSummaryColumn({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>
+      <div className="mt-2 space-y-2">
+        {items.map((item) => (
+          <p key={item} className="rounded-md border border-line bg-white px-3 py-2 text-sm leading-5 text-slate-700">
+            {item}
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function LocalKpiReportSection() {
   const [results, setResults] = useState<LocalKpiResult[]>([]);
   const [ruleAlertCount, setRuleAlertCount] = useState(0);
   const [insights, setInsights] = useState<LocalInsight[]>([]);
+  const [summary, setSummary] = useState<LocalExecutiveSummary | null>(null);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -45,11 +63,20 @@ export function LocalKpiReportSection() {
       const localHistory = getLocalKpiHistory();
       const localRules = getLocalAlertRules();
       const localAlerts = generateLocalKpiAlerts(localResults, localHistory, localRules);
+      const localInsights = generateLocalKpiInsights(localResults, localHistory, localAlerts, localRules);
+
       setResults(localResults.slice(0, 6));
       setRuleAlertCount(
         localAlerts.filter((alert) => alert.alertSource === "rule").length
       );
-      setInsights(generateLocalKpiInsights(localResults, localHistory, localAlerts, localRules));
+      setInsights(localInsights);
+      setSummary(generateLocalExecutiveSummary({
+        kpiResults: localResults,
+        histories: localHistory,
+        alerts: localAlerts,
+        alertRules: localRules,
+        insights: localInsights
+      }));
     }, 0);
     return () => window.clearTimeout(timeoutId);
   }, []);
@@ -78,6 +105,25 @@ export function LocalKpiReportSection() {
         </div>
       </CardHeader>
       <CardContent>
+        {summary ? (
+          <div className="mb-5 rounded-md border border-brand-100 bg-white p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="brand">Synthèse dirigeant générée par Atlas</Badge>
+              <Badge>Déterministe</Badge>
+            </div>
+            <p className="mt-3 text-base font-semibold leading-7 text-ink">{summary.globalSituation}</p>
+            <p className="mt-1 text-xs text-slate-500">
+              Pourquoi Atlas le signale : synthèse construite à partir de {summary.relatedKpiIds.length} KPI, {summary.relatedAlertIds.length} alerte(s), règles locales, tendances et fiabilité disponible.
+            </p>
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              <ReportSummaryColumn title="Risques" items={summary.mainRisks} />
+              <ReportSummaryColumn title="Constats" items={summary.keyFindings} />
+              <ReportSummaryColumn title="Actions" items={summary.recommendedActions} />
+              <ReportSummaryColumn title="Limites de fiabilité" items={summary.dataReliabilityNotes} />
+            </div>
+          </div>
+        ) : null}
+
         <div className="mb-5 rounded-md border border-brand-100 bg-brand-50 p-4">
           <Badge variant="brand">Analyse déterministe des KPI personnalisés</Badge>
           <p className="mt-3 text-sm font-medium text-ink">{generateExecutiveLocalSummary(insights)}</p>
