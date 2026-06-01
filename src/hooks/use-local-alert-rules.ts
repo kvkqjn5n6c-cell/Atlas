@@ -5,7 +5,7 @@ import { getLocalAlertRules } from "@/lib/local/local-alert-rules-store";
 import type { LocalAlertRule } from "@/types/local-alert-rules";
 
 export function useLocalAlertRules() {
-  const [rules, setRules] = useState<LocalAlertRule[]>(() => getLocalAlertRules());
+  const [rules, setRules] = useState<LocalAlertRule[]>([]);
 
   const refresh = useCallback(() => {
     setRules(getLocalAlertRules());

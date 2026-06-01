@@ -12,6 +12,19 @@ export type LocalImportsWorkspaceData = {
   activeImport: LocalValidatedImport | null;
 };
 
+export function getEmptyLocalImportsWorkspaceData(): LocalDataResult<LocalImportsWorkspaceData> {
+  return {
+    data: {
+      imports: [],
+      activeImport: null
+    },
+    source: "localStorage",
+    fallbackUsed: false,
+    warnings: [],
+    lastUpdated: ""
+  };
+}
+
 export function getLocalImportsWorkspaceData(activeImportId?: string | null): LocalDataResult<LocalImportsWorkspaceData> {
   const imports = getLocalImports();
   const activeImport = activeImportId

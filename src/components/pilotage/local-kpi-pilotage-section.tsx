@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { ArrowDownRight, ArrowRight, ArrowUpRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -74,7 +75,27 @@ function SummaryList({ title, items }: { title: string; items: string[] }) {
 }
 
 export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
+  const [mounted, setMounted] = useState(false);
   const { data: workspace } = useLocalKpiWorkspace();
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => setMounted(true), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>KPI personnalisés</CardTitle>
+          <p className="mt-1 text-sm text-slate-500">
+            Chargement des données locales du cockpit.
+          </p>
+        </CardHeader>
+      </Card>
+    );
+  }
+
   const results = workspace.results;
   const insights = workspace.insights;
   const summary = workspace.executiveSummary;

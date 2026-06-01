@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  getEmptyLocalInsightsData,
   getLocalInsightsData,
   type LocalInsightsData
 } from "@/lib/services/local-data/local-insights-data.service";
 import type { LocalDataResult } from "@/types/local-data-result";
 
 export function useLocalInsights() {
-  const [result, setResult] = useState<LocalDataResult<LocalInsightsData>>(() => getLocalInsightsData());
+  const [result, setResult] = useState<LocalDataResult<LocalInsightsData>>(() => getEmptyLocalInsightsData());
 
   const refresh = useCallback(() => {
     setResult(getLocalInsightsData());

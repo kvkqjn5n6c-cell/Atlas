@@ -25,6 +25,41 @@ export type LocalKpiWorkspaceData = {
   executiveSummary: LocalExecutiveSummary;
 };
 
+const emptyExecutiveSummary: LocalExecutiveSummary = {
+  id: "local-executive-summary-empty",
+  organizationId: "org-atlas-demo",
+  generatedAt: "",
+  globalSituation: "Aucun KPI personnalisé n'alimente encore la lecture dirigeant locale.",
+  mainRisks: [],
+  keyFindings: [],
+  recommendedActions: [],
+  dataReliabilityNotes: [],
+  relatedKpiIds: [],
+  relatedAlertIds: [],
+  persisted: false
+};
+
+export const emptyLocalKpiWorkspaceData: LocalKpiWorkspaceData = {
+  configurations: [],
+  results: [],
+  history: [],
+  historyByKpiId: {},
+  alertRules: [],
+  alerts: [],
+  insights: [],
+  executiveSummary: emptyExecutiveSummary
+};
+
+export function getEmptyLocalKpiWorkspaceResult(): LocalDataResult<LocalKpiWorkspaceData> {
+  return {
+    data: emptyLocalKpiWorkspaceData,
+    source: "localStorage",
+    fallbackUsed: false,
+    warnings: [],
+    lastUpdated: ""
+  };
+}
+
 function buildHistoryByKpiId(history: LocalKpiHistoryPoint[]) {
   return history.reduce<Record<string, LocalKpiHistoryPoint[]>>((accumulator, point) => {
     accumulator[point.kpiId] = [...(accumulator[point.kpiId] ?? []), point];

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  getEmptyLocalKpiWorkspaceResult,
   getLocalKpiWorkspaceData,
   type LocalKpiWorkspaceData
 } from "@/lib/services/local-data/local-kpis-data.service";
@@ -9,7 +10,7 @@ import type { LocalDataResult } from "@/types/local-data-result";
 
 export function useLocalKpiWorkspace() {
   const [result, setResult] = useState<LocalDataResult<LocalKpiWorkspaceData>>(() =>
-    getLocalKpiWorkspaceData()
+    getEmptyLocalKpiWorkspaceResult()
   );
 
   const refresh = useCallback(() => {

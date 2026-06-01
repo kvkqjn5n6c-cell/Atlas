@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   deleteLocalImportWorkspace,
+  getEmptyLocalImportsWorkspaceData,
   getLocalImportsWorkspaceData,
   updateLocalImportWorkspace,
   type LocalImportsWorkspaceData
@@ -13,7 +14,7 @@ import type { LocalDataResult } from "@/types/local-data-result";
 export function useLocalImportsWorkspace(initialActiveImportId?: string | null) {
   const [activeImportId, setActiveImportId] = useState<string | null>(initialActiveImportId ?? null);
   const [result, setResult] = useState<LocalDataResult<LocalImportsWorkspaceData>>(() =>
-    getLocalImportsWorkspaceData(initialActiveImportId)
+    getEmptyLocalImportsWorkspaceData()
   );
 
   const refresh = useCallback((preferredId?: string | null) => {

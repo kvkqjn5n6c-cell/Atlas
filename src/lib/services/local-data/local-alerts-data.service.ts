@@ -1,4 +1,7 @@
-import { getLocalKpiWorkspaceData } from "@/lib/services/local-data/local-kpis-data.service";
+import {
+  getEmptyLocalKpiWorkspaceResult,
+  getLocalKpiWorkspaceData
+} from "@/lib/services/local-data/local-kpis-data.service";
 import type { LocalInsight } from "@/types/local-insights";
 import type { LocalKpiAlert } from "@/lib/kpi-engine/local-kpi-alerts";
 import type { LocalDataResult } from "@/types/local-data-result";
@@ -7,6 +10,21 @@ export type LocalAlertsData = {
   alerts: LocalKpiAlert[];
   insights: LocalInsight[];
 };
+
+export function getEmptyLocalAlertsData(): LocalDataResult<LocalAlertsData> {
+  const result = getEmptyLocalKpiWorkspaceResult();
+
+  return {
+    data: {
+      alerts: [],
+      insights: []
+    },
+    source: result.source,
+    fallbackUsed: result.fallbackUsed,
+    warnings: result.warnings,
+    lastUpdated: result.lastUpdated
+  };
+}
 
 export function getLocalAlertsData(): LocalDataResult<LocalAlertsData> {
   const result = getLocalKpiWorkspaceData();
