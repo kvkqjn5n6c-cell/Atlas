@@ -255,6 +255,11 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
                       {insight.evidence[0].variation !== undefined ? ` (${formatVariation(insight.evidence[0].variation)})` : ""}
                     </p>
                   ) : null}
+                  {insight.memorySources?.length ? (
+                    <p className="mt-2 text-xs text-slate-500">
+                      Source mémoire : {insight.memorySources.join(", ")}. Connaissance : {insight.memoryKnowledgeLabels?.join(", ") ?? "validée"}.
+                    </p>
+                  ) : null}
                   <p className="mt-3 text-sm font-medium text-ink">{insight.recommendedAction}</p>
                 </article>
               ))}

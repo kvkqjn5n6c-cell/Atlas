@@ -111,6 +111,11 @@ export function LocalKpiReportSection() {
                     </Badge>
                   </div>
                   <p className="mt-2 text-xs leading-5 text-slate-600">{insight.summary}</p>
+                  {insight.memorySources?.length ? (
+                    <p className="mt-2 text-xs text-slate-500">
+                      Source mémoire : {insight.memorySources.join(", ")}. Connaissance : {insight.memoryKnowledgeLabels?.join(", ") ?? "validée"}.
+                    </p>
+                  ) : null}
                   <p className="mt-2 text-xs font-medium text-ink">{insight.recommendedAction}</p>
                 </article>
               ))}

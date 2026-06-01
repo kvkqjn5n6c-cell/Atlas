@@ -1,6 +1,11 @@
+import type { AtlasKnowledgeType, KnowledgeStatus } from "@/types/atlas-memory-knowledge";
+
 export type AtlasMemoryContextItem = {
+  knowledgeId?: string;
+  type?: AtlasKnowledgeType;
   text: string;
   source: string;
+  status?: KnowledgeStatus;
 };
 
 export type AtlasMemoryGlossaryEntry = AtlasMemoryContextItem & {

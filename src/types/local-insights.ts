@@ -31,6 +31,7 @@ export type LocalInsight = {
   relatedAlertIds?: string[];
   memorySources?: string[];
   memoryReferences?: string[];
+  memoryKnowledgeLabels?: string[];
   evidence: LocalInsightEvidence[];
   recommendedAction: string;
   createdAt: string;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   extractBusinessGlossary,
+  extractAtlasKnowledgeItems,
   extractBusinessRules,
   extractDecisionHistory,
   extractStrategicObjectives,
@@ -47,5 +48,14 @@ describe("atlas memory engine", () => {
     expect(context.decisions.length).toBeGreaterThan(0);
     expect(context.glossaryEntries.length).toBeGreaterThan(0);
     expect(context.warnings).toHaveLength(0);
+  });
+
+  it("transforme les connaissances detectees en items gouvernables", () => {
+    const knowledgeItems = extractAtlasKnowledgeItems(documents, "org-atlas-demo");
+
+    expect(knowledgeItems.length).toBeGreaterThan(0);
+    expect(knowledgeItems.every((item) => item.status === "detected")).toBe(true);
+    expect(knowledgeItems.some((item) => item.type === "objective")).toBe(true);
+    expect(knowledgeItems.some((item) => item.type === "business_rule")).toBe(true);
   });
 });

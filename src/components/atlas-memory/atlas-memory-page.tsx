@@ -1,20 +1,26 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Bot, BrainCircuit, Database, GitBranch, RotateCcw, Save, ScrollText } from "lucide-react";
+import { Bot, BrainCircuit, Check, Database, GitBranch, RotateCcw, Save, ScrollText, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { activeOrganizationId } from "@/lib/context/scope-defaults";
 import {
+  approveAtlasKnowledgeItem,
+  getAtlasMemoryKnowledge,
+  rejectAtlasKnowledgeItem,
+  resetAtlasKnowledgeItem
+} from "@/lib/local/atlas-memory-knowledge-store";
+import {
   getAtlasMemoryDocuments,
   resetAtlasMemoryDocument,
   saveAtlasMemoryDocument
 } from "@/lib/local/atlas-memory-store";
-import { generateMemoryContext } from "@/lib/memory/atlas-memory-engine";
+import { extractAtlasKnowledgeItems, generateMemoryContext } from "@/lib/memory/atlas-memory-engine";
 import { getAtlasMemoryMockByOrganization } from "@/lib/mock/atlas-memory";
-import type { AtlasMemoryContextItem } from "@/types/atlas-memory-context";
 import type { AtlasMemoryDocument, AtlasMemoryDocumentKey } from "@/types/atlas-memory";
+import type { AtlasKnowledgeItem, AtlasKnowledgeType, KnowledgeStatus } from "@/types/atlas-memory-knowledge";
 
 const memoryLinks = [
   {
@@ -43,24 +49,80 @@ function getInitialDocuments() {
   return getAtlasMemoryMockByOrganization(activeOrganizationId);
 }
 
-function KnowledgeList({ title, items }: { title: string; items: AtlasMemoryContextItem[] }) {
+function getInitialKnowledgeItems() {
+  return extractAtlasKnowledgeItems(getInitialDocuments(), activeOrganizationId);
+}
+
+const knowledgeStatusLabels: Record<KnowledgeStatus, string> = {
+  detected: "Détectée",
+  approved: "Validée",
+  rejected: "Rejetée"
+};
+
+const knowledgeStatusVariants: Record<KnowledgeStatus, "default" | "success" | "danger"> = {
+  detected: "default",
+  approved: "success",
+  rejected: "danger"
+};
+
+const knowledgeTypeLabels: Record<AtlasKnowledgeType, string> = {
+  objective: "Objectif",
+  business_rule: "Règle métier",
+  decision: "Décision",
+  glossary: "Glossaire"
+};
+
+function KnowledgeGovernanceList({
+  items,
+  onApprove,
+  onReject,
+  onReset
+}: {
+  items: AtlasKnowledgeItem[];
+  onApprove: (id: string) => void;
+  onReject: (id: string) => void;
+  onReset: (id: string) => void;
+}) {
   return (
-    <div className="rounded-md border border-line bg-slate-50 p-4">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-semibold text-ink">{title}</p>
-        <Badge>{items.length}</Badge>
-      </div>
+    <div className="space-y-3">
       {items.length === 0 ? (
-        <p className="mt-3 text-sm text-slate-500">Aucune connaissance détectée.</p>
+        <p className="rounded-md border border-line bg-slate-50 p-4 text-sm text-slate-600">
+          Aucune connaissance détectée dans les documents mémoire.
+        </p>
       ) : (
-        <div className="mt-3 space-y-2">
-          {items.slice(0, 4).map((item) => (
-            <div key={`${item.source}-${item.text}`} className="rounded-md bg-white p-3 text-sm leading-5 text-slate-700">
-              <p>{item.text}</p>
-              <p className="mt-1 text-xs text-slate-500">Source mémoire : {item.source}</p>
+        items.map((item) => (
+          <article key={item.id} className="rounded-md border border-line bg-slate-50 p-4">
+            <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-start">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge>{knowledgeTypeLabels[item.type]}</Badge>
+                  <Badge variant={knowledgeStatusVariants[item.status]}>{knowledgeStatusLabels[item.status]}</Badge>
+                  <Badge>Source mémoire : {item.sourceDocument}</Badge>
+                </div>
+                <p className="mt-3 text-sm font-medium leading-6 text-ink">{item.value}</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {item.approvedAt ? `Validée le ${new Date(item.approvedAt).toLocaleDateString("fr-FR")}` : null}
+                  {item.rejectedAt ? `Rejetée le ${new Date(item.rejectedAt).toLocaleDateString("fr-FR")}` : null}
+                  {!item.approvedAt && !item.rejectedAt ? "En attente de validation humaine." : null}
+                </p>
+              </div>
+              <div className="flex shrink-0 flex-wrap gap-2">
+                <Button onClick={() => onApprove(item.id)} disabled={item.status === "approved"}>
+                  <Check className="h-4 w-4" aria-hidden="true" />
+                  Valider
+                </Button>
+                <Button onClick={() => onReject(item.id)} disabled={item.status === "rejected"}>
+                  <X className="h-4 w-4" aria-hidden="true" />
+                  Rejeter
+                </Button>
+                <Button variant="ghost" onClick={() => onReset(item.id)} disabled={item.status === "detected"}>
+                  <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                  Réinitialiser
+                </Button>
+              </div>
             </div>
-          ))}
-        </div>
+          </article>
+        ))
       )}
     </div>
   );
@@ -69,6 +131,7 @@ function KnowledgeList({ title, items }: { title: string; items: AtlasMemoryCont
 export function AtlasMemoryPage() {
   const [mounted, setMounted] = useState(false);
   const [documents, setDocuments] = useState<AtlasMemoryDocument[]>(getInitialDocuments);
+  const [knowledgeItems, setKnowledgeItems] = useState<AtlasKnowledgeItem[]>(getInitialKnowledgeItems);
   const [selectedKey, setSelectedKey] = useState<AtlasMemoryDocumentKey>("entreprise.md");
   const selectedDocument = useMemo(
     () => documents.find((document) => document.key === selectedKey) ?? documents[0],
@@ -79,12 +142,16 @@ export function AtlasMemoryPage() {
   );
   const draftContent = selectedDocument ? draftByKey[selectedDocument.key] ?? selectedDocument.content : "";
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const memoryContext = useMemo(() => generateMemoryContext(documents), [documents]);
+  const detectedKnowledgeItems = useMemo(() => extractAtlasKnowledgeItems(documents, activeOrganizationId), [documents]);
+  const memoryContext = useMemo(() => generateMemoryContext(documents, knowledgeItems), [documents, knowledgeItems]);
+  const approvedKnowledgeCount = knowledgeItems.filter((item) => item.status === "approved").length;
+  const rejectedKnowledgeCount = knowledgeItems.filter((item) => item.status === "rejected").length;
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       const nextDocuments = getAtlasMemoryDocuments(activeOrganizationId);
       setDocuments(nextDocuments);
+      setKnowledgeItems(getAtlasMemoryKnowledge(activeOrganizationId, extractAtlasKnowledgeItems(nextDocuments, activeOrganizationId)));
       setDraftByKey(Object.fromEntries(nextDocuments.map((document) => [document.key, document.content])));
       setSelectedKey((current) => nextDocuments.find((document) => document.key === current)?.key ?? nextDocuments[0]?.key ?? "entreprise.md");
       setMounted(true);
@@ -96,6 +163,7 @@ export function AtlasMemoryPage() {
   function refreshDocuments(preferredKey = selectedKey) {
     const nextDocuments = getAtlasMemoryDocuments(activeOrganizationId);
     setDocuments(nextDocuments);
+    setKnowledgeItems(getAtlasMemoryKnowledge(activeOrganizationId, extractAtlasKnowledgeItems(nextDocuments, activeOrganizationId)));
     setDraftByKey(Object.fromEntries(nextDocuments.map((document) => [document.key, document.content])));
     setSelectedKey(nextDocuments.find((document) => document.key === preferredKey)?.key ?? nextDocuments[0]?.key ?? "entreprise.md");
   }
@@ -120,6 +188,21 @@ export function AtlasMemoryPage() {
       [selectedDocument.key]: resetDocumentValue?.content ?? ""
     }));
     setSaveMessage("Document réinitialisé depuis le modèle.");
+  }
+
+  function approveKnowledge(id: string) {
+    setKnowledgeItems(approveAtlasKnowledgeItem(activeOrganizationId, detectedKnowledgeItems, id));
+    setSaveMessage("Connaissance validée pour le moteur métier.");
+  }
+
+  function rejectKnowledge(id: string) {
+    setKnowledgeItems(rejectAtlasKnowledgeItem(activeOrganizationId, detectedKnowledgeItems, id));
+    setSaveMessage("Connaissance rejetée et ignorée par le moteur métier.");
+  }
+
+  function resetKnowledge(id: string) {
+    setKnowledgeItems(resetAtlasKnowledgeItem(activeOrganizationId, detectedKnowledgeItems, id));
+    setSaveMessage("Statut de connaissance réinitialisé.");
   }
 
   return (
@@ -172,26 +255,23 @@ export function AtlasMemoryPage() {
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle>Connaissances détectées</CardTitle>
             <Badge variant="brand">Moteur déterministe</Badge>
-            <Badge>Sources explicables</Badge>
+            <Badge>{approvedKnowledgeCount} validée(s)</Badge>
+            <Badge variant={rejectedKnowledgeCount > 0 ? "danger" : "default"}>{rejectedKnowledgeCount} rejetée(s)</Badge>
           </div>
           <p className="mt-1 text-sm text-slate-500">
-            Atlas extrait des lignes simples depuis les documents mémoire pour enrichir les insights, les risques et la synthèse dirigeant.
+            Atlas détecte les connaissances depuis les documents mémoire. Seules les connaissances validées enrichissent les insights, les risques et la synthèse dirigeant.
           </p>
         </CardHeader>
-        <CardContent className="grid gap-4 lg:grid-cols-2">
-          <KnowledgeList title="Objectifs" items={memoryContext.objectives} />
-          <KnowledgeList title="Règles métier" items={memoryContext.businessRules} />
-          <KnowledgeList title="Décisions" items={memoryContext.decisions} />
-          <KnowledgeList
-            title="Glossaire"
-            items={memoryContext.glossaryEntries.map((entry) => ({
-              text: `${entry.term} : ${entry.definition}`,
-              source: entry.source
-            }))}
+        <CardContent>
+          <KnowledgeGovernanceList
+            items={knowledgeItems}
+            onApprove={approveKnowledge}
+            onReject={rejectKnowledge}
+            onReset={resetKnowledge}
           />
           {memoryContext.warnings.length > 0 ? (
-            <div className="rounded-md border border-amber-200 bg-amber-50 p-4 lg:col-span-2">
-              <p className="text-sm font-semibold text-amber-900">Limites détectées</p>
+            <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-semibold text-amber-900">Limites de gouvernance</p>
               <ul className="mt-2 space-y-1 text-sm text-amber-900">
                 {memoryContext.warnings.map((warning) => (
                   <li key={warning}>{warning}</li>

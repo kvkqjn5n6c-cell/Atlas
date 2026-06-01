@@ -218,6 +218,12 @@ function findMemoryMatches(result: LocalKpiResult, memoryContext?: AtlasMemoryCo
   return candidates.filter((item) => memoryTextMatchesKpi(item.text, label));
 }
 
+const memoryKnowledgeLabels = {
+  objective: "Objectif validé",
+  rule: "Règle métier validée",
+  decision: "Décision historique validée"
+} as const;
+
 export function generateMemoryInsights(
   kpiResults: LocalKpiResult[],
   histories: LocalKpiHistoryPoint[],
@@ -252,6 +258,7 @@ export function generateMemoryInsights(
       relatedAlertIds: relatedAlerts.map((alert) => alert.id),
       memorySources: sourceLabels,
       memoryReferences: sourceItems.map((item) => item.text),
+      memoryKnowledgeLabels: sourceItems.map((item) => memoryKnowledgeLabels[item.kind]),
       evidence: [evidenceFromResult(result, histories)],
       recommendedAction: rule
         ? `Appliquer ou revoir la règle métier documentée : ${rule.text}`
