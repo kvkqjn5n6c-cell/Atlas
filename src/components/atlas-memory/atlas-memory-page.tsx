@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Bot, BrainCircuit, Check, Database, GitBranch, RotateCcw, Save, ScrollText, X } from "lucide-react";
+import { Bot, BrainCircuit, Check, Database, GitBranch, RotateCcw, Save, Search, ScrollText, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,9 +18,11 @@ import {
   saveAtlasMemoryDocument
 } from "@/lib/local/atlas-memory-store";
 import { extractAtlasKnowledgeItems, generateMemoryContext } from "@/lib/memory/atlas-memory-engine";
+import { buildAtlasMemorySearchIndex, searchAtlasMemory } from "@/lib/memory/atlas-memory-search-engine";
 import { getAtlasMemoryMockByOrganization } from "@/lib/mock/atlas-memory";
 import type { AtlasMemoryDocument, AtlasMemoryDocumentKey } from "@/types/atlas-memory";
 import type { AtlasKnowledgeItem, AtlasKnowledgeType, KnowledgeStatus } from "@/types/atlas-memory-knowledge";
+import type { AtlasMemorySearchResult, AtlasMemorySearchResultType, AtlasMemorySearchScope } from "@/types/atlas-memory-search";
 
 const memoryLinks = [
   {
@@ -68,6 +70,24 @@ const knowledgeStatusVariants: Record<KnowledgeStatus, "default" | "success" | "
 const knowledgeTypeLabels: Record<AtlasKnowledgeType, string> = {
   objective: "Objectif",
   business_rule: "Règle métier",
+  decision: "Décision",
+  glossary: "Glossaire"
+};
+
+const searchScopeOptions: Array<{ value: AtlasMemorySearchScope; label: string }> = [
+  { value: "all", label: "Tout" },
+  { value: "documents", label: "Documents" },
+  { value: "knowledge", label: "Connaissances" },
+  { value: "approved", label: "Validées" },
+  { value: "detected", label: "Détectées" },
+  { value: "rejected", label: "Rejetées" }
+];
+
+const searchTypeLabels: Record<AtlasMemorySearchResultType, string> = {
+  document: "Document",
+  knowledge: "Connaissance",
+  objective: "Objectif",
+  rule: "Règle",
   decision: "Décision",
   glossary: "Glossaire"
 };
@@ -128,6 +148,98 @@ function KnowledgeGovernanceList({
   );
 }
 
+function MemorySearchSection({
+  query,
+  scope,
+  results,
+  onQueryChange,
+  onScopeChange,
+  onOpenDocument
+}: {
+  query: string;
+  scope: AtlasMemorySearchScope;
+  results: AtlasMemorySearchResult[];
+  onQueryChange: (query: string) => void;
+  onScopeChange: (scope: AtlasMemorySearchScope) => void;
+  onOpenDocument: (key: AtlasMemoryDocumentKey) => void;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle>Recherche dans la mémoire</CardTitle>
+          <Badge variant="brand">Locale</Badge>
+          <Badge>Sans IA</Badge>
+          <Badge>{results.length} résultat(s)</Badge>
+        </div>
+        <p className="mt-1 text-sm text-slate-500">
+          Recherche locale déterministe, sans IA ni vectorisation. Les résultats indiquent les termes trouvés, la source et le statut.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <label className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => onQueryChange(event.target.value)}
+              placeholder="Rechercher un objectif, une règle, une décision, une définition..."
+              className="h-10 w-full rounded-md border border-line bg-white py-2 pl-9 pr-3 text-sm text-ink outline-none transition focus:border-brand-300"
+            />
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {searchScopeOptions.map((option) => (
+              <Button
+                key={option.value}
+                variant={scope === option.value ? "primary" : "secondary"}
+                onClick={() => onScopeChange(option.value)}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {results.length === 0 ? (
+          <p className="rounded-md border border-line bg-slate-50 p-4 text-sm text-slate-600">
+            Aucun résultat trouvé. Essayez un autre terme ou élargissez le filtre.
+          </p>
+        ) : (
+          <div className="grid gap-3 lg:grid-cols-2">
+            {results.map((result) => (
+              <article key={result.id} className="rounded-md border border-line bg-slate-50 p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge>{searchTypeLabels[result.type]}</Badge>
+                  {result.status ? (
+                    <Badge variant={knowledgeStatusVariants[result.status]}>{knowledgeStatusLabels[result.status]}</Badge>
+                  ) : null}
+                  <Badge>{result.sourceDocument}</Badge>
+                  <Badge>Score {result.score}</Badge>
+                </div>
+                <h3 className="mt-3 text-sm font-semibold text-ink">{result.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-700">{result.excerpt}</p>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    {result.matchedTerms.length > 0 ? (
+                      result.matchedTerms.map((term) => <Badge key={`${result.id}-${term}`}>Terme : {term}</Badge>)
+                    ) : (
+                      <Badge>Aucun terme saisi</Badge>
+                    )}
+                  </div>
+                  <Button variant="ghost" onClick={() => onOpenDocument(result.sourceDocument)}>
+                    Ouvrir source
+                  </Button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function AtlasMemoryPage() {
   const [mounted, setMounted] = useState(false);
   const [documents, setDocuments] = useState<AtlasMemoryDocument[]>(getInitialDocuments);
@@ -140,10 +252,17 @@ export function AtlasMemoryPage() {
   const [draftByKey, setDraftByKey] = useState<Record<string, string>>(() =>
     Object.fromEntries(getInitialDocuments().map((document) => [document.key, document.content]))
   );
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchScope, setSearchScope] = useState<AtlasMemorySearchScope>("all");
   const draftContent = selectedDocument ? draftByKey[selectedDocument.key] ?? selectedDocument.content : "";
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const detectedKnowledgeItems = useMemo(() => extractAtlasKnowledgeItems(documents, activeOrganizationId), [documents]);
   const memoryContext = useMemo(() => generateMemoryContext(documents, knowledgeItems), [documents, knowledgeItems]);
+  const searchIndex = useMemo(() => buildAtlasMemorySearchIndex(documents, knowledgeItems), [documents, knowledgeItems]);
+  const searchResults = useMemo(
+    () => searchAtlasMemory(searchQuery, searchIndex, { scope: searchScope, limit: 12 }),
+    [searchIndex, searchQuery, searchScope]
+  );
   const approvedKnowledgeCount = knowledgeItems.filter((item) => item.status === "approved").length;
   const rejectedKnowledgeCount = knowledgeItems.filter((item) => item.status === "rejected").length;
 
@@ -249,6 +368,15 @@ export function AtlasMemoryPage() {
           );
         })}
       </section>
+
+      <MemorySearchSection
+        query={searchQuery}
+        scope={searchScope}
+        results={searchResults}
+        onQueryChange={setSearchQuery}
+        onScopeChange={setSearchScope}
+        onOpenDocument={setSelectedKey}
+      />
 
       <Card>
         <CardHeader>
