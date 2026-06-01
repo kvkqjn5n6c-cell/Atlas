@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ArrowRight, FileSpreadsheet, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useLocalImportsWorkspace } from "@/hooks/use-local-imports-workspace";
 import { getPotentialKpiImpacts } from "@/lib/data-pipeline/kpi-impact";
 import {
   atlasFieldOptions,
@@ -14,10 +15,9 @@ import {
   getMappingFieldType,
   validateLocalMapping
 } from "@/lib/data-pipeline/mapping-suggestions";
-import { deleteLocalImport, getLocalImports, updateLocalImport } from "@/lib/local/local-import-store";
 import { formatAtlasField } from "@/lib/formatters/status-labels";
-import { registerBusinessFieldUsage } from "@/lib/local/business-dictionary-store";
 import { registerBusinessFieldUsageAction } from "@/lib/actions/business-dictionary-actions";
+import { registerLocalBusinessFieldUsage } from "@/lib/services/local-data/local-business-dictionary-data.service";
 import type { AtlasField } from "@/types/atlas";
 import type { KpiImpactCandidate } from "@/lib/data-pipeline/kpi-impact";
 import type { LocalValidatedColumnMapping, LocalValidatedImport, MappingFieldType } from "@/types/data-import";
@@ -82,26 +82,19 @@ function isHighConfidence(confidence: string) {
 }
 
 export function LocalImportSupervision() {
-  const [localImports, setLocalImports] = useState<LocalValidatedImport[]>([]);
-  const [activeImportId, setActiveImportId] = useState<string | null>(null);
+  const {
+    data: importsWorkspace,
+    setActiveImportId,
+    refresh: refreshImports,
+    updateImport,
+    deleteImport: removeImport
+  } = useLocalImportsWorkspace();
   const [correctionsByImport, setCorrectionsByImport] = useState<CorrectionsByImport>({});
   const [kpiSelection, setKpiSelection] = useState<KpiCreationSelection | null>(null);
   const [localKpiSavedCount, setLocalKpiSavedCount] = useState(0);
 
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      const imports = getLocalImports();
-      setLocalImports(imports);
-      setActiveImportId((current) => current ?? imports[0]?.id ?? null);
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, []);
-
-  const localImport = useMemo(() => {
-    if (localImports.length === 0) return null;
-    return localImports.find((item) => item.id === activeImportId) ?? localImports[0];
-  }, [activeImportId, localImports]);
+  const localImports = importsWorkspace.imports;
+  const localImport = importsWorkspace.activeImport;
 
   const corrections = localImport ? correctionsByImport[localImport.id] ?? [] : [];
 
@@ -111,13 +104,7 @@ export function LocalImportSupervision() {
   );
 
   function reloadImports(preferredId?: string | null) {
-    const imports = getLocalImports();
-    setLocalImports(imports);
-    setActiveImportId((current) => {
-      const nextId = preferredId ?? current;
-      if (nextId && imports.some((item) => item.id === nextId)) return nextId;
-      return imports[0]?.id ?? null;
-    });
+    refreshImports(preferredId);
   }
 
   function persistImport(nextImport: LocalValidatedImport) {
@@ -131,7 +118,7 @@ export function LocalImportSupervision() {
       persisted: false as const
     };
 
-    updateLocalImport(updatedImport);
+    updateImport(updatedImport);
     reloadImports(updatedImport.id);
   }
 
@@ -170,7 +157,7 @@ export function LocalImportSupervision() {
     const nextMapping = nextMappings.find((mapping) => mapping.sourceColumn === sourceColumn) ?? previousMapping;
 
     if (getMappingFieldType(nextMapping) === "custom" && nextMapping.customFieldLabel?.trim()) {
-      const dictionaryField = registerBusinessFieldUsage({
+      const dictionaryField = registerLocalBusinessFieldUsage({
         organizationId: localImport.simulatedImportJob.organizationId,
         label: nextMapping.customFieldLabel,
         sourceColumn: nextMapping.sourceColumn,
@@ -232,7 +219,7 @@ export function LocalImportSupervision() {
 
   function deleteImport(importId: string) {
     const deletedActiveImport = importId === localImport?.id;
-    deleteLocalImport(importId);
+    removeImport(importId);
     setCorrectionsByImport((current) => {
       const next = { ...current };
       delete next[importId];

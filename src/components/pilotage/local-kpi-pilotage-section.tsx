@@ -1,21 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { ArrowDownRight, ArrowRight, ArrowUpRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { generateLocalExecutiveSummary } from "@/lib/insights/local-executive-summary-engine";
-import { generateLocalKpiInsights } from "@/lib/insights/local-insights-engine";
+import { useLocalKpiWorkspace } from "@/hooks/use-local-kpi-workspace";
 import { formatKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
-import { generateLocalKpiAlerts } from "@/lib/kpi-engine/local-kpi-alerts";
 import { calculateScoreWithLocalKpis } from "@/lib/kpi-engine/local-kpi-results";
 import { formatVariation } from "@/lib/kpi-engine/local-kpi-trends";
-import { getLocalAlertRules } from "@/lib/local/local-alert-rules-store";
-import { getLocalKpiHistory, getLocalKpiHistoryByKpiId } from "@/lib/local/local-kpi-history-store";
-import { getLocalKpiResults } from "@/lib/local/local-kpi-results-store";
-import type { LocalExecutiveSummary } from "@/types/local-executive-summary";
-import type { LocalInsight } from "@/types/local-insights";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
 
 const statusVariant = {
@@ -82,30 +74,10 @@ function SummaryList({ title, items }: { title: string; items: string[] }) {
 }
 
 export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
-  const [results, setResults] = useState<LocalKpiResult[]>([]);
-  const [insights, setInsights] = useState<LocalInsight[]>([]);
-  const [summary, setSummary] = useState<LocalExecutiveSummary | null>(null);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      const localResults = getLocalKpiResults();
-      const localHistory = getLocalKpiHistory();
-      const localRules = getLocalAlertRules();
-      const localAlerts = generateLocalKpiAlerts(localResults, localHistory, localRules);
-      const localInsights = generateLocalKpiInsights(localResults, localHistory, localAlerts, localRules);
-
-      setResults(localResults);
-      setInsights(localInsights);
-      setSummary(generateLocalExecutiveSummary({
-        kpiResults: localResults,
-        histories: localHistory,
-        alerts: localAlerts,
-        alertRules: localRules,
-        insights: localInsights
-      }));
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, []);
+  const { data: workspace } = useLocalKpiWorkspace();
+  const results = workspace.results;
+  const insights = workspace.insights;
+  const summary = workspace.executiveSummary;
 
   if (results.length === 0) {
     return (
@@ -123,8 +95,7 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
   const adjustedScore = calculateScoreWithLocalKpis(baseScore, results);
   const criticalCount = results.filter((result) => result.status === "critical").length;
   const watchCount = results.filter((result) => result.status === "watch").length;
-  const ruleAlertCount = generateLocalKpiAlerts(results, getLocalKpiHistory(), getLocalAlertRules())
-    .filter((alert) => alert.alertSource === "rule").length;
+  const ruleAlertCount = workspace.alerts.filter((alert) => alert.alertSource === "rule").length;
 
   return (
     <div className="space-y-6">
@@ -162,7 +133,7 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
           <CardContent>
             <div className="grid gap-3 lg:grid-cols-2">
               {results.map((result) => {
-                const history = getLocalKpiHistoryByKpiId(result.kpiId);
+                const history = workspace.historyByKpiId[result.kpiId] ?? [];
 
                 return (
                   <article key={result.id} className="rounded-md border border-line bg-slate-50 p-4">

@@ -1,16 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useLocalKpiAlerts } from "@/hooks/use-local-kpi-alerts";
 import { formatAlertSeverity, formatAlertStatus, formatAlertUrgency } from "@/lib/formatters/status-labels";
-import { generateLocalKpiInsights } from "@/lib/insights/local-insights-engine";
 import { formatKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
-import { generateLocalKpiAlerts, type LocalKpiAlert } from "@/lib/kpi-engine/local-kpi-alerts";
-import { getLocalAlertRules } from "@/lib/local/local-alert-rules-store";
-import { getLocalKpiHistory } from "@/lib/local/local-kpi-history-store";
-import { getLocalKpiResults } from "@/lib/local/local-kpi-results-store";
+import type { LocalKpiAlert } from "@/lib/kpi-engine/local-kpi-alerts";
 import { actionPlansMock } from "@/lib/mock/action-plans";
 import { alertsMock } from "@/lib/mock/alerts";
 import { dataSourcesMock } from "@/lib/mock/data-sources";
@@ -118,25 +115,12 @@ function buildLocalAlerts(localAlerts: LocalKpiAlert[], insights: LocalInsight[]
 }
 
 export function AlertsPage() {
-  const [localAlerts, setLocalAlerts] = useState<LocalKpiAlert[]>([]);
-  const [localInsights, setLocalInsights] = useState<LocalInsight[]>([]);
+  const { data: localAlertsData } = useLocalKpiAlerts();
   const [severityFilter, setSeverityFilter] = useState<AlertSeverityFilter>("all");
   const [statusFilter, setStatusFilter] = useState<AlertStatusFilter>("all");
   const [typeFilter, setTypeFilter] = useState<AlertTypeFilter>("all");
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      const localResults = getLocalKpiResults();
-      const localHistory = getLocalKpiHistory();
-      const localRules = getLocalAlertRules();
-      const nextAlerts = generateLocalKpiAlerts(localResults, localHistory, localRules);
-
-      setLocalAlerts(nextAlerts);
-      setLocalInsights(generateLocalKpiInsights(localResults, localHistory, nextAlerts, localRules));
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, []);
+  const localAlerts = localAlertsData.alerts;
+  const localInsights = localAlertsData.insights;
 
   const alerts = useMemo(() => {
     const mergedAlerts = [...buildModelAlerts(), ...buildLocalAlerts(localAlerts, localInsights)];

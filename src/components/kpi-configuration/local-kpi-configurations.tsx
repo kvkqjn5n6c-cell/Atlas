@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { RefreshCw, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useLocalKpiWorkspace } from "@/hooks/use-local-kpi-workspace";
 import { formatAtlasField } from "@/lib/formatters/status-labels";
 import { calculateLocalKpiFromImport } from "@/lib/kpi-engine/local-kpi-calculator";
 import { formatKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
@@ -13,11 +13,10 @@ import { formatVariation } from "@/lib/kpi-engine/local-kpi-trends";
 import { getLocalImportById, updateLocalImport } from "@/lib/local/local-import-store";
 import {
   deleteLocalKpiHistoryByKpiId,
-  getLocalKpiHistoryByKpiId,
   saveLocalKpiHistoryPoint
 } from "@/lib/local/local-kpi-history-store";
-import { deleteLocalKpiResult, getLocalKpiResults, saveLocalKpiResult } from "@/lib/local/local-kpi-results-store";
-import { deleteLocalKpiConfiguration, getLocalKpiConfigurations, saveLocalKpiConfiguration } from "@/lib/local/local-kpi-store";
+import { deleteLocalKpiResult, saveLocalKpiResult } from "@/lib/local/local-kpi-results-store";
+import { deleteLocalKpiConfiguration, saveLocalKpiConfiguration } from "@/lib/local/local-kpi-store";
 import { deleteLocalKpiSnapshotAction, persistLocalKpiSnapshotAction } from "@/lib/actions/local-kpi-persistence-actions";
 import type { LocalKpiConfiguration, LocalKpiTestStatus } from "@/types/local-kpi";
 import { EditLocalKpiThresholds } from "./edit-local-kpi-thresholds";
@@ -68,16 +67,9 @@ function trendLabel(trend?: "up" | "down" | "stable") {
 }
 
 export function LocalKpiConfigurations() {
-  const [kpis, setKpis] = useState<LocalKpiConfiguration[]>([]);
+  const { data: workspace, refresh: reloadKpis } = useLocalKpiWorkspace();
+  const kpis = workspace.configurations;
 
-  function reloadKpis() {
-    setKpis(getLocalKpiConfigurations());
-  }
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(reloadKpis, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, []);
 
   function recalculateKpi(kpi: LocalKpiConfiguration) {
     const sourceImport = kpi.importId ? getLocalImportById(kpi.importId) : null;
@@ -85,7 +77,7 @@ export function LocalKpiConfigurations() {
 
     const nextTestResult = calculateLocalKpiFromImport(sourceImport, kpi);
     const nextKpi = { ...kpi, testResult: nextTestResult };
-    const previousResult = getLocalKpiResults().find((result) => result.kpiId === kpi.id);
+    const previousResult = workspace.results.find((result) => result.kpiId === kpi.id);
     const nextResult = buildLocalKpiResult(nextKpi, nextTestResult, previousResult);
 
     saveLocalKpiConfiguration(nextKpi);
@@ -142,7 +134,7 @@ export function LocalKpiConfigurations() {
               const status = kpi.testResult?.status ?? "not-tested";
               const sourceImport = kpi.importId ? getLocalImportById(kpi.importId) : null;
               const sourceDeleted = Boolean(kpi.importId && !sourceImport);
-              const history = getLocalKpiHistoryByKpiId(kpi.id);
+              const history = workspace.historyByKpiId[kpi.id] ?? [];
               const latestHistory = history[0];
 
               return (

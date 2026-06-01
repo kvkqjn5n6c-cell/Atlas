@@ -1,18 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { generateLocalExecutiveSummary } from "@/lib/insights/local-executive-summary-engine";
-import { generateExecutiveLocalSummary, generateLocalKpiInsights } from "@/lib/insights/local-insights-engine";
-import { generateLocalKpiAlerts } from "@/lib/kpi-engine/local-kpi-alerts";
+import { useLocalKpiWorkspace } from "@/hooks/use-local-kpi-workspace";
+import { generateExecutiveLocalSummary } from "@/lib/insights/local-insights-engine";
 import { formatKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
 import { formatVariation } from "@/lib/kpi-engine/local-kpi-trends";
-import { getLocalAlertRules } from "@/lib/local/local-alert-rules-store";
-import { getLocalKpiHistory } from "@/lib/local/local-kpi-history-store";
-import { getLocalKpiResults } from "@/lib/local/local-kpi-results-store";
-import type { LocalExecutiveSummary } from "@/types/local-executive-summary";
-import type { LocalInsight } from "@/types/local-insights";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
 
 const statusVariant = {
@@ -52,34 +45,11 @@ function ReportSummaryColumn({ title, items }: { title: string; items: string[] 
 }
 
 export function LocalKpiReportSection() {
-  const [results, setResults] = useState<LocalKpiResult[]>([]);
-  const [ruleAlertCount, setRuleAlertCount] = useState(0);
-  const [insights, setInsights] = useState<LocalInsight[]>([]);
-  const [summary, setSummary] = useState<LocalExecutiveSummary | null>(null);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      const localResults = getLocalKpiResults();
-      const localHistory = getLocalKpiHistory();
-      const localRules = getLocalAlertRules();
-      const localAlerts = generateLocalKpiAlerts(localResults, localHistory, localRules);
-      const localInsights = generateLocalKpiInsights(localResults, localHistory, localAlerts, localRules);
-
-      setResults(localResults.slice(0, 6));
-      setRuleAlertCount(
-        localAlerts.filter((alert) => alert.alertSource === "rule").length
-      );
-      setInsights(localInsights);
-      setSummary(generateLocalExecutiveSummary({
-        kpiResults: localResults,
-        histories: localHistory,
-        alerts: localAlerts,
-        alertRules: localRules,
-        insights: localInsights
-      }));
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, []);
+  const { data: workspace } = useLocalKpiWorkspace();
+  const results = workspace.results.slice(0, 6);
+  const insights = workspace.insights;
+  const summary = workspace.executiveSummary;
+  const ruleAlertCount = workspace.alerts.filter((alert) => alert.alertSource === "rule").length;
 
   if (results.length === 0) {
     return (

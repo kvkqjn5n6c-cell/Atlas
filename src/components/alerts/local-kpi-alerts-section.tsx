@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useLocalKpiAlerts } from "@/hooks/use-local-kpi-alerts";
 import { formatKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
-import { generateLocalKpiAlerts, type LocalKpiAlert } from "@/lib/kpi-engine/local-kpi-alerts";
-import { getLocalKpiResults } from "@/lib/local/local-kpi-results-store";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("fr-FR", {
@@ -15,12 +13,8 @@ function formatDate(value: string) {
 }
 
 export function LocalKpiAlertsSection() {
-  const [alerts, setAlerts] = useState<LocalKpiAlert[]>([]);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => setAlerts(generateLocalKpiAlerts(getLocalKpiResults())), 0);
-    return () => window.clearTimeout(timeoutId);
-  }, []);
+  const { data } = useLocalKpiAlerts();
+  const alerts = data.alerts;
 
   if (alerts.length === 0) {
     return (
