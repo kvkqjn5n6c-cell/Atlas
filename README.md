@@ -29,6 +29,7 @@ L'architecture cible Atlas est formalisee dans [docs/architecture/README.md](doc
 La nouvelle couche d'acces aux donnees est documentee dans [docs/DATA_ACCESS_LAYER.md](docs/DATA_ACCESS_LAYER.md).
 La premiere base de tests automatises est documentee dans [docs/TESTING.md](docs/TESTING.md).
 Les modules historiques issus du pivot sont documentes dans [docs/LEGACY_MODULES.md](docs/LEGACY_MODULES.md).
+Atlas Memory V1 est documentee dans [docs/ATLAS_MEMORY_V1.md](docs/ATLAS_MEMORY_V1.md).
 
 ## Navigation Cible
 

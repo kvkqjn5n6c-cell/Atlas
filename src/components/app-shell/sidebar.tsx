@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   BookOpenText,
+  BrainCircuit,
   Building2,
   ClipboardList,
   Database,
@@ -47,7 +48,8 @@ const pilotageNavigation = [
 const dataNavigation = [
   { name: "Sources de données", href: "/data-sources", icon: Database },
   { name: "Imports & mappings", href: "/imports-mappings", icon: UploadCloud },
-  { name: "Dictionnaire métier", href: "/business-dictionary", icon: BookOpenText }
+  { name: "Dictionnaire métier", href: "/business-dictionary", icon: BookOpenText },
+  { name: "Mémoire Atlas", href: "/atlas-memory", icon: BrainCircuit }
 ];
 
 const adminNavigation = [
@@ -66,7 +68,7 @@ export function Sidebar() {
     if (item.href === "/data-sources" || item.href === "/imports-mappings") {
       return canManageDataSources(activeUser);
     }
-    if (item.href === "/business-dictionary") {
+    if (item.href === "/business-dictionary" || item.href === "/atlas-memory") {
       return canManageDataSources(activeUser) || canConfigureKPI(activeUser);
     }
     return true;
