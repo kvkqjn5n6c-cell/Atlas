@@ -1,6 +1,5 @@
-import { ModulePlaceholder } from "@/components/module-placeholder";
-import { modulePlaceholders } from "@/lib/mock/module-placeholders";
+import { redirect } from "next/navigation";
 
 export default function HomePage() {
-  return <ModulePlaceholder {...modulePlaceholders.home} />;
+  redirect("/pilotage");
 }

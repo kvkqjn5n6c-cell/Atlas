@@ -37,7 +37,7 @@ const statusLabels = {
 const productGlossary = [
   ["KPI", "Indicateur de performance suivi avec un objectif, une tendance et une qualité de donnée."],
   ["Source de données", "Fichier, export ou base qui alimente les indicateurs Atlas."],
-  ["Mapping", "Lien entre une colonne client et un champ standard Atlas."],
+  ["Mapping", "Lien entre une colonne client et un champ standard ou métier Atlas."],
   ["Qualité de donnée", "Niveau de confiance dans la donnée utilisée pour décider."],
   ["Alerte", "Signal priorisé avec cause probable, impact métier et action recommandée."],
   ["Plan d'action", "Suite d'actions concrètes issue des alertes de pilotage."],
@@ -52,13 +52,16 @@ export default function DemoPage() {
         <div className="grid gap-8 p-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:p-8">
           <div>
             <Badge variant="brand" className="border-white/20 bg-white/10 text-white">
-              Mode demo
+              Mode démo
             </Badge>
             <h2 className="mt-5 max-w-4xl text-3xl font-semibold tracking-tight sm:text-4xl">
               {demoScenarioMock.headline}
             </h2>
             <p className="mt-4 max-w-3xl text-sm leading-6 text-slate-300">
               {demoScenarioMock.pitch}
+            </p>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
+              Atlas n&apos;est pas un ERP : il se concentre sur le pilotage, la fiabilité des données et les décisions à prendre.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link
@@ -72,7 +75,7 @@ export default function DemoPage() {
                 href="/data-sources"
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-white/20 px-4 text-sm font-semibold text-white transition hover:bg-white/10"
               >
-                Demarrer par les sources
+                Démarrer par les sources
               </Link>
             </div>
           </div>
@@ -83,7 +86,7 @@ export default function DemoPage() {
                 <Sparkles className="h-5 w-5" aria-hidden="true" />
               </div>
               <div>
-                <p className="text-sm text-slate-300">Scenario client</p>
+                <p className="text-sm text-slate-300">Scénario client</p>
                 <p className="font-semibold">{demoScenarioMock.organizationName}</p>
               </div>
             </div>
@@ -112,7 +115,7 @@ export default function DemoPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Apres traitement Atlas</CardTitle>
+            <CardTitle>Après traitement Atlas</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3">
             {demoScenarioMock.afterAtlas.map((item) => (
@@ -126,7 +129,7 @@ export default function DemoPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Parcours guide</CardTitle>
+          <CardTitle>Parcours guidé</CardTitle>
           <p className="text-sm text-slate-500">
             Un fil de démonstration pour raconter la transformation : données dispersées, traitement Atlas, décision dirigeant.
           </p>
@@ -145,7 +148,7 @@ export default function DemoPage() {
                       </div>
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <Badge>{`Etape ${step.order}`}</Badge>
+                          <Badge>{`Étape ${step.order}`}</Badge>
                           <Badge variant={statusVariant[step.status]}>{statusLabels[step.status]}</Badge>
                         </div>
                         <h3 className="mt-3 text-base font-semibold text-ink">{step.title}</h3>

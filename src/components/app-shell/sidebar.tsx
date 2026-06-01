@@ -9,7 +9,6 @@ import {
   ClipboardList,
   Database,
   Gauge,
-  Home,
   ListTodo,
   LineChart,
   Network,
@@ -33,8 +32,11 @@ import { activePeriod, getActiveOrganization } from "@/lib/context/active-scope"
 import { formatUserRole } from "@/lib/formatters/status-labels";
 import { cn } from "@/lib/utils";
 
+const presentationNavigation = [
+  { name: "Démo", href: "/demo", icon: Presentation }
+];
+
 const pilotageNavigation = [
-  { name: "Accueil", href: "/home", icon: Home },
   { name: "Pilotage", href: "/pilotage", icon: BarChart3 },
   { name: "Indicateurs", href: "/indicators", icon: LineChart },
   { name: "Alertes", href: "/alerts", icon: ShieldAlert },
@@ -42,17 +44,16 @@ const pilotageNavigation = [
   { name: "Rapports", href: "/reports", icon: ClipboardList }
 ];
 
-const presentationNavigation = [
-  { name: "Démo", href: "/demo", icon: Presentation }
+const dataNavigation = [
+  { name: "Sources de données", href: "/data-sources", icon: Database },
+  { name: "Imports & mappings", href: "/imports-mappings", icon: UploadCloud },
+  { name: "Dictionnaire métier", href: "/business-dictionary", icon: BookOpenText }
 ];
 
 const adminNavigation = [
   { name: "Organisations", href: "/organizations", icon: Network },
-  { name: "Sources de données", href: "/data-sources", icon: Database },
-  { name: "Configuration KPI", href: "/kpi-configuration", icon: Gauge },
-  { name: "Imports & mappings", href: "/imports-mappings", icon: UploadCloud },
-  { name: "Dictionnaire métier", href: "/business-dictionary", icon: BookOpenText },
   { name: "Utilisateurs", href: "/users", icon: Users },
+  { name: "Configuration KPI", href: "/kpi-configuration", icon: Gauge },
   { name: "Paramètres", href: "/settings", icon: Settings }
 ];
 
@@ -61,20 +62,28 @@ export function Sidebar() {
   const activeUser = getActiveUser();
   const activeOrganization = getActiveOrganization();
 
+  const visibleDataNavigation = dataNavigation.filter((item) => {
+    if (item.href === "/data-sources" || item.href === "/imports-mappings") {
+      return canManageDataSources(activeUser);
+    }
+    if (item.href === "/business-dictionary") {
+      return canManageDataSources(activeUser) || canConfigureKPI(activeUser);
+    }
+    return true;
+  });
+
   const visibleAdminNavigation = adminNavigation.filter((item) => {
     if (item.href === "/organizations") return hasPermission(activeUser, "viewAllOrganizations");
     if (item.href === "/users") return canManageUsers(activeUser);
     if (item.href === "/kpi-configuration") return canConfigureKPI(activeUser);
-    if (item.href === "/data-sources" || item.href === "/imports-mappings") {
-      return canManageDataSources(activeUser);
-    }
     return true;
   });
 
   const sections = [
     { title: "Présentation", items: presentationNavigation },
-    { title: "Espace pilotage", items: pilotageNavigation },
-    { title: "Espace admin", items: canViewAdminSection(activeUser) ? visibleAdminNavigation : [] }
+    { title: "Pilotage", items: pilotageNavigation },
+    { title: "Données & connaissance", items: canViewAdminSection(activeUser) ? visibleDataNavigation : [] },
+    { title: "Administration", items: canViewAdminSection(activeUser) ? visibleAdminNavigation : [] }
   ];
 
   return (
@@ -86,7 +95,7 @@ export function Sidebar() {
           </div>
           <div>
             <p className="text-sm font-semibold text-ink">Atlas</p>
-            <p className="text-xs text-slate-500">Performance PME</p>
+            <p className="text-xs text-slate-500">Copilote décisionnel PME</p>
           </div>
         </div>
       </div>

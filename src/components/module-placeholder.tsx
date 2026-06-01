@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Target } from "lucide-react";
+import { ArrowLeft, ArrowRight, Archive, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -16,23 +16,27 @@ export function ModulePlaceholder({
   objective,
   expectedInsights,
   futureActions,
-  badge = "Module cible"
+  badge = "Module archivé"
 }: ModulePlaceholderProps) {
   return (
     <div className="space-y-6">
       <section className="rounded-lg border border-line bg-white p-6 shadow-soft">
         <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
           <div className="max-w-3xl">
-            <Badge variant="brand">{badge}</Badge>
+            <Badge variant="warning">{badge}</Badge>
             <h2 className="mt-4 text-3xl font-semibold tracking-tight text-ink">{title}</h2>
             <p className="mt-3 text-sm leading-6 text-slate-600">{objective}</p>
+            <div className="mt-4 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              <Archive className="h-4 w-4" aria-hidden="true" />
+              Ancien module conservé hors navigation. Il ne reviendra que s&apos;il sert directement le pilotage métier.
+            </div>
           </div>
           <Link
-            href="/dashboard"
+            href="/pilotage"
             className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Retour dashboard
+            Retour pilotage
           </Link>
         </div>
       </section>
@@ -40,9 +44,9 @@ export function ModulePlaceholder({
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <Card>
           <CardHeader>
-            <CardTitle>KPI et informations attendues</CardTitle>
+            <CardTitle>Signaux de pilotage potentiels</CardTitle>
             <p className="mt-1 text-sm text-slate-500">
-              Les données qui devront nourrir le cockpit dirigeant.
+              Données qui pourraient redevenir utiles si elles alimentent les KPI, alertes ou rapports Atlas.
             </p>
           </CardHeader>
           <CardContent>
@@ -63,9 +67,9 @@ export function ModulePlaceholder({
 
         <Card>
           <CardHeader>
-            <CardTitle>Actions futures prévues</CardTitle>
+            <CardTitle>Conditions de retour</CardTitle>
             <p className="mt-1 text-sm text-slate-500">
-              Prochaines capacités à ajouter sans construire un CRUD complet maintenant.
+              Ce module reste en attente et ne doit pas redevenir un écran de gestion complet.
             </p>
           </CardHeader>
           <CardContent className="space-y-3">

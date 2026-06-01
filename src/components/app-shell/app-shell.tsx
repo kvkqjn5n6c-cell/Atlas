@@ -20,7 +20,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="flex min-h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                Pilotage de performance
+                Copilote décisionnel métier
               </p>
               <h1 className="text-lg font-semibold text-ink">Atlas</h1>
             </div>

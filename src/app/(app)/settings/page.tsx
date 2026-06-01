@@ -1,6 +1,5 @@
-import { ModulePlaceholder } from "@/components/module-placeholder";
-import { modulePlaceholders } from "@/lib/mock/module-placeholders";
+import { AtlasSettingsPage } from "@/components/settings/atlas-settings-page";
 
 export default function SettingsPage() {
-  return <ModulePlaceholder {...modulePlaceholders.settings} />;
+  return <AtlasSettingsPage />;
 }

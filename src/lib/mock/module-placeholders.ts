@@ -1,243 +1,109 @@
 import type { ModulePlaceholderProps } from "@/components/module-placeholder";
 
+const legacyReturnConditions = [
+  "Revenir uniquement si les données alimentent un KPI, une alerte ou un rapport.",
+  "Éviter tout CRUD complet hors pilotage.",
+  "Relier l'écran à une source, un mapping ou une décision dirigeant."
+];
+
 export const modulePlaceholders = {
   home: {
-    title: "Accueil",
+    title: "Accueil historique",
     objective:
-      "Donner un point d'entrée simple vers le pilotage de performance, les alertes et les plans d'action.",
-    expectedInsights: [
-      "Score performance de la période",
-      "Alertes prioritaires",
-      "Plans d'action ouverts",
-      "Sources de données à vérifier"
-    ],
-    futureActions: [
-      "Afficher une synthèse de performance",
-      "Mettre en avant les décisions attendues",
-      "Préparer un accès futur à Atlas IA"
-    ]
+      "Ancien point d'entrée conservé pour compatibilité. L'accès principal Atlas est désormais le cockpit de pilotage.",
+    expectedInsights: ["Score de performance", "Alertes prioritaires", "Synthèse dirigeant"],
+    futureActions: legacyReturnConditions,
+    badge: "Route redirigée"
   },
   indicators: {
     title: "Indicateurs",
     objective:
-      "Centraliser les KPI de performance, suivre les écarts aux objectifs et détecter les dérives.",
-    expectedInsights: [
-      "KPI critiques",
-      "KPI à surveiller",
-      "Écart objectif par indicateur",
-      "Tendances par période",
-      "Couverture par source de données"
-    ],
-    futureActions: [
-      "Configurer des objectifs simples",
-      "Comparer deux périodes",
-      "Relier chaque KPI à une source de données"
-    ]
+      "Consulter les KPI de performance, leurs écarts aux objectifs, leurs tendances et leur qualité de donnée.",
+    expectedInsights: ["KPI critiques", "KPI à surveiller", "Écart objectif", "Source principale"],
+    futureActions: ["Rester une page de consultation", "Garder la configuration dans Configuration KPI", "Relier chaque KPI à sa source"]
   },
   clients: {
     title: "Clients",
     objective:
-      "Centraliser les clients et contacts pour relier activité commerciale, facturation, relances et risques de paiement.",
-    expectedInsights: [
-      "Clients actifs et clients à risque",
-      "CA facturé par client",
-      "Retards de paiement par client",
-      "Devis ouverts par client",
-      "Dernière activité commerciale"
-    ],
-    futureActions: [
-      "Créer et qualifier une fiche client",
-      "Voir l'historique devis, factures et paiements",
-      "Identifier les clients à relancer en priorité"
-    ]
+      "Ancien module issu du pivot. Les informations clients ne doivent revenir que comme dimension de pilotage.",
+    expectedInsights: ["Concentration du chiffre d'affaires", "Clients à risque", "Dépendance client"],
+    futureActions: legacyReturnConditions
   },
   quotes: {
     title: "Devis",
     objective:
-      "Suivre le pipeline commercial sans complexité, de l'émission du devis jusqu'à la décision client.",
-    expectedInsights: [
-      "Montant des devis envoyés",
-      "Devis sans réponse",
-      "Taux de conversion",
-      "CA potentiel à court terme",
-      "Devis acceptés à convertir"
-    ],
-    futureActions: [
-      "Créer un devis simple",
-      "Envoyer ou marquer un devis comme accepté",
-      "Convertir un devis accepté en facture ou projet"
-    ]
+      "Ancien module commercial masqué. Atlas ne suit pas un cycle de vente complet dans la navigation principale.",
+    expectedInsights: ["Potentiel signé", "Taux de conversion", "Décalage prévisionnel"],
+    futureActions: legacyReturnConditions
   },
   invoices: {
     title: "Factures",
     objective:
-      "Piloter le CA facturé, les échéances, les statuts de paiement et la future transmission facture électronique.",
-    expectedInsights: [
-      "CA facturé sur la période",
-      "Factures en retard",
-      "Factures partiellement payées",
-      "Statuts de transmission externe",
-      "Montant restant à encaisser"
-    ],
-    futureActions: [
-      "Créer une facture depuis un devis ou un projet",
-      "Suivre les paiements associés",
-      "Préparer la connexion à un organisme agréé via provider"
-    ]
+      "Ancien module de gestion masqué. Les données de facturation peuvent rester une source pour le pilotage cash et marge.",
+    expectedInsights: ["Montant à encaisser", "Retards", "Fiabilité source"],
+    futureActions: legacyReturnConditions
   },
   payments: {
     title: "Paiements",
     objective:
-      "Suivre les encaissements, les paiements partiels et l'impact direct sur la trésorerie.",
-    expectedInsights: [
-      "CA encaissé",
-      "Paiements attendus",
-      "Paiements partiels",
-      "Retards d'encaissement",
-      "Écart entre facture et cash"
-    ],
-    futureActions: [
-      "Enregistrer un paiement manuel",
-      "Rapprocher un paiement avec une facture",
-      "Préparer la connexion bancaire future"
-    ]
+      "Ancien module d'encaissement masqué. Les paiements doivent être traités comme signaux de performance et risque cash.",
+    expectedInsights: ["Encaissements", "Retards", "Impact cash"],
+    futureActions: legacyReturnConditions
   },
   expenses: {
     title: "Dépenses",
     objective:
-      "Donner une vue simple des sorties de trésorerie sans basculer dans une comptabilité complète.",
-    expectedInsights: [
-      "Dépenses payées du mois",
-      "Dépenses à venir",
-      "Catégories les plus importantes",
-      "Impact sur trésorerie prévisionnelle",
-      "Dépenses inhabituelles"
-    ],
-    futureActions: [
-      "Ajouter une dépense simple",
-      "Classer par catégorie",
-      "Signaler les dépenses à impact cash élevé"
-    ]
+      "Ancien module de gestion masqué. Les dépenses ne doivent revenir que comme source de marge, cash ou dérive opérationnelle.",
+    expectedInsights: ["Dépenses inhabituelles", "Impact marge", "Impact cash"],
+    futureActions: legacyReturnConditions
   },
   projects: {
     title: "Projets",
     objective:
-      "Relier les missions vendues à leur avancement opérationnel pour mieux anticiper facturation, charge et risques.",
-    expectedInsights: [
-      "Projets actifs",
-      "Projets en retard",
-      "Charge estimée",
-      "Projets prêts à facturer",
-      "Objectifs de livraison"
-    ],
-    futureActions: [
-      "Convertir un devis accepté en projet",
-      "Suivre les jalons simples",
-      "Identifier les projets bloquants"
-    ],
-    badge: "Module V2"
+      "Ancien module opérationnel masqué. Les projets peuvent revenir seulement comme dimension d'activité ou de risque.",
+    expectedInsights: ["Charge", "Retards", "Risque opérationnel"],
+    futureActions: legacyReturnConditions
   },
   tasks: {
     title: "Tâches",
     objective:
-      "Prioriser les relances et actions internes qui ont un impact direct sur cash, facturation et satisfaction client.",
-    expectedInsights: [
-      "Tâches critiques",
-      "Relances client en attente",
-      "Échéances proches",
-      "Charge par responsable",
-      "Actions terminées cette semaine"
-    ],
-    futureActions: [
-      "Assigner une action à un membre",
-      "Lier une tâche à un client ou une facture",
-      "Clôturer les actions traitées"
-    ]
+      "Ancien module de tâches masqué. Atlas garde les plans d'action comme support prioritaire de décision.",
+    expectedInsights: ["Actions prioritaires", "Responsables", "Échéances"],
+    futureActions: legacyReturnConditions
   },
   pilotage: {
     title: "Pilotage",
     objective:
-      "Regrouper les indicateurs, alertes et recommandations pour piloter l'entreprise au-delà des données brutes.",
-    expectedInsights: [
-      "Score santé entreprise",
-      "KPI de croissance",
-      "KPI d'encaissement",
-      "Alertes actives",
-      "Recommandations prioritaires"
-    ],
-    futureActions: [
-      "Configurer des objectifs simples",
-      "Comparer les périodes",
-      "Expliquer les variations de score"
-    ]
+      "Cockpit central Atlas pour comprendre la situation, les risques et les décisions à prendre.",
+    expectedInsights: ["Score de performance", "Insights", "Alertes", "Synthèse dirigeant"],
+    futureActions: ["Conserver comme écran cœur", "Relier les KPI locaux", "Garder une lecture dirigeant claire"]
   },
   reports: {
     title: "Rapports",
     objective:
-      "Produire des synthèses lisibles de performance pour la direction et les comités de pilotage.",
-    expectedInsights: [
-      "Rapport mensuel performance",
-      "Synthèse KPI",
-      "Synthèse alertes",
-      "Décisions recommandées",
-      "Plan d'action associé"
-    ],
-    futureActions: [
-      "Générer un PDF mensuel",
-      "Exporter les indicateurs principaux",
-      "Partager une synthèse avec un partenaire"
-    ],
-    badge: "Module V2"
+      "Produire des synthèses lisibles pour la direction à partir des KPI, alertes, insights et limites de fiabilité.",
+    expectedInsights: ["Résumé exécutif", "Risques", "Actions", "Qualité de donnée"],
+    futureActions: ["Préparer l'export PDF", "Garder le rapport explicable", "Relier aux sources utilisées"]
   },
   settings: {
     title: "Paramètres",
     objective:
-      "Centraliser les réglages utiles à Atlas : organisation active, période, accès et préférences de pilotage.",
-    expectedInsights: [
-      "Organisation active",
-      "Utilisateurs et rôles",
-      "Période de pilotage",
-      "Préférences d'affichage",
-      "État des intégrations futures"
-    ],
-    futureActions: [
-      "Gérer les membres de l'organisation",
-      "Définir la période par défaut",
-      "Préparer la configuration des connecteurs"
-    ]
+      "Préparer le cadre de pilotage, les accès, les modes de données et les futures intégrations.",
+    expectedInsights: ["Organisation active", "Mode de données", "Rôles", "Connecteurs futurs"],
+    futureActions: ["Garder les réglages sobres", "Préparer la sécurité", "Préparer Atlas Memory"]
   },
   actionPlans: {
     title: "Plans d'action",
     objective:
-      "Transformer les alertes et écarts KPI en actions priorisées, suivies et attribuées.",
-    expectedInsights: [
-      "Actions critiques ouvertes",
-      "Responsables",
-      "Échéances proches",
-      "Impact attendu",
-      "Taux de completion"
-    ],
-    futureActions: [
-      "Assigner les actions",
-      "Lier une action à une alerte ou un KPI",
-      "Mesurer l'impact après exécution"
-    ]
+      "Transformer les alertes et écarts KPI en actions priorisées, attribuées et suivies.",
+    expectedInsights: ["Actions critiques", "Responsables", "Échéances", "Impact attendu"],
+    futureActions: ["Relier aux alertes", "Mesurer l'impact", "Limiter aux actions de pilotage"]
   },
   organizations: {
     title: "Organisations",
     objective:
-      "Gérer les PME/TPE clientes suivies dans Atlas et leur contexte de performance.",
-    expectedInsights: [
-      "Organisations actives",
-      "Secteur et taille",
-      "Période active",
-      "Couverture KPI",
-      "État sources de données"
-    ],
-    futureActions: [
-      "Ajouter une organisation cliente",
-      "Associer des sources de données",
-      "Configurer les objectifs par organisation"
-    ]
+      "Suivre les organisations clientes, leur périmètre de pilotage et leur gouvernance de données.",
+    expectedInsights: ["Organisations actives", "Couverture KPI", "Sources", "Alertes ouvertes"],
+    futureActions: ["Gérer le multi-tenant", "Relier les sources", "Isoler les données"]
   }
 } satisfies Record<string, ModulePlaceholderProps>;
