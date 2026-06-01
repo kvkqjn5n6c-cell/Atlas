@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { FileSpreadsheet, Upload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -64,6 +64,7 @@ function buildLocalImportSummary(parsedFile: ParsedFileResult, mappings: LocalCo
 }
 
 export function LocalFileImportPanel() {
+  const [mounted, setMounted] = useState(false);
   const [isReading, setIsReading] = useState(false);
   const [parsedFile, setParsedFile] = useState<ParsedFileResult | null>(null);
   const [mappings, setMappings] = useState<LocalColumnMapping[]>([]);
@@ -71,7 +72,16 @@ export function LocalFileImportPanel() {
   const [validatedImport, setValidatedImport] = useState<LocalValidatedImport | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
   const [storageMessage, setStorageMessage] = useState<string | null>(null);
-  const [localImportCount, setLocalImportCount] = useState(() => getLocalImports().length);
+  const [localImportCount, setLocalImportCount] = useState(0);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setMounted(true);
+      setLocalImportCount(getLocalImports().length);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, []);
 
   const canGenerateSummary = useMemo(() => {
     if (!parsedFile || parsedFile.columns.length === 0) return false;
@@ -154,7 +164,7 @@ export function LocalFileImportPanel() {
                 <Badge>Test local</Badge>
                 <Badge>Non persisté</Badge>
                 {parsedFile?.statistics?.isLargeFile ? <Badge variant="warning">Fichier volumineux</Badge> : null}
-                <Badge>{localImportCount} imports locaux disponibles</Badge>
+                <Badge>{mounted ? localImportCount : 0} imports locaux disponibles</Badge>
               </div>
               <CardTitle className="mt-3">Prévisualiser un fichier CSV</CardTitle>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
