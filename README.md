@@ -24,6 +24,7 @@ Le modele de donnees cible est documente dans [docs/DATA_MODEL.md](docs/DATA_MOD
 La strategie de persistance progressive est decrite dans [docs/DATA_PERSISTENCE.md](docs/DATA_PERSISTENCE.md).
 La persistance Prisma locale optionnelle est decrite dans [docs/PRISMA_LOCAL_SETUP.md](docs/PRISMA_LOCAL_SETUP.md).
 Les regles d'alerte KPI sont documentees dans [docs/ALERT_RULES.md](docs/ALERT_RULES.md).
+L'architecture cible Atlas est formalisee dans [docs/architecture/README.md](docs/architecture/README.md).
 
 ## Navigation Cible
 
