@@ -11,7 +11,8 @@ import { getLocalKpiResults } from "@/lib/local/local-kpi-results-store";
 import { getLocalKpiConfigurations } from "@/lib/local/local-kpi-store";
 import type { LocalAlertRule } from "@/types/local-alert-rules";
 import type { LocalExecutiveSummary } from "@/types/local-executive-summary";
-import type { LocalInsight } from "@/types/local-insights";
+import type { AtlasKnowledgeItem } from "@/types/atlas-memory-knowledge";
+import type { LocalInsight, LocalInsightMemoryReference } from "@/types/local-insights";
 import type { LocalKpiAlert } from "@/lib/kpi-engine/local-kpi-alerts";
 import type { LocalKpiConfiguration } from "@/types/local-kpi";
 import type { LocalKpiHistoryPoint } from "@/types/local-kpi-history";
@@ -27,6 +28,8 @@ export type LocalKpiWorkspaceData = {
   alerts: LocalKpiAlert[];
   insights: LocalInsight[];
   executiveSummary: LocalExecutiveSummary;
+  approvedMemoryKnowledge: AtlasKnowledgeItem[];
+  usedMemoryReferences: LocalInsightMemoryReference[];
 };
 
 const emptyExecutiveSummary: LocalExecutiveSummary = {
@@ -52,7 +55,9 @@ export const emptyLocalKpiWorkspaceData: LocalKpiWorkspaceData = {
   alertRules: [],
   alerts: [],
   insights: [],
-  executiveSummary: emptyExecutiveSummary
+  executiveSummary: emptyExecutiveSummary,
+  approvedMemoryKnowledge: [],
+  usedMemoryReferences: []
 };
 
 export function getEmptyLocalKpiWorkspaceResult(): LocalDataResult<LocalKpiWorkspaceData> {
@@ -72,6 +77,30 @@ function buildHistoryByKpiId(history: LocalKpiHistoryPoint[]) {
   }, {});
 }
 
+export function getUsedMemoryReferences(insights: LocalInsight[]) {
+  const references = insights.flatMap((insight) => insight.memoryReferenceItems ?? []);
+  const seenReferences = new Set<string>();
+
+  return references.filter((reference) => {
+    const key = reference.knowledgeId ?? `${reference.sourceDocument}-${reference.knowledgeType}-${reference.value}`;
+    if (seenReferences.has(key)) return false;
+    seenReferences.add(key);
+    return true;
+  });
+}
+
+export function getAvailableApprovedMemoryKnowledge(
+  approvedKnowledge: AtlasKnowledgeItem[],
+  usedReferences: LocalInsightMemoryReference[]
+) {
+  const usedKnowledgeIds = new Set(usedReferences.map((reference) => reference.knowledgeId).filter(Boolean));
+  const usedFallbackKeys = new Set(usedReferences.map((reference) => `${reference.sourceDocument}-${reference.value}`));
+
+  return approvedKnowledge.filter((item) =>
+    !usedKnowledgeIds.has(item.id) && !usedFallbackKeys.has(`${item.sourceDocument}-${item.value}`)
+  );
+}
+
 export function getLocalKpiWorkspaceData(): LocalDataResult<LocalKpiWorkspaceData> {
   const configurations = getLocalKpiConfigurations();
   const results = getLocalKpiResults();
@@ -80,6 +109,7 @@ export function getLocalKpiWorkspaceData(): LocalDataResult<LocalKpiWorkspaceDat
   const memoryDocuments = getAtlasMemoryDocuments(activeOrganizationId);
   const detectedKnowledge = extractAtlasKnowledgeItems(memoryDocuments, activeOrganizationId);
   const governedKnowledge = getAtlasMemoryKnowledge(activeOrganizationId, detectedKnowledge);
+  const approvedMemoryKnowledge = governedKnowledge.filter((item) => item.status === "approved");
   const memoryContext = generateMemoryContext(memoryDocuments, governedKnowledge);
   const alerts = generateLocalKpiAlerts(results, history, alertRules);
   const insights = generateLocalKpiInsights(results, history, alerts, alertRules, memoryContext);
@@ -91,6 +121,7 @@ export function getLocalKpiWorkspaceData(): LocalDataResult<LocalKpiWorkspaceDat
     insights,
     memoryContext
   });
+  const usedMemoryReferences = getUsedMemoryReferences(insights);
 
   return {
     data: {
@@ -101,7 +132,9 @@ export function getLocalKpiWorkspaceData(): LocalDataResult<LocalKpiWorkspaceDat
       alertRules,
       alerts,
       insights,
-      executiveSummary
+      executiveSummary,
+      approvedMemoryKnowledge,
+      usedMemoryReferences
     },
     source: "localStorage",
     fallbackUsed: false,

@@ -259,6 +259,13 @@ export function generateMemoryInsights(
       memorySources: sourceLabels,
       memoryReferences: sourceItems.map((item) => item.text),
       memoryKnowledgeLabels: sourceItems.map((item) => memoryKnowledgeLabels[item.kind]),
+      memoryReferenceItems: sourceItems.map((item) => ({
+        knowledgeId: item.knowledgeId,
+        sourceDocument: item.source,
+        knowledgeType: memoryKnowledgeLabels[item.kind],
+        value: item.text,
+        status: "Validée"
+      })),
       evidence: [evidenceFromResult(result, histories)],
       recommendedAction: rule
         ? `Appliquer ou revoir la règle métier documentée : ${rule.text}`

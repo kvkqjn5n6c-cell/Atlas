@@ -20,6 +20,14 @@ export type LocalInsightEvidence = {
   source?: string;
 };
 
+export type LocalInsightMemoryReference = {
+  knowledgeId?: string;
+  sourceDocument: string;
+  knowledgeType: string;
+  value: string;
+  status: "Validée";
+};
+
 export type LocalInsight = {
   id: string;
   organizationId: string;
@@ -32,6 +40,7 @@ export type LocalInsight = {
   memorySources?: string[];
   memoryReferences?: string[];
   memoryKnowledgeLabels?: string[];
+  memoryReferenceItems?: LocalInsightMemoryReference[];
   evidence: LocalInsightEvidence[];
   recommendedAction: string;
   createdAt: string;

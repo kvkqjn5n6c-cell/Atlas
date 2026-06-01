@@ -6,6 +6,9 @@ import { useLocalKpiWorkspace } from "@/hooks/use-local-kpi-workspace";
 import { generateExecutiveLocalSummary } from "@/lib/insights/local-insights-engine";
 import { formatKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
 import { formatVariation } from "@/lib/kpi-engine/local-kpi-trends";
+import { getAvailableApprovedMemoryKnowledge } from "@/lib/services/local-data/local-kpis-data.service";
+import type { AtlasKnowledgeItem, AtlasKnowledgeType } from "@/types/atlas-memory-knowledge";
+import type { LocalInsightMemoryReference } from "@/types/local-insights";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
 
 const statusVariant = {
@@ -21,6 +24,13 @@ const statusLabels = {
   critical: "Critique",
   "not-tested": "Non testé"
 } as const;
+
+const knowledgeTypeLabels: Record<AtlasKnowledgeType, string> = {
+  objective: "Objectif validé",
+  business_rule: "Règle métier validée",
+  decision: "Décision historique validée",
+  glossary: "Glossaire validé"
+};
 
 function impactForResult(result: LocalKpiResult) {
   if (result.status === "critical") return "À intégrer au rapport dirigeant comme point de risque prioritaire.";
@@ -44,12 +54,86 @@ function ReportSummaryColumn({ title, items }: { title: string; items: string[] 
   );
 }
 
+function MemoryMobilizedBlock({
+  usedReferences,
+  availableKnowledge
+}: {
+  usedReferences: LocalInsightMemoryReference[];
+  availableKnowledge: AtlasKnowledgeItem[];
+}) {
+  return (
+    <div className="mb-5 rounded-md border border-brand-100 bg-white p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="brand">Mémoire Atlas mobilisée</Badge>
+        <Badge>{usedReferences.length} mobilisée(s)</Badge>
+        <Badge>{availableKnowledge.length} disponible(s)</Badge>
+      </div>
+      <p className="mt-2 text-sm text-slate-500">
+        Séparation entre les connaissances validées qui influencent ce rapport et celles qui restent disponibles pour d&apos;autres lectures.
+      </p>
+      <div className="mt-4 space-y-5">
+        <section>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Connaissances mobilisées dans l&apos;analyse</p>
+          {usedReferences.length === 0 ? (
+            <p className="mt-2 rounded-md border border-line bg-slate-50 p-4 text-sm text-slate-600">
+              Aucune connaissance validée n&apos;est utilisée pour cette analyse.
+            </p>
+          ) : (
+            <div className="mt-2 grid gap-3 lg:grid-cols-2">
+              {usedReferences.map((reference) => (
+                <article
+                  key={`${reference.sourceDocument}-${reference.knowledgeType}-${reference.value}`}
+                  className="rounded-md border border-line bg-slate-50 p-4"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge>{reference.sourceDocument}</Badge>
+                    <Badge variant="success">{reference.status}</Badge>
+                    <Badge>{reference.knowledgeType}</Badge>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-slate-700">{reference.value}</p>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Connaissances validées disponibles</p>
+          {availableKnowledge.length === 0 ? (
+            <p className="mt-2 rounded-md border border-line bg-slate-50 p-4 text-sm text-slate-600">
+              Aucune autre connaissance validée disponible pour cette analyse.
+            </p>
+          ) : (
+            <div className="mt-2 grid gap-3 lg:grid-cols-2">
+              {availableKnowledge.map((item) => (
+                <article
+                  key={item.id}
+                  className="rounded-md border border-line bg-slate-50 p-4"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge>{item.sourceDocument}</Badge>
+                    <Badge variant="success">Validée</Badge>
+                    <Badge>{knowledgeTypeLabels[item.type]}</Badge>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-slate-700">{item.value}</p>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
 export function LocalKpiReportSection() {
   const { data: workspace } = useLocalKpiWorkspace();
   const results = workspace.results.slice(0, 6);
   const insights = workspace.insights;
   const summary = workspace.executiveSummary;
   const ruleAlertCount = workspace.alerts.filter((alert) => alert.alertSource === "rule").length;
+  const usedMemoryReferences = workspace.usedMemoryReferences;
+  const availableMemoryKnowledge = getAvailableApprovedMemoryKnowledge(workspace.approvedMemoryKnowledge, usedMemoryReferences);
 
   if (results.length === 0) {
     return (
@@ -60,6 +144,9 @@ export function LocalKpiReportSection() {
             Aucun KPI local n&apos;est encore disponible pour enrichir les rapports.
           </p>
         </CardHeader>
+        <CardContent>
+          <MemoryMobilizedBlock usedReferences={usedMemoryReferences} availableKnowledge={availableMemoryKnowledge} />
+        </CardContent>
       </Card>
     );
   }
@@ -96,6 +183,8 @@ export function LocalKpiReportSection() {
             </div>
           </div>
         ) : null}
+
+        <MemoryMobilizedBlock usedReferences={usedMemoryReferences} availableKnowledge={availableMemoryKnowledge} />
 
         <div className="mb-5 rounded-md border border-brand-100 bg-brand-50 p-4">
           <Badge variant="brand">Analyse déterministe des KPI personnalisés</Badge>

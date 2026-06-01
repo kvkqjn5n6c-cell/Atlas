@@ -4,6 +4,10 @@ import { generateLocalKpiInsights } from "@/lib/insights/local-insights-engine";
 import { generateLocalKpiAlerts } from "@/lib/kpi-engine/local-kpi-alerts";
 import { extractAtlasKnowledgeItems, generateMemoryContext } from "@/lib/memory/atlas-memory-engine";
 import { getAtlasMemoryMockByOrganization } from "@/lib/mock/atlas-memory";
+import {
+  getAvailableApprovedMemoryKnowledge,
+  getUsedMemoryReferences
+} from "@/lib/services/local-data/local-kpis-data.service";
 import { buildKpiResult } from "../fixtures/local-engine-fixtures";
 
 const documents = getAtlasMemoryMockByOrganization("org-atlas-demo");
@@ -43,6 +47,16 @@ describe("atlas memory integration with business engine", () => {
     expect(memoryInsight?.summary.toLowerCase()).toContain("objectif");
     expect(memoryInsight?.memorySources).toEqual(expect.arrayContaining(["strategie.md"]));
     expect(memoryInsight?.memoryKnowledgeLabels).toEqual(expect.arrayContaining(["Objectif validé"]));
+    expect(memoryInsight?.memoryReferenceItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          knowledgeId: expect.any(String),
+          sourceDocument: "strategie.md",
+          knowledgeType: "Objectif validé",
+          status: "Validée"
+        })
+      ])
+    );
   });
 
   it("enrichit la synthese dirigeant avec les connaissances memoire", () => {
@@ -64,5 +78,24 @@ describe("atlas memory integration with business engine", () => {
 
     expect(summary.memoryHighlights.length).toBeGreaterThan(0);
     expect(summary.memoryHighlights.join(" ").toLowerCase()).toContain("mémoire");
+  });
+
+  it("distingue connaissances validees mobilisees et disponibles", () => {
+    const fourApprovedKnowledge = approvedKnowledge.slice(0, 4);
+    const context = generateMemoryContext(documents, fourApprovedKnowledge);
+    const result = buildKpiResult({
+      name: "Somme cout sous-traitance",
+      displayFieldLabel: "Cout sous-traitance",
+      status: "critical"
+    });
+    const alerts = generateLocalKpiAlerts([result]);
+    const insights = generateLocalKpiInsights([result], [], alerts, [], context);
+    const usedReferences = getUsedMemoryReferences(insights);
+    const availableKnowledge = getAvailableApprovedMemoryKnowledge(fourApprovedKnowledge, usedReferences);
+
+    expect(fourApprovedKnowledge).toHaveLength(4);
+    expect(usedReferences).toHaveLength(1);
+    expect(availableKnowledge).toHaveLength(3);
+    expect(availableKnowledge.every((item) => item.status === "approved")).toBe(true);
   });
 });

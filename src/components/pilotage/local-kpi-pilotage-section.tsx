@@ -9,6 +9,9 @@ import { useLocalKpiWorkspace } from "@/hooks/use-local-kpi-workspace";
 import { formatKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
 import { calculateScoreWithLocalKpis } from "@/lib/kpi-engine/local-kpi-results";
 import { formatVariation } from "@/lib/kpi-engine/local-kpi-trends";
+import { getAvailableApprovedMemoryKnowledge } from "@/lib/services/local-data/local-kpis-data.service";
+import type { AtlasKnowledgeItem, AtlasKnowledgeType } from "@/types/atlas-memory-knowledge";
+import type { LocalInsightMemoryReference } from "@/types/local-insights";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
 
 const statusVariant = {
@@ -47,6 +50,13 @@ const insightLabels = {
   critical: "Critique"
 } as const;
 
+const knowledgeTypeLabels: Record<AtlasKnowledgeType, string> = {
+  objective: "Objectif validé",
+  business_rule: "Règle métier validée",
+  decision: "Décision historique validée",
+  glossary: "Glossaire validé"
+};
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("fr-FR", {
     dateStyle: "short",
@@ -71,6 +81,81 @@ function SummaryList({ title, items }: { title: string; items: string[] }) {
         ))}
       </ul>
     </div>
+  );
+}
+
+function MemoryReferencesCard({
+  usedReferences,
+  availableKnowledge
+}: {
+  usedReferences: LocalInsightMemoryReference[];
+  availableKnowledge: AtlasKnowledgeItem[];
+}) {
+  return (
+    <Card className="border-brand-100">
+      <CardHeader>
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle>Références mémoire utilisées</CardTitle>
+          <Badge variant="brand">Atlas Memory</Badge>
+          <Badge>{usedReferences.length} mobilisée(s)</Badge>
+          <Badge>{availableKnowledge.length} disponible(s)</Badge>
+        </div>
+        <p className="mt-1 text-sm text-slate-500">
+          Séparation entre les connaissances validées qui influencent l&apos;analyse courante et celles qui restent disponibles pour d&apos;autres lectures.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <section>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Connaissances mobilisées dans l&apos;analyse</p>
+          {usedReferences.length === 0 ? (
+            <p className="mt-2 rounded-md border border-line bg-slate-50 p-4 text-sm text-slate-600">
+              Aucune connaissance validée n&apos;est utilisée pour cette analyse.
+            </p>
+          ) : (
+            <div className="mt-2 grid gap-3 lg:grid-cols-2">
+              {usedReferences.map((reference) => (
+                <article
+                  key={`${reference.sourceDocument}-${reference.knowledgeType}-${reference.value}`}
+                  className="rounded-md border border-line bg-slate-50 p-4"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge>{reference.sourceDocument}</Badge>
+                    <Badge variant="success">{reference.status}</Badge>
+                    <Badge>{reference.knowledgeType}</Badge>
+                  </div>
+                  <p className="mt-3 text-sm leading-6 text-slate-700">{reference.value}</p>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Autres connaissances validées disponibles</p>
+          {availableKnowledge.length === 0 ? (
+            <p className="mt-2 rounded-md border border-line bg-slate-50 p-4 text-sm text-slate-600">
+              Aucune autre connaissance validée disponible pour cette analyse.
+            </p>
+          ) : (
+            <div className="mt-2 grid gap-3 lg:grid-cols-2">
+              {availableKnowledge.map((item) => (
+              <article
+                key={item.id}
+                className="rounded-md border border-line bg-slate-50 p-4"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge>{item.sourceDocument}</Badge>
+                  <Badge variant="success">Validée</Badge>
+                  <Badge>{knowledgeTypeLabels[item.type]}</Badge>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-slate-700">{item.value}</p>
+              </article>
+              ))}
+            </div>
+          )}
+        </section>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -99,17 +184,22 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
   const results = workspace.results;
   const insights = workspace.insights;
   const summary = workspace.executiveSummary;
+  const usedMemoryReferences = workspace.usedMemoryReferences;
+  const availableMemoryKnowledge = getAvailableApprovedMemoryKnowledge(workspace.approvedMemoryKnowledge, usedMemoryReferences);
 
   if (results.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>KPI personnalisés</CardTitle>
-          <p className="mt-1 text-sm text-slate-500">
-            Aucun KPI local n&apos;alimente encore le cockpit. Créez un KPI depuis Imports & mappings pour l&apos;exploiter ici.
-          </p>
-        </CardHeader>
-      </Card>
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>KPI personnalisés</CardTitle>
+            <p className="mt-1 text-sm text-slate-500">
+              Aucun KPI local n&apos;alimente encore le cockpit. Créez un KPI depuis Imports & mappings pour l&apos;exploiter ici.
+            </p>
+          </CardHeader>
+        </Card>
+        <MemoryReferencesCard usedReferences={usedMemoryReferences} availableKnowledge={availableMemoryKnowledge} />
+      </div>
     );
   }
 
@@ -224,6 +314,8 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
           </CardContent>
         </Card>
       ) : null}
+
+      <MemoryReferencesCard usedReferences={usedMemoryReferences} availableKnowledge={availableMemoryKnowledge} />
 
       <Card className="border-brand-100">
         <CardHeader>
