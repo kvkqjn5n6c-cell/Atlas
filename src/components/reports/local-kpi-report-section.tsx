@@ -90,6 +90,9 @@ export function LocalKpiReportSection() {
               <ReportSummaryColumn title="Constats" items={summary.keyFindings} />
               <ReportSummaryColumn title="Actions" items={summary.recommendedActions} />
               <ReportSummaryColumn title="Limites de fiabilité" items={summary.dataReliabilityNotes} />
+              {summary.memoryHighlights.length > 0 ? (
+                <ReportSummaryColumn title="Mémoire Atlas" items={summary.memoryHighlights} />
+              ) : null}
             </div>
           </div>
         ) : null}

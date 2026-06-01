@@ -1,6 +1,8 @@
 import { inferKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
 import { formatVariation } from "@/lib/kpi-engine/local-kpi-trends";
+import { memoryTextMatchesKpi } from "@/lib/memory/atlas-memory-engine";
 import type { LocalKpiAlert } from "@/lib/kpi-engine/local-kpi-alerts";
+import type { AtlasMemoryContext, AtlasMemoryContextItem } from "@/types/atlas-memory-context";
 import type { LocalAlertRule } from "@/types/local-alert-rules";
 import type { LocalInsight, LocalInsightEvidence, LocalInsightSeverity } from "@/types/local-insights";
 import type { LocalKpiHistoryPoint } from "@/types/local-kpi-history";
@@ -204,16 +206,74 @@ export function generateAlertRuleInsights(
     });
 }
 
+function findMemoryMatches(result: LocalKpiResult, memoryContext?: AtlasMemoryContext) {
+  if (!memoryContext) return [];
+  const label = `${result.name} ${result.displayFieldLabel ?? ""}`;
+  const candidates: Array<AtlasMemoryContextItem & { kind: "objective" | "rule" | "decision" }> = [
+    ...memoryContext.objectives.map((item) => ({ ...item, kind: "objective" as const })),
+    ...memoryContext.businessRules.map((item) => ({ ...item, kind: "rule" as const })),
+    ...memoryContext.decisions.map((item) => ({ ...item, kind: "decision" as const }))
+  ];
+
+  return candidates.filter((item) => memoryTextMatchesKpi(item.text, label));
+}
+
+export function generateMemoryInsights(
+  kpiResults: LocalKpiResult[],
+  histories: LocalKpiHistoryPoint[],
+  alerts: LocalKpiAlert[],
+  memoryContext?: AtlasMemoryContext
+): LocalInsight[] {
+  if (!memoryContext) return [];
+
+  return kpiResults.flatMap((result) => {
+    if (result.status !== "critical" && result.status !== "watch") return [];
+
+    const matches = findMemoryMatches(result, memoryContext);
+    if (matches.length === 0) return [];
+
+    const objective = matches.find((match) => match.kind === "objective");
+    const rule = matches.find((match) => match.kind === "rule");
+    const decision = matches.find((match) => match.kind === "decision");
+    const sourceItems = [objective, rule, decision].filter(Boolean) as typeof matches;
+    const sourceLabels = Array.from(new Set(sourceItems.map((item) => item.source)));
+    const relatedAlerts = alerts.filter((alert) => alert.kpiId === result.kpiId);
+
+    return [insight({
+      id: `local-insight-memory-${result.kpiId}`,
+      organizationId: defaultOrganizationId,
+      title: `${result.name} confronté à la mémoire métier`,
+      summary: objective
+        ? `${result.name} est en contradiction possible avec l'objectif déclaré : ${objective.text}`
+        : `${result.name} recoupe une connaissance métier documentée dans Atlas Memory.`,
+      severity: result.status === "critical" ? "critical" : "watch",
+      insightType: "risk",
+      relatedKpiIds: [result.kpiId],
+      relatedAlertIds: relatedAlerts.map((alert) => alert.id),
+      memorySources: sourceLabels,
+      memoryReferences: sourceItems.map((item) => item.text),
+      evidence: [evidenceFromResult(result, histories)],
+      recommendedAction: rule
+        ? `Appliquer ou revoir la règle métier documentée : ${rule.text}`
+        : decision
+          ? `Comparer la situation avec la décision historique : ${decision.text}`
+          : "Relire l'objectif mémoire lié et décider si le plan d'action doit être renforcé."
+    })];
+  });
+}
+
 export function generateLocalKpiInsights(
   kpiResults: LocalKpiResult[],
   histories: LocalKpiHistoryPoint[],
   alerts: LocalKpiAlert[],
-  alertRules: LocalAlertRule[]
+  alertRules: LocalAlertRule[],
+  memoryContext?: AtlasMemoryContext
 ): LocalInsight[] {
   return rankLocalInsights([
     ...generateRiskInsights(kpiResults, histories, alerts),
     ...generateTrendInsights(kpiResults, histories),
-    ...generateAlertRuleInsights(kpiResults, histories, alerts, alertRules)
+    ...generateAlertRuleInsights(kpiResults, histories, alerts, alertRules),
+    ...generateMemoryInsights(kpiResults, histories, alerts, memoryContext)
   ]);
 }
 

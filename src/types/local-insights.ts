@@ -29,6 +29,8 @@ export type LocalInsight = {
   insightType: LocalInsightType;
   relatedKpiIds: string[];
   relatedAlertIds?: string[];
+  memorySources?: string[];
+  memoryReferences?: string[];
   evidence: LocalInsightEvidence[];
   recommendedAction: string;
   createdAt: string;

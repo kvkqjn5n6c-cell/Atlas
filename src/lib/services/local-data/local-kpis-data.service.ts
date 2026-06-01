@@ -1,6 +1,9 @@
 import { generateLocalExecutiveSummary } from "@/lib/insights/local-executive-summary-engine";
 import { generateLocalKpiInsights } from "@/lib/insights/local-insights-engine";
 import { generateLocalKpiAlerts } from "@/lib/kpi-engine/local-kpi-alerts";
+import { activeOrganizationId } from "@/lib/context/scope-defaults";
+import { generateMemoryContext } from "@/lib/memory/atlas-memory-engine";
+import { getAtlasMemoryDocuments } from "@/lib/local/atlas-memory-store";
 import { getLocalAlertRules } from "@/lib/local/local-alert-rules-store";
 import { getLocalKpiHistory } from "@/lib/local/local-kpi-history-store";
 import { getLocalKpiResults } from "@/lib/local/local-kpi-results-store";
@@ -34,6 +37,7 @@ const emptyExecutiveSummary: LocalExecutiveSummary = {
   keyFindings: [],
   recommendedActions: [],
   dataReliabilityNotes: [],
+  memoryHighlights: [],
   relatedKpiIds: [],
   relatedAlertIds: [],
   persisted: false
@@ -72,14 +76,16 @@ export function getLocalKpiWorkspaceData(): LocalDataResult<LocalKpiWorkspaceDat
   const results = getLocalKpiResults();
   const history = getLocalKpiHistory();
   const alertRules = getLocalAlertRules();
+  const memoryContext = generateMemoryContext(getAtlasMemoryDocuments(activeOrganizationId));
   const alerts = generateLocalKpiAlerts(results, history, alertRules);
-  const insights = generateLocalKpiInsights(results, history, alerts, alertRules);
+  const insights = generateLocalKpiInsights(results, history, alerts, alertRules, memoryContext);
   const executiveSummary = generateLocalExecutiveSummary({
     kpiResults: results,
     histories: history,
     alerts,
     alertRules,
-    insights
+    insights,
+    memoryContext
   });
 
   return {

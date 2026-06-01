@@ -1,4 +1,5 @@
 import type { LocalKpiAlert } from "@/lib/kpi-engine/local-kpi-alerts";
+import type { AtlasMemoryContext } from "@/types/atlas-memory-context";
 import type { LocalAlertRule } from "@/types/local-alert-rules";
 import type { LocalExecutiveSummary } from "@/types/local-executive-summary";
 import type { LocalInsight } from "@/types/local-insights";
@@ -14,6 +15,7 @@ type LocalExecutiveSummaryInput = {
   alerts: LocalKpiAlert[];
   alertRules: LocalAlertRule[];
   insights: LocalInsight[];
+  memoryContext?: AtlasMemoryContext;
   organizationId?: string;
 };
 
@@ -139,8 +141,26 @@ function generateKeyFindings(kpiResults: LocalKpiResult[], insights: LocalInsigh
   return unique(findings).slice(0, maxSummaryItems);
 }
 
+function generateMemoryHighlights(insights: LocalInsight[], memoryContext?: AtlasMemoryContext) {
+  const insightHighlights = insights
+    .filter((insight) => insight.memoryReferences?.length)
+    .flatMap((insight) =>
+      (insight.memoryReferences ?? []).map((reference) =>
+        `${insight.title} utilise la mémoire métier : ${reference}`
+      )
+    );
+
+  const contextHighlights = [
+    ...(memoryContext?.objectives.slice(0, 1).map((item) => `Objectif stratégique détecté (${item.source}) : ${item.text}`) ?? []),
+    ...(memoryContext?.businessRules.slice(0, 1).map((item) => `Règle métier détectée (${item.source}) : ${item.text}`) ?? []),
+    ...(memoryContext?.decisions.slice(0, 1).map((item) => `Décision historique détectée (${item.source}) : ${item.text}`) ?? [])
+  ];
+
+  return unique([...insightHighlights, ...contextHighlights]).slice(0, maxSummaryItems);
+}
+
 export function generateLocalExecutiveSummary(input: LocalExecutiveSummaryInput): LocalExecutiveSummary {
-  const { kpiResults, histories, alerts, alertRules, insights } = input;
+  const { kpiResults, histories, alerts, alertRules, insights, memoryContext } = input;
 
   return {
     id: `local-executive-summary-${input.organizationId ?? defaultOrganizationId}`,
@@ -151,6 +171,7 @@ export function generateLocalExecutiveSummary(input: LocalExecutiveSummaryInput)
     keyFindings: generateKeyFindings(kpiResults, insights),
     recommendedActions: generateLocalActionPriorities(alerts, insights),
     dataReliabilityNotes: generateLocalDataReliabilitySummary(kpiResults, histories, insights),
+    memoryHighlights: generateMemoryHighlights(insights, memoryContext),
     relatedKpiIds: unique(kpiResults.map((result) => result.kpiId)),
     relatedAlertIds: unique(alerts.map((alert) => alert.id)),
     persisted: false

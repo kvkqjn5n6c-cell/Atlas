@@ -7,6 +7,7 @@ export type LocalExecutiveSummary = {
   keyFindings: string[];
   recommendedActions: string[];
   dataReliabilityNotes: string[];
+  memoryHighlights: string[];
   relatedKpiIds: string[];
   relatedAlertIds: string[];
   persisted: false;

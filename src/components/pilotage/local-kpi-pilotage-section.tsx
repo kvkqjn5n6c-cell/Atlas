@@ -218,6 +218,9 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
             <SummaryList title="Risques prioritaires" items={summary.mainRisks} />
             <SummaryList title="Actions recommandées" items={summary.recommendedActions} />
             <SummaryList title="Fiabilité des données" items={summary.dataReliabilityNotes} />
+            {summary.memoryHighlights.length > 0 ? (
+              <SummaryList title="Mémoire Atlas" items={summary.memoryHighlights} />
+            ) : null}
           </CardContent>
         </Card>
       ) : null}

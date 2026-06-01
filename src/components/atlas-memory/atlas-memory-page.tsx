@@ -11,7 +11,9 @@ import {
   resetAtlasMemoryDocument,
   saveAtlasMemoryDocument
 } from "@/lib/local/atlas-memory-store";
+import { generateMemoryContext } from "@/lib/memory/atlas-memory-engine";
 import { getAtlasMemoryMockByOrganization } from "@/lib/mock/atlas-memory";
+import type { AtlasMemoryContextItem } from "@/types/atlas-memory-context";
 import type { AtlasMemoryDocument, AtlasMemoryDocumentKey } from "@/types/atlas-memory";
 
 const memoryLinks = [
@@ -41,6 +43,29 @@ function getInitialDocuments() {
   return getAtlasMemoryMockByOrganization(activeOrganizationId);
 }
 
+function KnowledgeList({ title, items }: { title: string; items: AtlasMemoryContextItem[] }) {
+  return (
+    <div className="rounded-md border border-line bg-slate-50 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-ink">{title}</p>
+        <Badge>{items.length}</Badge>
+      </div>
+      {items.length === 0 ? (
+        <p className="mt-3 text-sm text-slate-500">Aucune connaissance détectée.</p>
+      ) : (
+        <div className="mt-3 space-y-2">
+          {items.slice(0, 4).map((item) => (
+            <div key={`${item.source}-${item.text}`} className="rounded-md bg-white p-3 text-sm leading-5 text-slate-700">
+              <p>{item.text}</p>
+              <p className="mt-1 text-xs text-slate-500">Source mémoire : {item.source}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AtlasMemoryPage() {
   const [mounted, setMounted] = useState(false);
   const [documents, setDocuments] = useState<AtlasMemoryDocument[]>(getInitialDocuments);
@@ -54,6 +79,7 @@ export function AtlasMemoryPage() {
   );
   const draftContent = selectedDocument ? draftByKey[selectedDocument.key] ?? selectedDocument.content : "";
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const memoryContext = useMemo(() => generateMemoryContext(documents), [documents]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -140,6 +166,41 @@ export function AtlasMemoryPage() {
           );
         })}
       </section>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle>Connaissances détectées</CardTitle>
+            <Badge variant="brand">Moteur déterministe</Badge>
+            <Badge>Sources explicables</Badge>
+          </div>
+          <p className="mt-1 text-sm text-slate-500">
+            Atlas extrait des lignes simples depuis les documents mémoire pour enrichir les insights, les risques et la synthèse dirigeant.
+          </p>
+        </CardHeader>
+        <CardContent className="grid gap-4 lg:grid-cols-2">
+          <KnowledgeList title="Objectifs" items={memoryContext.objectives} />
+          <KnowledgeList title="Règles métier" items={memoryContext.businessRules} />
+          <KnowledgeList title="Décisions" items={memoryContext.decisions} />
+          <KnowledgeList
+            title="Glossaire"
+            items={memoryContext.glossaryEntries.map((entry) => ({
+              text: `${entry.term} : ${entry.definition}`,
+              source: entry.source
+            }))}
+          />
+          {memoryContext.warnings.length > 0 ? (
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-4 lg:col-span-2">
+              <p className="text-sm font-semibold text-amber-900">Limites détectées</p>
+              <ul className="mt-2 space-y-1 text-sm text-amber-900">
+                {memoryContext.warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
 
       <section className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
         <Card>
