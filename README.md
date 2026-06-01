@@ -23,9 +23,11 @@ Le document produit de reference est disponible dans [docs/PRODUCT_BLUEPRINT.md]
 Le modele de donnees cible est documente dans [docs/DATA_MODEL.md](docs/DATA_MODEL.md).
 La strategie de persistance progressive est decrite dans [docs/DATA_PERSISTENCE.md](docs/DATA_PERSISTENCE.md).
 La persistance Prisma locale optionnelle est decrite dans [docs/PRISMA_LOCAL_SETUP.md](docs/PRISMA_LOCAL_SETUP.md).
+La strategie de migration Prisma est decrite dans [docs/PRISMA_MIGRATION_STRATEGY.md](docs/PRISMA_MIGRATION_STRATEGY.md).
 Les regles d'alerte KPI sont documentees dans [docs/ALERT_RULES.md](docs/ALERT_RULES.md).
 L'architecture cible Atlas est formalisee dans [docs/architecture/README.md](docs/architecture/README.md).
 La nouvelle couche d'acces aux donnees est documentee dans [docs/DATA_ACCESS_LAYER.md](docs/DATA_ACCESS_LAYER.md).
+La premiere base de tests automatises est documentee dans [docs/TESTING.md](docs/TESTING.md).
 
 ## Navigation Cible
 
