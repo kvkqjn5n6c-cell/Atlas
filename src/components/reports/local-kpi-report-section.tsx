@@ -10,6 +10,7 @@ import { generateExecutiveLocalSummary } from "@/lib/insights/local-insights-eng
 import { formatKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
 import { formatVariation } from "@/lib/kpi-engine/local-kpi-trends";
 import { saveLocalActionPlan } from "@/lib/local/local-action-plans-store";
+import { recordActionPlanCreated } from "@/lib/journal/decision-journal-engine";
 import { getAvailableApprovedMemoryKnowledge } from "@/lib/services/local-data/local-kpis-data.service";
 import type { AtlasKnowledgeItem, AtlasKnowledgeType } from "@/types/atlas-memory-knowledge";
 import type { LocalActionPlan } from "@/types/local-action-plans";
@@ -19,6 +20,7 @@ import type { LocalKpiResult } from "@/types/local-kpi-results";
 import type { LocalRecommendationFeedback } from "@/types/local-recommendation-feedback";
 import type { LocalRecommendation, RecommendationPriority } from "@/types/local-recommendations";
 import type { ConfidenceLevel, RecommendationConfidence } from "@/types/recommendation-confidence";
+import type { DecisionJournalEntry, DecisionJournalEntryType } from "@/types/decision-journal";
 
 const statusVariant = {
   healthy: "success",
@@ -78,6 +80,24 @@ function confidenceVariant(level: ConfidenceLevel) {
   if (level === "very_high" || level === "high") return "success";
   if (level === "medium") return "warning";
   return "danger";
+}
+
+const journalEntryTypeLabels: Record<DecisionJournalEntryType, string> = {
+  recommendation_created: "Recommandation",
+  action_plan_created: "Plan créé",
+  action_plan_updated: "Plan mis à jour",
+  impact_measured: "Impact mesuré",
+  feedback_recorded: "Feedback",
+  confidence_calculated: "Confiance",
+  memory_knowledge_approved: "Mémoire validée",
+  memory_knowledge_rejected: "Mémoire rejetée"
+};
+
+function formatJournalDate(value: string) {
+  return new Intl.DateTimeFormat("fr-FR", {
+    dateStyle: "short",
+    timeStyle: "short"
+  }).format(new Date(value));
 }
 
 function impactForResult(result: LocalKpiResult) {
@@ -201,6 +221,7 @@ function RecommendedActionPlan({
     }
 
     const plan = saveLocalActionPlan(buildLocalActionPlanFromRecommendation(recommendation));
+    recordActionPlanCreated(plan);
     setCreatedRecommendationIds((current) => [...current, recommendation.id]);
     setMessage(`Plan d'action local créé : ${plan.title}`);
   }
@@ -331,6 +352,40 @@ function ActionPlanEffectivenessReport({ impacts }: { impacts: LocalActionPlanIm
   );
 }
 
+function DecisionHistoryReport({ entries }: { entries: DecisionJournalEntry[] }) {
+  const visibleEntries = entries.slice(0, 6);
+
+  return (
+    <div className="mb-5 rounded-md border border-brand-100 bg-white p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="brand">Historique décisionnel récent</Badge>
+        <Badge>{entries.length} événement(s)</Badge>
+      </div>
+      {visibleEntries.length === 0 ? (
+        <p className="mt-4 rounded-md border border-line bg-slate-50 p-4 text-sm text-slate-600">
+          Aucun événement décisionnel local à intégrer au rapport.
+        </p>
+      ) : (
+        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          {visibleEntries.map((entry) => (
+            <article key={entry.id} className="rounded-md border border-line bg-slate-50 p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge>{journalEntryTypeLabels[entry.type]}</Badge>
+                {entry.priority ? <Badge>Priorité {entry.priority}</Badge> : null}
+                {entry.status ? <Badge>{entry.status}</Badge> : null}
+                {entry.confidenceScore !== undefined ? <Badge variant="brand">{entry.confidenceScore} %</Badge> : null}
+              </div>
+              <h3 className="mt-3 text-sm font-semibold text-ink">{entry.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{entry.description}</p>
+              <p className="mt-2 text-xs text-slate-500">{formatJournalDate(entry.createdAt)}</p>
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function LocalKpiReportSection() {
   const { data: workspace } = useLocalKpiWorkspace();
   const results = workspace.results.slice(0, 6);
@@ -344,6 +399,7 @@ export function LocalKpiReportSection() {
   const actionPlanImpacts = workspace.actionPlanImpacts;
   const recommendationFeedback = workspace.recommendationFeedback;
   const recommendationConfidence = workspace.recommendationConfidence;
+  const decisionJournalEntries = workspace.decisionJournalEntries;
 
   if (results.length === 0) {
     return (
@@ -356,6 +412,7 @@ export function LocalKpiReportSection() {
         </CardHeader>
         <CardContent>
           <MemoryMobilizedBlock usedReferences={usedMemoryReferences} availableKnowledge={availableMemoryKnowledge} />
+          <DecisionHistoryReport entries={decisionJournalEntries} />
         </CardContent>
       </Card>
     );
@@ -402,6 +459,8 @@ export function LocalKpiReportSection() {
         />
 
         <ActionPlanEffectivenessReport impacts={actionPlanImpacts} />
+
+        <DecisionHistoryReport entries={decisionJournalEntries} />
 
         <MemoryMobilizedBlock usedReferences={usedMemoryReferences} availableKnowledge={availableMemoryKnowledge} />
 

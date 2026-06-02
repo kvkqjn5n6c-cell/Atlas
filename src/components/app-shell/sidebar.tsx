@@ -14,6 +14,7 @@ import {
   LineChart,
   Network,
   Presentation,
+  ScrollText,
   ShieldAlert,
   Settings,
   SlidersHorizontal,
@@ -42,7 +43,8 @@ const pilotageNavigation = [
   { name: "Indicateurs", href: "/indicators", icon: LineChart },
   { name: "Alertes", href: "/alerts", icon: ShieldAlert },
   { name: "Plans d'action", href: "/action-plans", icon: ListTodo },
-  { name: "Rapports", href: "/reports", icon: ClipboardList }
+  { name: "Rapports", href: "/reports", icon: ClipboardList },
+  { name: "Journal décisionnel", href: "/decision-journal", icon: ScrollText }
 ];
 
 const dataNavigation = [

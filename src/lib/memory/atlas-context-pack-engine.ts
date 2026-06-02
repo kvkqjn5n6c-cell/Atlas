@@ -2,6 +2,7 @@ import type { LocalKpiAlert } from "@/lib/kpi-engine/local-kpi-alerts";
 import type { AtlasContextPack, AtlasContextPurpose, AtlasContextSource } from "@/types/atlas-context-pack";
 import type { AtlasMemoryDocument, AtlasMemoryDocumentKey } from "@/types/atlas-memory";
 import type { AtlasKnowledgeItem } from "@/types/atlas-memory-knowledge";
+import type { DecisionJournalEntry } from "@/types/decision-journal";
 import type { LocalActionPlan } from "@/types/local-action-plans";
 import type { LocalActionPlanImpact } from "@/types/local-action-plan-impact";
 import type { LocalAlertRule } from "@/types/local-alert-rules";
@@ -26,6 +27,7 @@ type ContextPackInput = {
   recommendationConfidence?: RecommendationConfidence[];
   actionPlans?: LocalActionPlan[];
   actionPlanImpacts?: LocalActionPlanImpact[];
+  decisionJournalEntries?: DecisionJournalEntry[];
 };
 
 const purposeConfig: Record<AtlasContextPurpose, {
@@ -196,6 +198,16 @@ function actionPlanImpactSource(impact: LocalActionPlanImpact): AtlasContextSour
   };
 }
 
+function decisionHistorySource(entry: DecisionJournalEntry): AtlasContextSource {
+  return {
+    type: "decision_history",
+    id: entry.id,
+    title: entry.title,
+    excerpt: `${entry.description} Source : ${entry.sourceType}.`,
+    status: entry.type === "memory_knowledge_rejected" ? "warning" : entry.priority === "critical" ? "critical" : undefined
+  };
+}
+
 function filterKnowledge(
   approvedKnowledge: AtlasKnowledgeItem[],
   config: typeof purposeConfig[AtlasContextPurpose]
@@ -255,6 +267,21 @@ function filterActionPlanImpacts(purpose: AtlasContextPurpose, impacts: LocalAct
   return [];
 }
 
+function filterDecisionHistory(purpose: AtlasContextPurpose, entries: DecisionJournalEntry[]) {
+  if (purpose === "executive_summary") return entries.slice(0, 10);
+  if (purpose === "copil_preparation") return entries.slice(0, 12);
+  if (purpose === "operational_recommendations") {
+    return entries.filter((entry) =>
+      entry.type === "recommendation_created" ||
+      entry.type === "action_plan_created" ||
+      entry.type === "action_plan_updated" ||
+      entry.type === "impact_measured" ||
+      entry.type === "feedback_recorded"
+    ).slice(0, 10);
+  }
+  return [];
+}
+
 function buildLimitations(input: {
   approvedKnowledge: AtlasKnowledgeItem[];
   includedKnowledge: AtlasContextSource[];
@@ -266,6 +293,7 @@ function buildLimitations(input: {
   includedRecommendationConfidence: AtlasContextSource[];
   includedActionPlans: AtlasContextSource[];
   includedActionPlanImpacts: AtlasContextSource[];
+  includedDecisionHistory: AtlasContextSource[];
   rawKnowledgeItems: AtlasKnowledgeItem[];
 }) {
   const limitations: string[] = [];
@@ -282,6 +310,7 @@ function buildLimitations(input: {
   if (input.includedRecommendationConfidence.length === 0) limitations.push("Aucun score de confiance de recommandation inclus dans ce contexte.");
   if (input.includedActionPlans.length === 0) limitations.push("Aucun plan d'action local inclus dans ce contexte.");
   if (input.includedActionPlanImpacts.length === 0) limitations.push("Aucun impact de plan d'action mesuré inclus dans ce contexte.");
+  if (input.includedDecisionHistory.length === 0) limitations.push("Aucun historique décisionnel local inclus dans ce contexte.");
   if (pendingKnowledgeCount > 0) limitations.push(`${pendingKnowledgeCount} connaissance(s) détectée(s) ignorée(s) car non validée(s).`);
   if (rejectedKnowledgeCount > 0) limitations.push(`${rejectedKnowledgeCount} connaissance(s) rejetée(s) exclue(s).`);
 
@@ -299,8 +328,9 @@ function buildSummary(title: string, counts: {
   recommendationConfidence: number;
   actionPlans: number;
   actionPlanImpacts: number;
+  decisionHistory: number;
 }) {
-  return `${title} préparé avec ${counts.documents} document(s), ${counts.knowledge} connaissance(s) validée(s), ${counts.kpis} KPI, ${counts.alerts} alerte(s), ${counts.rules} règle(s), ${counts.recommendations} recommandation(s), ${counts.recommendationFeedback} feedback(s), ${counts.recommendationConfidence} score(s) de confiance, ${counts.actionPlans} plan(s) d'action et ${counts.actionPlanImpacts} impact(s) mesuré(s).`;
+  return `${title} préparé avec ${counts.documents} document(s), ${counts.knowledge} connaissance(s) validée(s), ${counts.kpis} KPI, ${counts.alerts} alerte(s), ${counts.rules} règle(s), ${counts.recommendations} recommandation(s), ${counts.recommendationFeedback} feedback(s), ${counts.recommendationConfidence} score(s) de confiance, ${counts.actionPlans} plan(s) d'action, ${counts.actionPlanImpacts} impact(s) mesuré(s) et ${counts.decisionHistory} événement(s) décisionnel(s).`;
 }
 
 export function buildAtlasContextPack(
@@ -324,6 +354,7 @@ export function buildAtlasContextPack(
   const includedRecommendationConfidence = filterRecommendationConfidence(purpose, input.recommendationConfidence ?? []).map(recommendationConfidenceSource);
   const includedActionPlans = filterActionPlans(purpose, input.actionPlans ?? []).map(actionPlanSource);
   const includedActionPlanImpacts = filterActionPlanImpacts(purpose, input.actionPlanImpacts ?? []).map(actionPlanImpactSource);
+  const includedDecisionHistory = filterDecisionHistory(purpose, input.decisionJournalEntries ?? []).map(decisionHistorySource);
   const limitations = buildLimitations({
     approvedKnowledge,
     includedKnowledge,
@@ -335,6 +366,7 @@ export function buildAtlasContextPack(
     includedRecommendationConfidence,
     includedActionPlans,
     includedActionPlanImpacts,
+    includedDecisionHistory,
     rawKnowledgeItems: input.knowledgeItems
   });
 
@@ -354,6 +386,7 @@ export function buildAtlasContextPack(
     includedRecommendationConfidence,
     includedActionPlans,
     includedActionPlanImpacts,
+    includedDecisionHistory,
     summary: buildSummary(config.title, {
       documents: includedDocuments.length,
       knowledge: includedKnowledge.length,
@@ -364,7 +397,8 @@ export function buildAtlasContextPack(
       recommendationFeedback: includedRecommendationFeedback.length,
       recommendationConfidence: includedRecommendationConfidence.length,
       actionPlans: includedActionPlans.length,
-      actionPlanImpacts: includedActionPlanImpacts.length
+      actionPlanImpacts: includedActionPlanImpacts.length,
+      decisionHistory: includedDecisionHistory.length
     }),
     limitations,
     persisted: false

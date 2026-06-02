@@ -13,6 +13,11 @@ import { getLocalKpiHistory } from "@/lib/local/local-kpi-history-store";
 import { getLocalKpiResults } from "@/lib/local/local-kpi-results-store";
 import { getLocalKpiConfigurations } from "@/lib/local/local-kpi-store";
 import { getRecommendationFeedback } from "@/lib/local/local-recommendation-feedback-store";
+import { getJournalEntries } from "@/lib/local/decision-journal-store";
+import {
+  recordConfidenceCalculated,
+  recordRecommendationCreated
+} from "@/lib/journal/decision-journal-engine";
 import { calculateRecommendationsConfidence } from "@/lib/recommendations/recommendation-confidence-engine";
 import type { LocalAlertRule } from "@/types/local-alert-rules";
 import type { LocalActionPlan } from "@/types/local-action-plans";
@@ -28,6 +33,7 @@ import type { LocalDataResult } from "@/types/local-data-result";
 import type { LocalRecommendationFeedback } from "@/types/local-recommendation-feedback";
 import type { LocalRecommendation } from "@/types/local-recommendations";
 import type { RecommendationConfidence } from "@/types/recommendation-confidence";
+import type { DecisionJournalEntry } from "@/types/decision-journal";
 
 export type LocalKpiWorkspaceData = {
   configurations: LocalKpiConfiguration[];
@@ -43,6 +49,7 @@ export type LocalKpiWorkspaceData = {
   actionPlans: LocalActionPlan[];
   actionPlanImpacts: LocalActionPlanImpact[];
   recommendationFeedback: LocalRecommendationFeedback[];
+  decisionJournalEntries: DecisionJournalEntry[];
   approvedMemoryKnowledge: AtlasKnowledgeItem[];
   usedMemoryReferences: LocalInsightMemoryReference[];
 };
@@ -76,6 +83,7 @@ export const emptyLocalKpiWorkspaceData: LocalKpiWorkspaceData = {
   actionPlans: [],
   actionPlanImpacts: [],
   recommendationFeedback: [],
+  decisionJournalEntries: [],
   approvedMemoryKnowledge: [],
   usedMemoryReferences: []
 };
@@ -165,6 +173,9 @@ export function getLocalKpiWorkspaceData(): LocalDataResult<LocalKpiWorkspaceDat
     actionPlans,
     actionPlanImpacts
   });
+  recommendations.forEach(recordRecommendationCreated);
+  recommendationConfidence.forEach(recordConfidenceCalculated);
+  const decisionJournalEntries = getJournalEntries();
 
   return {
     data: {
@@ -181,6 +192,7 @@ export function getLocalKpiWorkspaceData(): LocalDataResult<LocalKpiWorkspaceDat
       actionPlans,
       actionPlanImpacts,
       recommendationFeedback,
+      decisionJournalEntries,
       approvedMemoryKnowledge,
       usedMemoryReferences
     },

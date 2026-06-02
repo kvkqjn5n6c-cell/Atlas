@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocalKpiWorkspace } from "@/hooks/use-local-kpi-workspace";
 import { measureActionPlanImpact } from "@/lib/action-plans/local-action-plan-impact-engine";
 import { formatActionPriority, formatActionStatus } from "@/lib/formatters/status-labels";
+import { recordActionPlanUpdated, recordImpactMeasured } from "@/lib/journal/decision-journal-engine";
 import { getLocalActionPlanImpacts, saveLocalActionPlanImpact } from "@/lib/local/local-action-plan-impact-store";
 import { deleteLocalActionPlan, getLocalActionPlans, updateLocalActionPlan } from "@/lib/local/local-action-plans-store";
 import { actionPlansMock } from "@/lib/mock/action-plans";
@@ -92,15 +93,17 @@ function LocalActionPlansSection() {
   }, []);
 
   function updateStatus(plan: LocalActionPlan, status: LocalActionPlanStatus) {
-    updateLocalActionPlan({ ...plan, status });
+    const updatedPlan = updateLocalActionPlan({ ...plan, status });
+    recordActionPlanUpdated(updatedPlan, `Statut passé à ${localStatusLabels[status]}.`);
     refresh();
   }
 
   function markTaskDone(plan: LocalActionPlan, taskId: string) {
-    updateLocalActionPlan({
+    const updatedPlan = updateLocalActionPlan({
       ...plan,
       actions: plan.actions.map((task) => task.id === taskId ? { ...task, status: "done" } : task)
     });
+    recordActionPlanUpdated(updatedPlan, "Une tâche du plan a été marquée comme terminée.");
     refresh();
   }
 
@@ -111,7 +114,10 @@ function LocalActionPlansSection() {
 
   function measureImpact(plan: LocalActionPlan) {
     const measuredImpacts = measureActionPlanImpact(plan, workspace.history, workspace.results);
-    measuredImpacts.forEach(saveLocalActionPlanImpact);
+    measuredImpacts.forEach((impact) => {
+      const savedImpact = saveLocalActionPlanImpact(impact);
+      recordImpactMeasured(savedImpact);
+    });
     refresh();
     refreshWorkspace();
   }

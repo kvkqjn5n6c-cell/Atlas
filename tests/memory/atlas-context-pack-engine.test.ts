@@ -187,6 +187,33 @@ describe("atlas context pack engine", () => {
     expect(pack.summary).toContain("confiance");
   });
 
+  it("inclut l'historique decisionnel dans les packs cible", () => {
+    const pack = buildAtlasContextPack("copil_preparation", {
+      organizationId,
+      documents,
+      knowledgeItems: approvedKnowledge,
+      decisionJournalEntries: [{
+        id: "journal-action-plan-created",
+        createdAt: "2026-06-01T10:00:00.000Z",
+        type: "action_plan_created",
+        title: "Plan d'action créé",
+        description: "Plan local créé depuis une recommandation Atlas.",
+        sourceType: "action_plan",
+        sourceId: "plan-1",
+        priority: "high",
+        status: "todo",
+        relatedKpiIds: ["kpi-1"],
+        relatedRecommendationIds: ["recommendation-1"],
+        relatedActionPlanIds: ["plan-1"],
+        relatedMemoryReferences: [],
+        metadata: {},
+      }]
+    });
+
+    expect(pack.includedDecisionHistory).toHaveLength(1);
+    expect(pack.summary).toContain("décisionnel");
+  });
+
   it("ignore les connaissances detectees et rejetees", () => {
     const governedKnowledge = [
       { ...detectedKnowledge[0], status: "approved" as const, approvedAt: "2026-06-01T10:00:00.000Z" },

@@ -8,6 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocalKpiWorkspace } from "@/hooks/use-local-kpi-workspace";
 import { activeOrganizationId } from "@/lib/context/scope-defaults";
 import {
+  recordMemoryKnowledgeApproved,
+  recordMemoryKnowledgeRejected
+} from "@/lib/journal/decision-journal-engine";
+import {
   approveAtlasKnowledgeItem,
   getAtlasMemoryKnowledge,
   rejectAtlasKnowledgeItem,
@@ -214,7 +218,8 @@ function ContextPacksSection({
               pack.includedKnowledge.length +
               pack.includedKpis.length +
               pack.includedAlerts.length +
-              pack.includedRules.length;
+              pack.includedRules.length +
+              pack.includedDecisionHistory.length;
 
             return (
               <article key={pack.id} className="rounded-md border border-line bg-slate-50 p-4">
@@ -258,6 +263,7 @@ function ContextPacksSection({
               <ContextSourceList title="Scores de confiance inclus" sources={selectedPack.includedRecommendationConfidence} />
               <ContextSourceList title="Plans d'action inclus" sources={selectedPack.includedActionPlans} />
               <ContextSourceList title="Impacts mesurés inclus" sources={selectedPack.includedActionPlanImpacts} />
+              <ContextSourceList title="Historique décisionnel inclus" sources={selectedPack.includedDecisionHistory} />
             </div>
             <div className="mt-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Limites et exclusions</p>
@@ -415,7 +421,8 @@ export function AtlasMemoryPage() {
           recommendationFeedback: localKpiWorkspace.recommendationFeedback,
           recommendationConfidence: localKpiWorkspace.recommendationConfidence,
           actionPlans: localKpiWorkspace.actionPlans,
-          actionPlanImpacts: localKpiWorkspace.actionPlanImpacts
+          actionPlanImpacts: localKpiWorkspace.actionPlanImpacts,
+          decisionJournalEntries: localKpiWorkspace.decisionJournalEntries
         })
       ),
     [documents, knowledgeItems, localKpiWorkspace]
@@ -468,12 +475,18 @@ export function AtlasMemoryPage() {
   }
 
   function approveKnowledge(id: string) {
-    setKnowledgeItems(approveAtlasKnowledgeItem(activeOrganizationId, detectedKnowledgeItems, id));
+    const nextItems = approveAtlasKnowledgeItem(activeOrganizationId, detectedKnowledgeItems, id);
+    const approvedItem = nextItems.find((item) => item.id === id);
+    if (approvedItem) recordMemoryKnowledgeApproved(approvedItem);
+    setKnowledgeItems(nextItems);
     setSaveMessage("Connaissance validée pour le moteur métier.");
   }
 
   function rejectKnowledge(id: string) {
-    setKnowledgeItems(rejectAtlasKnowledgeItem(activeOrganizationId, detectedKnowledgeItems, id));
+    const nextItems = rejectAtlasKnowledgeItem(activeOrganizationId, detectedKnowledgeItems, id);
+    const rejectedItem = nextItems.find((item) => item.id === id);
+    if (rejectedItem) recordMemoryKnowledgeRejected(rejectedItem);
+    setKnowledgeItems(nextItems);
     setSaveMessage("Connaissance rejetée et ignorée par le moteur métier.");
   }
 
