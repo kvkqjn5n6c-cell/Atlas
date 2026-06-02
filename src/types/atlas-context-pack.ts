@@ -19,6 +19,7 @@ export type AtlasContextSource = {
     | "insight"
     | "recommendation"
     | "recommendation_feedback"
+    | "recommendation_confidence"
     | "action_plan"
     | "action_plan_impact";
   id: string;
@@ -41,6 +42,7 @@ export type AtlasContextPack = {
   includedRules: AtlasContextSource[];
   includedRecommendations: AtlasContextSource[];
   includedRecommendationFeedback: AtlasContextSource[];
+  includedRecommendationConfidence: AtlasContextSource[];
   includedActionPlans: AtlasContextSource[];
   includedActionPlanImpacts: AtlasContextSource[];
   summary: string;

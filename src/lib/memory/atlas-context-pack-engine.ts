@@ -10,6 +10,7 @@ import type { LocalKpiConfiguration } from "@/types/local-kpi";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
 import type { LocalRecommendationFeedback } from "@/types/local-recommendation-feedback";
 import type { LocalRecommendation } from "@/types/local-recommendations";
+import type { RecommendationConfidence } from "@/types/recommendation-confidence";
 
 type ContextPackInput = {
   organizationId: string;
@@ -22,6 +23,7 @@ type ContextPackInput = {
   insights?: LocalInsight[];
   recommendations?: LocalRecommendation[];
   recommendationFeedback?: LocalRecommendationFeedback[];
+  recommendationConfidence?: RecommendationConfidence[];
   actionPlans?: LocalActionPlan[];
   actionPlanImpacts?: LocalActionPlanImpact[];
 };
@@ -164,6 +166,16 @@ function recommendationFeedbackSource(feedback: LocalRecommendationFeedback): At
   };
 }
 
+function recommendationConfidenceSource(confidence: RecommendationConfidence): AtlasContextSource {
+  return {
+    type: "recommendation_confidence",
+    id: `confidence-${confidence.recommendationId}`,
+    title: `Confiance recommandation ${confidence.recommendationId}`,
+    excerpt: `Score ${confidence.score} %. Niveau ${confidence.level}. ${confidence.factors.slice(0, 3).map((factor) => factor.label).join(", ")}`,
+    status: confidence.level === "low" ? "warning" : confidence.level === "medium" ? "active" : "active"
+  };
+}
+
 function actionPlanSource(plan: LocalActionPlan): AtlasContextSource {
   return {
     type: "action_plan",
@@ -221,6 +233,13 @@ function filterRecommendationFeedback(purpose: AtlasContextPurpose, feedbackItem
   return [];
 }
 
+function filterRecommendationConfidence(purpose: AtlasContextPurpose, confidenceItems: RecommendationConfidence[]) {
+  if (purpose === "executive_summary") return confidenceItems;
+  if (purpose === "operational_recommendations") return confidenceItems;
+  if (purpose === "risk_review") return confidenceItems.filter((confidence) => confidence.level === "low" || confidence.score < 75);
+  return [];
+}
+
 function filterActionPlans(purpose: AtlasContextPurpose, actionPlans: LocalActionPlan[]) {
   if (purpose === "operational_recommendations") return actionPlans;
   if (purpose === "risk_review") return actionPlans.filter((plan) => plan.priority === "critical" || plan.priority === "high");
@@ -244,6 +263,7 @@ function buildLimitations(input: {
   includedRules: AtlasContextSource[];
   includedRecommendations: AtlasContextSource[];
   includedRecommendationFeedback: AtlasContextSource[];
+  includedRecommendationConfidence: AtlasContextSource[];
   includedActionPlans: AtlasContextSource[];
   includedActionPlanImpacts: AtlasContextSource[];
   rawKnowledgeItems: AtlasKnowledgeItem[];
@@ -259,6 +279,7 @@ function buildLimitations(input: {
   if (input.includedRules.length === 0) limitations.push("Aucune règle d'alerte active pertinente pour ce contexte.");
   if (input.includedRecommendations.length === 0) limitations.push("Aucune recommandation déterministe incluse dans ce contexte.");
   if (input.includedRecommendationFeedback.length === 0) limitations.push("Aucun feedback utilisateur sur recommandation inclus dans ce contexte.");
+  if (input.includedRecommendationConfidence.length === 0) limitations.push("Aucun score de confiance de recommandation inclus dans ce contexte.");
   if (input.includedActionPlans.length === 0) limitations.push("Aucun plan d'action local inclus dans ce contexte.");
   if (input.includedActionPlanImpacts.length === 0) limitations.push("Aucun impact de plan d'action mesuré inclus dans ce contexte.");
   if (pendingKnowledgeCount > 0) limitations.push(`${pendingKnowledgeCount} connaissance(s) détectée(s) ignorée(s) car non validée(s).`);
@@ -275,10 +296,11 @@ function buildSummary(title: string, counts: {
   rules: number;
   recommendations: number;
   recommendationFeedback: number;
+  recommendationConfidence: number;
   actionPlans: number;
   actionPlanImpacts: number;
 }) {
-  return `${title} préparé avec ${counts.documents} document(s), ${counts.knowledge} connaissance(s) validée(s), ${counts.kpis} KPI, ${counts.alerts} alerte(s), ${counts.rules} règle(s), ${counts.recommendations} recommandation(s), ${counts.recommendationFeedback} feedback(s), ${counts.actionPlans} plan(s) d'action et ${counts.actionPlanImpacts} impact(s) mesuré(s).`;
+  return `${title} préparé avec ${counts.documents} document(s), ${counts.knowledge} connaissance(s) validée(s), ${counts.kpis} KPI, ${counts.alerts} alerte(s), ${counts.rules} règle(s), ${counts.recommendations} recommandation(s), ${counts.recommendationFeedback} feedback(s), ${counts.recommendationConfidence} score(s) de confiance, ${counts.actionPlans} plan(s) d'action et ${counts.actionPlanImpacts} impact(s) mesuré(s).`;
 }
 
 export function buildAtlasContextPack(
@@ -299,6 +321,7 @@ export function buildAtlasContextPack(
   const includedRules = filterRules(purpose, input.alertRules ?? []).map(ruleSource);
   const includedRecommendations = filterRecommendations(purpose, input.recommendations ?? []).map(recommendationSource);
   const includedRecommendationFeedback = filterRecommendationFeedback(purpose, input.recommendationFeedback ?? []).map(recommendationFeedbackSource);
+  const includedRecommendationConfidence = filterRecommendationConfidence(purpose, input.recommendationConfidence ?? []).map(recommendationConfidenceSource);
   const includedActionPlans = filterActionPlans(purpose, input.actionPlans ?? []).map(actionPlanSource);
   const includedActionPlanImpacts = filterActionPlanImpacts(purpose, input.actionPlanImpacts ?? []).map(actionPlanImpactSource);
   const limitations = buildLimitations({
@@ -309,6 +332,7 @@ export function buildAtlasContextPack(
     includedRules,
     includedRecommendations,
     includedRecommendationFeedback,
+    includedRecommendationConfidence,
     includedActionPlans,
     includedActionPlanImpacts,
     rawKnowledgeItems: input.knowledgeItems
@@ -327,6 +351,7 @@ export function buildAtlasContextPack(
     includedRules,
     includedRecommendations,
     includedRecommendationFeedback,
+    includedRecommendationConfidence,
     includedActionPlans,
     includedActionPlanImpacts,
     summary: buildSummary(config.title, {
@@ -337,6 +362,7 @@ export function buildAtlasContextPack(
       rules: includedRules.length,
       recommendations: includedRecommendations.length,
       recommendationFeedback: includedRecommendationFeedback.length,
+      recommendationConfidence: includedRecommendationConfidence.length,
       actionPlans: includedActionPlans.length,
       actionPlanImpacts: includedActionPlanImpacts.length
     }),

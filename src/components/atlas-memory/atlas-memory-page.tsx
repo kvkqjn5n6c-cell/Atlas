@@ -255,6 +255,7 @@ function ContextPacksSection({
               <ContextSourceList title="Alertes et règles" sources={[...selectedPack.includedAlerts, ...selectedPack.includedRules]} />
               <ContextSourceList title="Recommandations incluses" sources={selectedPack.includedRecommendations} />
               <ContextSourceList title="Feedbacks inclus" sources={selectedPack.includedRecommendationFeedback} />
+              <ContextSourceList title="Scores de confiance inclus" sources={selectedPack.includedRecommendationConfidence} />
               <ContextSourceList title="Plans d'action inclus" sources={selectedPack.includedActionPlans} />
               <ContextSourceList title="Impacts mesurés inclus" sources={selectedPack.includedActionPlanImpacts} />
             </div>
@@ -412,6 +413,7 @@ export function AtlasMemoryPage() {
           insights: localKpiWorkspace.insights,
           recommendations: localKpiWorkspace.recommendations,
           recommendationFeedback: localKpiWorkspace.recommendationFeedback,
+          recommendationConfidence: localKpiWorkspace.recommendationConfidence,
           actionPlans: localKpiWorkspace.actionPlans,
           actionPlanImpacts: localKpiWorkspace.actionPlanImpacts
         })

@@ -8,6 +8,7 @@ import {
 import { generateLocalKpiAlerts } from "@/lib/kpi-engine/local-kpi-alerts";
 import { buildLocalActionPlanFromRecommendation } from "@/lib/action-plans/local-action-plan-builder";
 import { extractAtlasKnowledgeItems } from "@/lib/memory/atlas-memory-engine";
+import { calculateRecommendationsConfidence } from "@/lib/recommendations/recommendation-confidence-engine";
 import { generateLocalRecommendations } from "@/lib/recommendations/local-recommendations-engine";
 import { getAtlasMemoryMockByOrganization } from "@/lib/mock/atlas-memory";
 import { buildAlertRule, buildKpiResult } from "../fixtures/local-engine-fixtures";
@@ -164,6 +165,26 @@ describe("atlas context pack engine", () => {
 
     expect(pack.includedRecommendationFeedback).toHaveLength(1);
     expect(pack.summary).toContain("feedback");
+  });
+
+  it("inclut les scores de confiance dans les packs operationnels", () => {
+    const result = buildKpiResult({ status: "critical" });
+    const recommendations = generateLocalRecommendations({ kpiResults: [result] });
+    const recommendationConfidence = calculateRecommendationsConfidence({
+      recommendations,
+      kpiResults: [result]
+    });
+    const pack = buildAtlasContextPack("operational_recommendations", {
+      organizationId,
+      documents,
+      knowledgeItems: approvedKnowledge,
+      kpiResults: [result],
+      recommendations,
+      recommendationConfidence
+    });
+
+    expect(pack.includedRecommendationConfidence).toHaveLength(recommendationConfidence.length);
+    expect(pack.summary).toContain("confiance");
   });
 
   it("ignore les connaissances detectees et rejetees", () => {

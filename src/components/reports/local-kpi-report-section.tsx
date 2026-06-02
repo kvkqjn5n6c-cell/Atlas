@@ -18,6 +18,7 @@ import type { LocalInsightMemoryReference } from "@/types/local-insights";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
 import type { LocalRecommendationFeedback } from "@/types/local-recommendation-feedback";
 import type { LocalRecommendation, RecommendationPriority } from "@/types/local-recommendations";
+import type { ConfidenceLevel, RecommendationConfidence } from "@/types/recommendation-confidence";
 
 const statusVariant = {
   healthy: "success",
@@ -65,6 +66,19 @@ const feedbackImpactLabel: Record<LocalRecommendationFeedback["impactObserved"],
   negative: "Impact négatif",
   unknown: "Impact inconnu"
 };
+
+const confidenceLevelLabels: Record<ConfidenceLevel, string> = {
+  low: "Faible",
+  medium: "Moyenne",
+  high: "Élevée",
+  very_high: "Très élevée"
+};
+
+function confidenceVariant(level: ConfidenceLevel) {
+  if (level === "very_high" || level === "high") return "success";
+  if (level === "medium") return "warning";
+  return "danger";
+}
 
 function impactForResult(result: LocalKpiResult) {
   if (result.status === "critical") return "À intégrer au rapport dirigeant comme point de risque prioritaire.";
@@ -163,11 +177,13 @@ function MemoryMobilizedBlock({
 function RecommendedActionPlan({
   recommendations,
   actionPlans,
-  feedbackItems
+  feedbackItems,
+  confidenceItems
 }: {
   recommendations: LocalRecommendation[];
   actionPlans: LocalActionPlan[];
   feedbackItems: LocalRecommendationFeedback[];
+  confidenceItems: RecommendationConfidence[];
 }) {
   const [createdRecommendationIds, setCreatedRecommendationIds] = useState<string[]>(() =>
     actionPlans.map((plan) => plan.sourceRecommendationId).filter((id): id is string => Boolean(id))
@@ -215,6 +231,26 @@ function RecommendedActionPlan({
                 {knownRecommendationIds.has(recommendation.id) ? <Badge variant="success">Plan créé</Badge> : null}
                 {feedbackItems.some((feedback) => feedback.recommendationId === recommendation.id) ? <Badge variant="success">Feedback enregistré</Badge> : null}
               </div>
+              {(() => {
+                const confidence = confidenceItems.find((item) => item.recommendationId === recommendation.id);
+                if (!confidence) return null;
+
+                return (
+                  <div className="mt-3 rounded-md border border-brand-100 bg-white p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="brand">Confiance Atlas : {confidence.score} %</Badge>
+                      <Badge variant={confidenceVariant(confidence.level)}>{confidenceLevelLabels[confidence.level]}</Badge>
+                    </div>
+                    <div className="mt-2 space-y-1">
+                      {confidence.factors.slice(0, 3).map((factor) => (
+                        <p key={`${recommendation.id}-${factor.label}`} className="text-xs leading-5 text-slate-600">
+                          {factor.value >= 0 ? "+" : "-"} {factor.label} : {factor.explanation}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
               <h3 className="mt-3 text-sm font-semibold text-ink">{recommendation.title}</h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">{recommendation.summary}</p>
               {recommendation.recommendedActions[0] ? (
@@ -307,6 +343,7 @@ export function LocalKpiReportSection() {
   const actionPlans = workspace.actionPlans;
   const actionPlanImpacts = workspace.actionPlanImpacts;
   const recommendationFeedback = workspace.recommendationFeedback;
+  const recommendationConfidence = workspace.recommendationConfidence;
 
   if (results.length === 0) {
     return (
@@ -361,6 +398,7 @@ export function LocalKpiReportSection() {
           recommendations={recommendations}
           actionPlans={actionPlans}
           feedbackItems={recommendationFeedback}
+          confidenceItems={recommendationConfidence}
         />
 
         <ActionPlanEffectivenessReport impacts={actionPlanImpacts} />

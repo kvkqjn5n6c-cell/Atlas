@@ -30,6 +30,7 @@ import type {
   RecommendationRelevance
 } from "@/types/local-recommendation-feedback";
 import type { LocalRecommendation, RecommendationPriority } from "@/types/local-recommendations";
+import type { ConfidenceLevel, RecommendationConfidence } from "@/types/recommendation-confidence";
 
 const statusVariant = {
   healthy: "success",
@@ -106,6 +107,19 @@ const impactObservedLabels: Record<RecommendationImpactObserved, string> = {
   negative: "Négatif",
   unknown: "Inconnu"
 };
+
+const confidenceLevelLabels: Record<ConfidenceLevel, string> = {
+  low: "Faible",
+  medium: "Moyenne",
+  high: "Élevée",
+  very_high: "Très élevée"
+};
+
+function confidenceVariant(level: ConfidenceLevel) {
+  if (level === "very_high" || level === "high") return "success";
+  if (level === "medium") return "warning";
+  return "danger";
+}
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("fr-FR", {
@@ -304,17 +318,57 @@ function RecommendationFeedbackPanel({
   );
 }
 
+function RecommendationConfidenceBlock({ confidence }: { confidence?: RecommendationConfidence }) {
+  if (!confidence) {
+    return (
+      <div className="mt-4 rounded-md border border-line bg-white p-3 text-sm text-slate-600">
+        Confiance Atlas non calculée pour cette recommandation.
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 rounded-md border border-brand-100 bg-white p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-sm font-semibold text-ink">Confiance Atlas : {confidence.score} %</p>
+        <Badge variant={confidenceVariant(confidence.level)}>{confidenceLevelLabels[confidence.level]}</Badge>
+        <Badge>Déterministe</Badge>
+      </div>
+      <div className="mt-3 space-y-2">
+        {confidence.factors.map((factor) => (
+          <div key={`${factor.label}-${factor.weight}`} className="rounded-md border border-line bg-slate-50 p-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant={factor.value >= 0 ? "success" : "warning"}>
+                {factor.value >= 0 ? "+" : "-"} {factor.label}
+              </Badge>
+              <span className="text-xs text-slate-500">Poids {factor.weight}</span>
+            </div>
+            <p className="mt-1 text-xs leading-5 text-slate-600">{factor.explanation}</p>
+          </div>
+        ))}
+      </div>
+      {confidence.warnings.length > 0 ? (
+        <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs leading-5 text-amber-700">
+          {confidence.warnings.join(" ")}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function RecommendationsSection({
   recommendations,
   actionPlans,
   actionPlanImpacts,
   feedbackItems,
+  confidenceItems,
   onDataChanged
 }: {
   recommendations: LocalRecommendation[];
   actionPlans: LocalActionPlan[];
   actionPlanImpacts: LocalActionPlanImpact[];
   feedbackItems: LocalRecommendationFeedback[];
+  confidenceItems: RecommendationConfidence[];
   onDataChanged: () => void;
 }) {
   const [createdRecommendationIds, setCreatedRecommendationIds] = useState<string[]>(() =>
@@ -387,6 +441,9 @@ function RecommendationsSection({
                     Preuve : {recommendation.evidence[0].label} - {recommendation.evidence[0].value}
                   </p>
                 ) : null}
+                <RecommendationConfidenceBlock
+                  confidence={confidenceItems.find((item) => item.recommendationId === recommendation.id)}
+                />
                 <Button
                   className="mt-4"
                   disabled={knownRecommendationIds.has(recommendation.id)}
@@ -540,6 +597,7 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
   const actionPlans = workspace.actionPlans;
   const actionPlanImpacts = workspace.actionPlanImpacts;
   const recommendationFeedback = workspace.recommendationFeedback;
+  const recommendationConfidence = workspace.recommendationConfidence;
 
   if (results.length === 0) {
     return (
@@ -674,6 +732,7 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
         actionPlans={actionPlans}
         actionPlanImpacts={actionPlanImpacts}
         feedbackItems={recommendationFeedback}
+        confidenceItems={recommendationConfidence}
         onDataChanged={refresh}
       />
 

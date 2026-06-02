@@ -13,6 +13,7 @@ import { getLocalKpiHistory } from "@/lib/local/local-kpi-history-store";
 import { getLocalKpiResults } from "@/lib/local/local-kpi-results-store";
 import { getLocalKpiConfigurations } from "@/lib/local/local-kpi-store";
 import { getRecommendationFeedback } from "@/lib/local/local-recommendation-feedback-store";
+import { calculateRecommendationsConfidence } from "@/lib/recommendations/recommendation-confidence-engine";
 import type { LocalAlertRule } from "@/types/local-alert-rules";
 import type { LocalActionPlan } from "@/types/local-action-plans";
 import type { LocalActionPlanImpact } from "@/types/local-action-plan-impact";
@@ -26,6 +27,7 @@ import type { LocalKpiResult } from "@/types/local-kpi-results";
 import type { LocalDataResult } from "@/types/local-data-result";
 import type { LocalRecommendationFeedback } from "@/types/local-recommendation-feedback";
 import type { LocalRecommendation } from "@/types/local-recommendations";
+import type { RecommendationConfidence } from "@/types/recommendation-confidence";
 
 export type LocalKpiWorkspaceData = {
   configurations: LocalKpiConfiguration[];
@@ -37,6 +39,7 @@ export type LocalKpiWorkspaceData = {
   insights: LocalInsight[];
   executiveSummary: LocalExecutiveSummary;
   recommendations: LocalRecommendation[];
+  recommendationConfidence: RecommendationConfidence[];
   actionPlans: LocalActionPlan[];
   actionPlanImpacts: LocalActionPlanImpact[];
   recommendationFeedback: LocalRecommendationFeedback[];
@@ -69,6 +72,7 @@ export const emptyLocalKpiWorkspaceData: LocalKpiWorkspaceData = {
   insights: [],
   executiveSummary: emptyExecutiveSummary,
   recommendations: [],
+  recommendationConfidence: [],
   actionPlans: [],
   actionPlanImpacts: [],
   recommendationFeedback: [],
@@ -151,6 +155,16 @@ export function getLocalKpiWorkspaceData(): LocalDataResult<LocalKpiWorkspaceDat
     executiveSummary,
     approvedMemoryKnowledge
   });
+  const recommendationConfidence = calculateRecommendationsConfidence({
+    recommendations,
+    kpiResults: results,
+    histories: history,
+    alerts,
+    approvedMemoryKnowledge,
+    feedbackItems: recommendationFeedback,
+    actionPlans,
+    actionPlanImpacts
+  });
 
   return {
     data: {
@@ -163,6 +177,7 @@ export function getLocalKpiWorkspaceData(): LocalDataResult<LocalKpiWorkspaceDat
       insights,
       executiveSummary,
       recommendations,
+      recommendationConfidence,
       actionPlans,
       actionPlanImpacts,
       recommendationFeedback,
