@@ -141,6 +141,31 @@ describe("atlas context pack engine", () => {
     expect(pack.summary).toContain("impact");
   });
 
+  it("inclut les feedbacks utilisateur dans les packs operationnels", () => {
+    const result = buildKpiResult({ status: "critical" });
+    const recommendations = generateLocalRecommendations({ kpiResults: [result] });
+    const pack = buildAtlasContextPack("operational_recommendations", {
+      organizationId,
+      documents,
+      knowledgeItems: approvedKnowledge,
+      kpiResults: [result],
+      recommendations,
+      recommendationFeedback: [{
+        id: "feedback-recommendation",
+        recommendationId: recommendations[0].id,
+        createdAt: "2026-06-01T10:00:00.000Z",
+        updatedAt: "2026-06-01T10:00:00.000Z",
+        relevance: "relevant",
+        actionTaken: "yes",
+        impactObserved: "positive",
+        persisted: false
+      }]
+    });
+
+    expect(pack.includedRecommendationFeedback).toHaveLength(1);
+    expect(pack.summary).toContain("feedback");
+  });
+
   it("ignore les connaissances detectees et rejetees", () => {
     const governedKnowledge = [
       { ...detectedKnowledge[0], status: "approved" as const, approvedAt: "2026-06-01T10:00:00.000Z" },

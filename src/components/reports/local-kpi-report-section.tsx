@@ -16,6 +16,7 @@ import type { LocalActionPlan } from "@/types/local-action-plans";
 import type { LocalActionPlanImpact } from "@/types/local-action-plan-impact";
 import type { LocalInsightMemoryReference } from "@/types/local-insights";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
+import type { LocalRecommendationFeedback } from "@/types/local-recommendation-feedback";
 import type { LocalRecommendation, RecommendationPriority } from "@/types/local-recommendations";
 
 const statusVariant = {
@@ -44,6 +45,25 @@ const recommendationPriorityVariant: Record<RecommendationPriority, "default" | 
   medium: "default",
   high: "warning",
   critical: "danger"
+};
+
+const feedbackRelevanceLabel: Record<LocalRecommendationFeedback["relevance"], string> = {
+  relevant: "Pertinente",
+  not_relevant: "Non pertinente",
+  unknown: "Pertinence à confirmer"
+};
+
+const feedbackActionLabel: Record<LocalRecommendationFeedback["actionTaken"], string> = {
+  yes: "Action suivie",
+  no: "Action non suivie",
+  planned: "Action prévue"
+};
+
+const feedbackImpactLabel: Record<LocalRecommendationFeedback["impactObserved"], string> = {
+  positive: "Impact positif",
+  neutral: "Impact neutre",
+  negative: "Impact négatif",
+  unknown: "Impact inconnu"
 };
 
 function impactForResult(result: LocalKpiResult) {
@@ -142,10 +162,12 @@ function MemoryMobilizedBlock({
 
 function RecommendedActionPlan({
   recommendations,
-  actionPlans
+  actionPlans,
+  feedbackItems
 }: {
   recommendations: LocalRecommendation[];
   actionPlans: LocalActionPlan[];
+  feedbackItems: LocalRecommendationFeedback[];
 }) {
   const [createdRecommendationIds, setCreatedRecommendationIds] = useState<string[]>(() =>
     actionPlans.map((plan) => plan.sourceRecommendationId).filter((id): id is string => Boolean(id))
@@ -191,6 +213,7 @@ function RecommendedActionPlan({
                 <Badge>{recommendation.category}</Badge>
                 <Badge>Effort {recommendation.effort}</Badge>
                 {knownRecommendationIds.has(recommendation.id) ? <Badge variant="success">Plan créé</Badge> : null}
+                {feedbackItems.some((feedback) => feedback.recommendationId === recommendation.id) ? <Badge variant="success">Feedback enregistré</Badge> : null}
               </div>
               <h3 className="mt-3 text-sm font-semibold text-ink">{recommendation.title}</h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">{recommendation.summary}</p>
@@ -211,6 +234,25 @@ function RecommendedActionPlan({
                 <p className="mt-2 text-xs text-slate-500">
                   Mémoire liée : {recommendation.relatedMemoryReferences.slice(0, 2).join(" | ")}
                 </p>
+              ) : null}
+              {feedbackItems.find((feedback) => feedback.recommendationId === recommendation.id) ? (
+                <div className="mt-3 rounded-md border border-line bg-white p-3 text-xs text-slate-600">
+                  {(() => {
+                    const feedback = feedbackItems.find((item) => item.recommendationId === recommendation.id);
+                    if (!feedback) return null;
+
+                    return (
+                      <>
+                        <div className="flex flex-wrap gap-2">
+                          <Badge>{feedbackRelevanceLabel[feedback.relevance]}</Badge>
+                          <Badge>{feedbackActionLabel[feedback.actionTaken]}</Badge>
+                          <Badge>{feedbackImpactLabel[feedback.impactObserved]}</Badge>
+                        </div>
+                        {feedback.comment ? <p className="mt-2 leading-5">{feedback.comment}</p> : null}
+                      </>
+                    );
+                  })()}
+                </div>
               ) : null}
             </article>
           ))}
@@ -264,6 +306,7 @@ export function LocalKpiReportSection() {
   const recommendations = workspace.recommendations;
   const actionPlans = workspace.actionPlans;
   const actionPlanImpacts = workspace.actionPlanImpacts;
+  const recommendationFeedback = workspace.recommendationFeedback;
 
   if (results.length === 0) {
     return (
@@ -314,7 +357,11 @@ export function LocalKpiReportSection() {
           </div>
         ) : null}
 
-        <RecommendedActionPlan recommendations={recommendations} actionPlans={actionPlans} />
+        <RecommendedActionPlan
+          recommendations={recommendations}
+          actionPlans={actionPlans}
+          feedbackItems={recommendationFeedback}
+        />
 
         <ActionPlanEffectivenessReport impacts={actionPlanImpacts} />
 

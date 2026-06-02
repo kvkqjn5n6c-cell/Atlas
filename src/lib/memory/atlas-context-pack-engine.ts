@@ -8,6 +8,7 @@ import type { LocalAlertRule } from "@/types/local-alert-rules";
 import type { LocalInsight } from "@/types/local-insights";
 import type { LocalKpiConfiguration } from "@/types/local-kpi";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
+import type { LocalRecommendationFeedback } from "@/types/local-recommendation-feedback";
 import type { LocalRecommendation } from "@/types/local-recommendations";
 
 type ContextPackInput = {
@@ -20,6 +21,7 @@ type ContextPackInput = {
   alertRules?: LocalAlertRule[];
   insights?: LocalInsight[];
   recommendations?: LocalRecommendation[];
+  recommendationFeedback?: LocalRecommendationFeedback[];
   actionPlans?: LocalActionPlan[];
   actionPlanImpacts?: LocalActionPlanImpact[];
 };
@@ -152,6 +154,16 @@ function recommendationSource(recommendation: LocalRecommendation): AtlasContext
   };
 }
 
+function recommendationFeedbackSource(feedback: LocalRecommendationFeedback): AtlasContextSource {
+  return {
+    type: "recommendation_feedback",
+    id: feedback.id,
+    title: `Feedback recommandation ${feedback.recommendationId}`,
+    excerpt: `Pertinence : ${feedback.relevance}. Action : ${feedback.actionTaken}. Impact : ${feedback.impactObserved}.${feedback.comment ? ` Commentaire : ${feedback.comment}` : ""}`,
+    status: feedback.relevance === "not_relevant" || feedback.impactObserved === "negative" ? "warning" : feedback.actionTaken === "yes" ? "active" : undefined
+  };
+}
+
 function actionPlanSource(plan: LocalActionPlan): AtlasContextSource {
   return {
     type: "action_plan",
@@ -199,6 +211,16 @@ function filterRecommendations(purpose: AtlasContextPurpose, recommendations: Lo
   return [];
 }
 
+function filterRecommendationFeedback(purpose: AtlasContextPurpose, feedbackItems: LocalRecommendationFeedback[]) {
+  if (purpose === "operational_recommendations") return feedbackItems;
+  if (purpose === "executive_summary") return feedbackItems;
+  if (purpose === "risk_review") return feedbackItems.filter((feedback) =>
+    feedback.relevance === "not_relevant" || feedback.actionTaken === "no" || feedback.impactObserved === "negative"
+  );
+  if (purpose === "copil_preparation") return feedbackItems;
+  return [];
+}
+
 function filterActionPlans(purpose: AtlasContextPurpose, actionPlans: LocalActionPlan[]) {
   if (purpose === "operational_recommendations") return actionPlans;
   if (purpose === "risk_review") return actionPlans.filter((plan) => plan.priority === "critical" || plan.priority === "high");
@@ -221,6 +243,7 @@ function buildLimitations(input: {
   includedAlerts: AtlasContextSource[];
   includedRules: AtlasContextSource[];
   includedRecommendations: AtlasContextSource[];
+  includedRecommendationFeedback: AtlasContextSource[];
   includedActionPlans: AtlasContextSource[];
   includedActionPlanImpacts: AtlasContextSource[];
   rawKnowledgeItems: AtlasKnowledgeItem[];
@@ -235,6 +258,7 @@ function buildLimitations(input: {
   if (input.includedAlerts.length === 0) limitations.push("Aucune alerte locale disponible pour ce contexte.");
   if (input.includedRules.length === 0) limitations.push("Aucune règle d'alerte active pertinente pour ce contexte.");
   if (input.includedRecommendations.length === 0) limitations.push("Aucune recommandation déterministe incluse dans ce contexte.");
+  if (input.includedRecommendationFeedback.length === 0) limitations.push("Aucun feedback utilisateur sur recommandation inclus dans ce contexte.");
   if (input.includedActionPlans.length === 0) limitations.push("Aucun plan d'action local inclus dans ce contexte.");
   if (input.includedActionPlanImpacts.length === 0) limitations.push("Aucun impact de plan d'action mesuré inclus dans ce contexte.");
   if (pendingKnowledgeCount > 0) limitations.push(`${pendingKnowledgeCount} connaissance(s) détectée(s) ignorée(s) car non validée(s).`);
@@ -250,10 +274,11 @@ function buildSummary(title: string, counts: {
   alerts: number;
   rules: number;
   recommendations: number;
+  recommendationFeedback: number;
   actionPlans: number;
   actionPlanImpacts: number;
 }) {
-  return `${title} préparé avec ${counts.documents} document(s), ${counts.knowledge} connaissance(s) validée(s), ${counts.kpis} KPI, ${counts.alerts} alerte(s), ${counts.rules} règle(s), ${counts.recommendations} recommandation(s), ${counts.actionPlans} plan(s) d'action et ${counts.actionPlanImpacts} impact(s) mesuré(s).`;
+  return `${title} préparé avec ${counts.documents} document(s), ${counts.knowledge} connaissance(s) validée(s), ${counts.kpis} KPI, ${counts.alerts} alerte(s), ${counts.rules} règle(s), ${counts.recommendations} recommandation(s), ${counts.recommendationFeedback} feedback(s), ${counts.actionPlans} plan(s) d'action et ${counts.actionPlanImpacts} impact(s) mesuré(s).`;
 }
 
 export function buildAtlasContextPack(
@@ -273,6 +298,7 @@ export function buildAtlasContextPack(
   const includedAlerts = filterAlerts(purpose, input.alerts ?? []).map(alertSource);
   const includedRules = filterRules(purpose, input.alertRules ?? []).map(ruleSource);
   const includedRecommendations = filterRecommendations(purpose, input.recommendations ?? []).map(recommendationSource);
+  const includedRecommendationFeedback = filterRecommendationFeedback(purpose, input.recommendationFeedback ?? []).map(recommendationFeedbackSource);
   const includedActionPlans = filterActionPlans(purpose, input.actionPlans ?? []).map(actionPlanSource);
   const includedActionPlanImpacts = filterActionPlanImpacts(purpose, input.actionPlanImpacts ?? []).map(actionPlanImpactSource);
   const limitations = buildLimitations({
@@ -282,6 +308,7 @@ export function buildAtlasContextPack(
     includedAlerts,
     includedRules,
     includedRecommendations,
+    includedRecommendationFeedback,
     includedActionPlans,
     includedActionPlanImpacts,
     rawKnowledgeItems: input.knowledgeItems
@@ -299,6 +326,7 @@ export function buildAtlasContextPack(
     includedAlerts,
     includedRules,
     includedRecommendations,
+    includedRecommendationFeedback,
     includedActionPlans,
     includedActionPlanImpacts,
     summary: buildSummary(config.title, {
@@ -308,6 +336,7 @@ export function buildAtlasContextPack(
       alerts: includedAlerts.length,
       rules: includedRules.length,
       recommendations: includedRecommendations.length,
+      recommendationFeedback: includedRecommendationFeedback.length,
       actionPlans: includedActionPlans.length,
       actionPlanImpacts: includedActionPlanImpacts.length
     }),

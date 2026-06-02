@@ -12,12 +12,23 @@ import { formatKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
 import { calculateScoreWithLocalKpis } from "@/lib/kpi-engine/local-kpi-results";
 import { formatVariation } from "@/lib/kpi-engine/local-kpi-trends";
 import { saveLocalActionPlan } from "@/lib/local/local-action-plans-store";
+import { saveRecommendationFeedback } from "@/lib/local/local-recommendation-feedback-store";
+import {
+  buildEmptyRecommendationFeedback,
+  calculateRecommendationFeedbackStats
+} from "@/lib/recommendations/local-recommendation-feedback";
 import { getAvailableApprovedMemoryKnowledge } from "@/lib/services/local-data/local-kpis-data.service";
 import type { AtlasKnowledgeItem, AtlasKnowledgeType } from "@/types/atlas-memory-knowledge";
 import type { LocalActionPlan } from "@/types/local-action-plans";
 import type { LocalActionPlanImpact } from "@/types/local-action-plan-impact";
 import type { LocalInsightMemoryReference } from "@/types/local-insights";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
+import type {
+  LocalRecommendationFeedback,
+  RecommendationActionTaken,
+  RecommendationImpactObserved,
+  RecommendationRelevance
+} from "@/types/local-recommendation-feedback";
 import type { LocalRecommendation, RecommendationPriority } from "@/types/local-recommendations";
 
 const statusVariant = {
@@ -75,6 +86,25 @@ const recommendationPriorityLabels: Record<RecommendationPriority, string> = {
   medium: "Moyenne",
   high: "Haute",
   critical: "Critique"
+};
+
+const relevanceLabels: Record<RecommendationRelevance, string> = {
+  relevant: "Oui",
+  not_relevant: "Non",
+  unknown: "À confirmer"
+};
+
+const actionTakenLabels: Record<RecommendationActionTaken, string> = {
+  yes: "Oui",
+  no: "Non",
+  planned: "Prévue"
+};
+
+const impactObservedLabels: Record<RecommendationImpactObserved, string> = {
+  positive: "Positif",
+  neutral: "Neutre",
+  negative: "Négatif",
+  unknown: "Inconnu"
 };
 
 function formatDate(value: string) {
@@ -179,12 +209,113 @@ function MemoryReferencesCard({
   );
 }
 
+function RecommendationFeedbackPanel({
+  recommendation,
+  feedback,
+  actionPlans,
+  actionPlanImpacts,
+  onSaved
+}: {
+  recommendation: LocalRecommendation;
+  feedback?: LocalRecommendationFeedback;
+  actionPlans: LocalActionPlan[];
+  actionPlanImpacts: LocalActionPlanImpact[];
+  onSaved: () => void;
+}) {
+  const [draft, setDraft] = useState<LocalRecommendationFeedback>(() =>
+    feedback ?? buildEmptyRecommendationFeedback(recommendation, actionPlans, actionPlanImpacts)
+  );
+
+  function saveFeedback() {
+    const saved = saveRecommendationFeedback(draft);
+    setDraft(saved);
+    onSaved();
+  }
+
+  return (
+    <div className="mt-4 rounded-md border border-line bg-white p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-sm font-semibold text-ink">Feedback métier</p>
+        {feedback ? <Badge variant="success">Feedback enregistré</Badge> : <Badge>Non renseigné</Badge>}
+      </div>
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        <label className="text-xs font-medium text-slate-600">
+          Pertinente ?
+          <select
+            className="mt-1 h-9 w-full rounded-md border border-line bg-white px-2 text-sm text-ink"
+            value={draft.relevance}
+            onChange={(event) => setDraft((current) => ({
+              ...current,
+              relevance: event.target.value as RecommendationRelevance
+            }))}
+          >
+            {Object.entries(relevanceLabels).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </label>
+        <label className="text-xs font-medium text-slate-600">
+          Action suivie ?
+          <select
+            className="mt-1 h-9 w-full rounded-md border border-line bg-white px-2 text-sm text-ink"
+            value={draft.actionTaken}
+            onChange={(event) => setDraft((current) => ({
+              ...current,
+              actionTaken: event.target.value as RecommendationActionTaken
+            }))}
+          >
+            {Object.entries(actionTakenLabels).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </label>
+        <label className="text-xs font-medium text-slate-600">
+          Impact observé ?
+          <select
+            className="mt-1 h-9 w-full rounded-md border border-line bg-white px-2 text-sm text-ink"
+            value={draft.impactObserved}
+            onChange={(event) => setDraft((current) => ({
+              ...current,
+              impactObserved: event.target.value as RecommendationImpactObserved
+            }))}
+          >
+            {Object.entries(impactObservedLabels).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <label className="mt-3 block text-xs font-medium text-slate-600">
+        Commentaire
+        <textarea
+          className="mt-1 min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink"
+          value={draft.comment ?? ""}
+          onChange={(event) => setDraft((current) => ({ ...current, comment: event.target.value }))}
+          placeholder="Pourquoi cette recommandation aide ou non la décision ?"
+        />
+      </label>
+      {draft.linkedActionPlanId ? (
+        <p className="mt-2 text-xs text-slate-500">Plan lié : {draft.linkedActionPlanId}</p>
+      ) : null}
+      <Button className="mt-3" onClick={saveFeedback}>
+        Sauvegarder le feedback
+      </Button>
+    </div>
+  );
+}
+
 function RecommendationsSection({
   recommendations,
-  actionPlans
+  actionPlans,
+  actionPlanImpacts,
+  feedbackItems,
+  onDataChanged
 }: {
   recommendations: LocalRecommendation[];
   actionPlans: LocalActionPlan[];
+  actionPlanImpacts: LocalActionPlanImpact[];
+  feedbackItems: LocalRecommendationFeedback[];
+  onDataChanged: () => void;
 }) {
   const [createdRecommendationIds, setCreatedRecommendationIds] = useState<string[]>(() =>
     actionPlans.map((plan) => plan.sourceRecommendationId).filter((id): id is string => Boolean(id))
@@ -204,6 +335,7 @@ function RecommendationsSection({
     const plan = saveLocalActionPlan(buildLocalActionPlanFromRecommendation(recommendation));
     setCreatedRecommendationIds((current) => [...current, recommendation.id]);
     setMessage(`Plan d'action local créé : ${plan.title}`);
+    onDataChanged();
   }
 
   return (
@@ -262,10 +394,68 @@ function RecommendationsSection({
                 >
                   {knownRecommendationIds.has(recommendation.id) ? "Plan créé" : "Créer un plan d'action"}
                 </Button>
+                <RecommendationFeedbackPanel
+                  recommendation={recommendation}
+                  feedback={feedbackItems.find((item) => item.recommendationId === recommendation.id)}
+                  actionPlans={actionPlans}
+                  actionPlanImpacts={actionPlanImpacts}
+                  onSaved={onDataChanged}
+                />
               </article>
             ))}
           </div>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function RecommendationFeedbackDashboard({
+  recommendations,
+  feedbackItems
+}: {
+  recommendations: LocalRecommendation[];
+  feedbackItems: LocalRecommendationFeedback[];
+}) {
+  const stats = calculateRecommendationFeedbackStats(recommendations, feedbackItems);
+
+  return (
+    <Card className="border-brand-100">
+      <CardHeader>
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle>Feedback sur les recommandations</CardTitle>
+          <Badge variant="brand">Boucle métier</Badge>
+          <Badge>{stats.feedbackCount} feedback(s)</Badge>
+        </div>
+        <p className="mt-1 text-sm text-slate-500">
+          Mesure simple de la pertinence perçue, du suivi et de l&apos;impact observé.
+        </p>
+      </CardHeader>
+      <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+        <div className="rounded-md border border-line bg-slate-50 p-3">
+          <p className="text-xs text-slate-500">Recommandations</p>
+          <p className="mt-1 text-2xl font-semibold text-ink">{stats.generatedCount}</p>
+        </div>
+        <div className="rounded-md border border-line bg-slate-50 p-3">
+          <p className="text-xs text-slate-500">Feedback enregistrés</p>
+          <p className="mt-1 text-2xl font-semibold text-ink">{stats.feedbackCount}</p>
+        </div>
+        <div className="rounded-md border border-line bg-slate-50 p-3">
+          <p className="text-xs text-slate-500">Pertinence</p>
+          <p className="mt-1 text-2xl font-semibold text-ink">{stats.relevanceRate}%</p>
+        </div>
+        <div className="rounded-md border border-line bg-slate-50 p-3">
+          <p className="text-xs text-slate-500">Taux de suivi</p>
+          <p className="mt-1 text-2xl font-semibold text-ink">{stats.followRate}%</p>
+        </div>
+        <div className="rounded-md border border-line bg-slate-50 p-3">
+          <p className="text-xs text-slate-500">Impacts positifs</p>
+          <p className="mt-1 text-2xl font-semibold text-ink">{stats.positiveImpactCount}</p>
+        </div>
+        <div className="rounded-md border border-line bg-slate-50 p-3">
+          <p className="text-xs text-slate-500">Impacts négatifs</p>
+          <p className="mt-1 text-2xl font-semibold text-ink">{stats.negativeImpactCount}</p>
+        </div>
       </CardContent>
     </Card>
   );
@@ -321,7 +511,7 @@ function ActionPlanImpactOverview({ impacts }: { impacts: LocalActionPlanImpact[
 
 export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
   const [mounted, setMounted] = useState(false);
-  const { data: workspace } = useLocalKpiWorkspace();
+  const { data: workspace, refresh } = useLocalKpiWorkspace();
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => setMounted(true), 0);
@@ -349,6 +539,7 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
   const recommendations = workspace.recommendations;
   const actionPlans = workspace.actionPlans;
   const actionPlanImpacts = workspace.actionPlanImpacts;
+  const recommendationFeedback = workspace.recommendationFeedback;
 
   if (results.length === 0) {
     return (
@@ -478,7 +669,15 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
         </Card>
       ) : null}
 
-      <RecommendationsSection recommendations={recommendations} actionPlans={actionPlans} />
+      <RecommendationsSection
+        recommendations={recommendations}
+        actionPlans={actionPlans}
+        actionPlanImpacts={actionPlanImpacts}
+        feedbackItems={recommendationFeedback}
+        onDataChanged={refresh}
+      />
+
+      <RecommendationFeedbackDashboard recommendations={recommendations} feedbackItems={recommendationFeedback} />
 
       <ActionPlanImpactOverview impacts={actionPlanImpacts} />
 

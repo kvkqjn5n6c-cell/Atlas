@@ -12,6 +12,7 @@ import { getLocalActionPlans } from "@/lib/local/local-action-plans-store";
 import { getLocalKpiHistory } from "@/lib/local/local-kpi-history-store";
 import { getLocalKpiResults } from "@/lib/local/local-kpi-results-store";
 import { getLocalKpiConfigurations } from "@/lib/local/local-kpi-store";
+import { getRecommendationFeedback } from "@/lib/local/local-recommendation-feedback-store";
 import type { LocalAlertRule } from "@/types/local-alert-rules";
 import type { LocalActionPlan } from "@/types/local-action-plans";
 import type { LocalActionPlanImpact } from "@/types/local-action-plan-impact";
@@ -23,6 +24,7 @@ import type { LocalKpiConfiguration } from "@/types/local-kpi";
 import type { LocalKpiHistoryPoint } from "@/types/local-kpi-history";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
 import type { LocalDataResult } from "@/types/local-data-result";
+import type { LocalRecommendationFeedback } from "@/types/local-recommendation-feedback";
 import type { LocalRecommendation } from "@/types/local-recommendations";
 
 export type LocalKpiWorkspaceData = {
@@ -37,6 +39,7 @@ export type LocalKpiWorkspaceData = {
   recommendations: LocalRecommendation[];
   actionPlans: LocalActionPlan[];
   actionPlanImpacts: LocalActionPlanImpact[];
+  recommendationFeedback: LocalRecommendationFeedback[];
   approvedMemoryKnowledge: AtlasKnowledgeItem[];
   usedMemoryReferences: LocalInsightMemoryReference[];
 };
@@ -68,6 +71,7 @@ export const emptyLocalKpiWorkspaceData: LocalKpiWorkspaceData = {
   recommendations: [],
   actionPlans: [],
   actionPlanImpacts: [],
+  recommendationFeedback: [],
   approvedMemoryKnowledge: [],
   usedMemoryReferences: []
 };
@@ -120,6 +124,7 @@ export function getLocalKpiWorkspaceData(): LocalDataResult<LocalKpiWorkspaceDat
   const alertRules = getLocalAlertRules();
   const actionPlans = getLocalActionPlans();
   const actionPlanImpacts = getLocalActionPlanImpacts();
+  const recommendationFeedback = getRecommendationFeedback();
   const memoryDocuments = getAtlasMemoryDocuments(activeOrganizationId);
   const detectedKnowledge = extractAtlasKnowledgeItems(memoryDocuments, activeOrganizationId);
   const governedKnowledge = getAtlasMemoryKnowledge(activeOrganizationId, detectedKnowledge);
@@ -160,6 +165,7 @@ export function getLocalKpiWorkspaceData(): LocalDataResult<LocalKpiWorkspaceDat
       recommendations,
       actionPlans,
       actionPlanImpacts,
+      recommendationFeedback,
       approvedMemoryKnowledge,
       usedMemoryReferences
     },
