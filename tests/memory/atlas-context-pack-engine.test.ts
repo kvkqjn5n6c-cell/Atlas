@@ -106,6 +106,41 @@ describe("atlas context pack engine", () => {
     expect(pack.summary).toContain("plan");
   });
 
+  it("inclut les impacts mesures dans les packs operationnels", () => {
+    const result = buildKpiResult({ status: "critical" });
+    const rule = buildAlertRule();
+    const alerts = generateLocalKpiAlerts([result], [], [rule]);
+    const recommendations = generateLocalRecommendations({ kpiResults: [result], alerts, alertRules: [rule] });
+    const actionPlan = buildLocalActionPlanFromRecommendation(recommendations[0]);
+    const pack = buildAtlasContextPack("operational_recommendations", {
+      organizationId,
+      documents,
+      knowledgeItems: approvedKnowledge,
+      kpiResults: [result],
+      alerts,
+      alertRules: [rule],
+      recommendations,
+      actionPlans: [actionPlan],
+      actionPlanImpacts: [{
+        id: `impact-${actionPlan.id}-kpi-1`,
+        actionPlanId: actionPlan.id,
+        relatedKpiId: "kpi-1",
+        measuredAt: "2026-06-01T10:00:00.000Z",
+        beforeValue: 12800,
+        afterValue: 9000,
+        variation: -29.7,
+        trend: "down",
+        status: "positive",
+        interpretation: "Impact positif : le KPI évolue dans le sens attendu.",
+        evidence: [],
+        persisted: false
+      }]
+    });
+
+    expect(pack.includedActionPlanImpacts).toHaveLength(1);
+    expect(pack.summary).toContain("impact");
+  });
+
   it("ignore les connaissances detectees et rejetees", () => {
     const governedKnowledge = [
       { ...detectedKnowledge[0], status: "approved" as const, approvedAt: "2026-06-01T10:00:00.000Z" },

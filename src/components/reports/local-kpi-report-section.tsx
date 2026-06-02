@@ -13,6 +13,7 @@ import { saveLocalActionPlan } from "@/lib/local/local-action-plans-store";
 import { getAvailableApprovedMemoryKnowledge } from "@/lib/services/local-data/local-kpis-data.service";
 import type { AtlasKnowledgeItem, AtlasKnowledgeType } from "@/types/atlas-memory-knowledge";
 import type { LocalActionPlan } from "@/types/local-action-plans";
+import type { LocalActionPlanImpact } from "@/types/local-action-plan-impact";
 import type { LocalInsightMemoryReference } from "@/types/local-insights";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
 import type { LocalRecommendation, RecommendationPriority } from "@/types/local-recommendations";
@@ -219,6 +220,39 @@ function RecommendedActionPlan({
   );
 }
 
+function ActionPlanEffectivenessReport({ impacts }: { impacts: LocalActionPlanImpact[] }) {
+  return (
+    <div className="mb-5 rounded-md border border-brand-100 bg-white p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="brand">Efficacité des plans d&apos;action</Badge>
+        <Badge>{impacts.length} mesure(s)</Badge>
+      </div>
+      {impacts.length === 0 ? (
+        <p className="mt-4 rounded-md border border-line bg-slate-50 p-4 text-sm text-slate-600">
+          Aucun impact local mesuré pour ce rapport.
+        </p>
+      ) : (
+        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          {impacts.slice(0, 6).map((impact) => (
+            <article key={impact.id} className="rounded-md border border-line bg-slate-50 p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={impact.status === "positive" ? "success" : impact.status === "negative" ? "danger" : impact.status === "pending" ? "warning" : "default"}>
+                  {impact.status === "positive" ? "Impact positif" : impact.status === "negative" ? "Impact négatif" : impact.status === "neutral" ? "Impact neutre" : impact.status === "pending" ? "En attente" : "Non mesurable"}
+                </Badge>
+                <Badge>KPI {impact.relatedKpiId}</Badge>
+              </div>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{impact.interpretation}</p>
+              <p className="mt-2 text-xs text-slate-500">
+                Avant : {impact.beforeValue ?? "N/A"} - Après : {impact.afterValue ?? "N/A"} - Variation : {impact.variation === undefined ? "N/A" : `${impact.variation > 0 ? "+" : ""}${impact.variation.toFixed(1)}%`}
+              </p>
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function LocalKpiReportSection() {
   const { data: workspace } = useLocalKpiWorkspace();
   const results = workspace.results.slice(0, 6);
@@ -229,6 +263,7 @@ export function LocalKpiReportSection() {
   const availableMemoryKnowledge = getAvailableApprovedMemoryKnowledge(workspace.approvedMemoryKnowledge, usedMemoryReferences);
   const recommendations = workspace.recommendations;
   const actionPlans = workspace.actionPlans;
+  const actionPlanImpacts = workspace.actionPlanImpacts;
 
   if (results.length === 0) {
     return (
@@ -280,6 +315,8 @@ export function LocalKpiReportSection() {
         ) : null}
 
         <RecommendedActionPlan recommendations={recommendations} actionPlans={actionPlans} />
+
+        <ActionPlanEffectivenessReport impacts={actionPlanImpacts} />
 
         <MemoryMobilizedBlock usedReferences={usedMemoryReferences} availableKnowledge={availableMemoryKnowledge} />
 

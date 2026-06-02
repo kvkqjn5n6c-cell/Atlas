@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildLocalActionPlanFromRecommendation } from "@/lib/action-plans/local-action-plan-builder";
 import {
+  getLocalActionPlanImpactsByPlanId,
+  saveLocalActionPlanImpact
+} from "@/lib/local/local-action-plan-impact-store";
+import {
   clearLocalActionPlans,
   deleteLocalActionPlan,
   getLocalActionPlans,
@@ -101,6 +105,28 @@ describe("local action plans store", () => {
     deleteLocalActionPlan(plan.id);
 
     expect(getLocalActionPlans()).toHaveLength(0);
+  });
+
+  it("supprime les impacts associes quand un plan est supprime", () => {
+    const plan = saveLocalActionPlan(buildLocalActionPlanFromRecommendation(buildRecommendation()));
+    saveLocalActionPlanImpact({
+      id: `impact-${plan.id}-kpi-cost`,
+      actionPlanId: plan.id,
+      relatedKpiId: "kpi-cost",
+      measuredAt: "2026-06-01T10:00:00.000Z",
+      beforeValue: 12000,
+      afterValue: 9000,
+      variation: -25,
+      trend: "down",
+      status: "positive",
+      interpretation: "Impact positif.",
+      evidence: [],
+      persisted: false
+    });
+
+    deleteLocalActionPlan(plan.id);
+
+    expect(getLocalActionPlanImpactsByPlanId(plan.id)).toHaveLength(0);
   });
 
   it("detecte une recommandation deja convertie", () => {

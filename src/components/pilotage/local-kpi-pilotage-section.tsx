@@ -15,6 +15,7 @@ import { saveLocalActionPlan } from "@/lib/local/local-action-plans-store";
 import { getAvailableApprovedMemoryKnowledge } from "@/lib/services/local-data/local-kpis-data.service";
 import type { AtlasKnowledgeItem, AtlasKnowledgeType } from "@/types/atlas-memory-knowledge";
 import type { LocalActionPlan } from "@/types/local-action-plans";
+import type { LocalActionPlanImpact } from "@/types/local-action-plan-impact";
 import type { LocalInsightMemoryReference } from "@/types/local-insights";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
 import type { LocalRecommendation, RecommendationPriority } from "@/types/local-recommendations";
@@ -270,6 +271,54 @@ function RecommendationsSection({
   );
 }
 
+function ActionPlanImpactOverview({ impacts }: { impacts: LocalActionPlanImpact[] }) {
+  const positiveCount = impacts.filter((impact) => impact.status === "positive").length;
+  const negativeCount = impacts.filter((impact) => impact.status === "negative").length;
+  const pendingCount = impacts.filter((impact) => impact.status === "pending" || impact.status === "not_measurable").length;
+  const visibleImpacts = impacts.slice(0, 4);
+
+  return (
+    <Card className="border-brand-100">
+      <CardHeader>
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle>Efficacité des plans d&apos;action</CardTitle>
+          <Badge variant="brand">Mesure locale</Badge>
+          <Badge variant={positiveCount > 0 ? "success" : "default"}>{positiveCount} positif(s)</Badge>
+          <Badge variant={negativeCount > 0 ? "danger" : "default"}>{negativeCount} négatif(s)</Badge>
+          <Badge>{pendingCount} en attente</Badge>
+        </div>
+        <p className="mt-1 text-sm text-slate-500">
+          Lecture simple des impacts mesurés sur les KPI liés aux plans locaux.
+        </p>
+      </CardHeader>
+      <CardContent>
+        {visibleImpacts.length === 0 ? (
+          <p className="rounded-md border border-line bg-slate-50 p-4 text-sm text-slate-600">
+            Aucun impact mesuré pour l&apos;instant. Lancez une mesure depuis Plans d&apos;action après un nouveau point KPI.
+          </p>
+        ) : (
+          <div className="grid gap-3 lg:grid-cols-2">
+            {visibleImpacts.map((impact) => (
+              <article key={impact.id} className="rounded-md border border-line bg-slate-50 p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={impact.status === "positive" ? "success" : impact.status === "negative" ? "danger" : "warning"}>
+                    {impact.status === "positive" ? "Fonctionne" : impact.status === "negative" ? "À revoir" : "À confirmer"}
+                  </Badge>
+                  <Badge>KPI {impact.relatedKpiId}</Badge>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{impact.interpretation}</p>
+                <p className="mt-2 text-xs text-slate-500">
+                  Variation : {impact.variation === undefined ? "non disponible" : `${impact.variation > 0 ? "+" : ""}${impact.variation.toFixed(1)}%`}
+                </p>
+              </article>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
   const [mounted, setMounted] = useState(false);
   const { data: workspace } = useLocalKpiWorkspace();
@@ -299,6 +348,7 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
   const availableMemoryKnowledge = getAvailableApprovedMemoryKnowledge(workspace.approvedMemoryKnowledge, usedMemoryReferences);
   const recommendations = workspace.recommendations;
   const actionPlans = workspace.actionPlans;
+  const actionPlanImpacts = workspace.actionPlanImpacts;
 
   if (results.length === 0) {
     return (
@@ -429,6 +479,8 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
       ) : null}
 
       <RecommendationsSection recommendations={recommendations} actionPlans={actionPlans} />
+
+      <ActionPlanImpactOverview impacts={actionPlanImpacts} />
 
       <MemoryReferencesCard usedReferences={usedMemoryReferences} availableKnowledge={availableMemoryKnowledge} />
 

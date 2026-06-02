@@ -4,13 +4,17 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useLocalKpiWorkspace } from "@/hooks/use-local-kpi-workspace";
+import { measureActionPlanImpact } from "@/lib/action-plans/local-action-plan-impact-engine";
 import { formatActionPriority, formatActionStatus } from "@/lib/formatters/status-labels";
+import { getLocalActionPlanImpacts, saveLocalActionPlanImpact } from "@/lib/local/local-action-plan-impact-store";
 import { deleteLocalActionPlan, getLocalActionPlans, updateLocalActionPlan } from "@/lib/local/local-action-plans-store";
 import { actionPlansMock } from "@/lib/mock/action-plans";
 import { alertsMock } from "@/lib/mock/alerts";
 import { performanceKpisMock } from "@/lib/mock/kpis";
 import { organizationsMock } from "@/lib/mock/organizations";
 import type { LocalActionPlan, LocalActionPlanStatus } from "@/types/local-action-plans";
+import type { ImpactStatus, LocalActionPlanImpact } from "@/types/local-action-plan-impact";
 
 const localStatusLabels: Record<LocalActionPlanStatus, string> = {
   todo: "À faire",
@@ -24,6 +28,14 @@ const localPriorityLabels: Record<LocalActionPlan["priority"], string> = {
   medium: "Moyenne",
   high: "Haute",
   critical: "Critique"
+};
+
+const impactStatusLabels: Record<ImpactStatus, string> = {
+  not_measurable: "Non mesurable",
+  pending: "En attente",
+  positive: "Impact positif",
+  neutral: "Impact neutre",
+  negative: "Impact négatif"
 };
 
 type BadgeVariant = "default" | "success" | "warning" | "danger" | "brand";
@@ -41,6 +53,18 @@ function priorityVariant(priority: LocalActionPlan["priority"]): BadgeVariant {
   return "default";
 }
 
+function impactVariant(status: ImpactStatus): BadgeVariant {
+  if (status === "positive") return "success";
+  if (status === "negative") return "danger";
+  if (status === "pending") return "warning";
+  return "default";
+}
+
+function formatVariationValue(value?: number) {
+  if (value === undefined) return "Non disponible";
+  return `${value > 0 ? "+" : ""}${value.toFixed(1)}%`;
+}
+
 function nextStatus(status: LocalActionPlanStatus): LocalActionPlanStatus {
   if (status === "todo") return "in_progress";
   if (status === "in_progress") return "done";
@@ -50,9 +74,12 @@ function nextStatus(status: LocalActionPlanStatus): LocalActionPlanStatus {
 function LocalActionPlansSection() {
   const [mounted, setMounted] = useState(false);
   const [plans, setPlans] = useState<LocalActionPlan[]>([]);
+  const [impacts, setImpacts] = useState<LocalActionPlanImpact[]>([]);
+  const { data: workspace, refresh: refreshWorkspace } = useLocalKpiWorkspace();
 
   function refresh() {
     setPlans(getLocalActionPlans());
+    setImpacts(getLocalActionPlanImpacts());
   }
 
   useEffect(() => {
@@ -80,6 +107,13 @@ function LocalActionPlansSection() {
   function deletePlan(id: string) {
     deleteLocalActionPlan(id);
     refresh();
+  }
+
+  function measureImpact(plan: LocalActionPlan) {
+    const measuredImpacts = measureActionPlanImpact(plan, workspace.history, workspace.results);
+    measuredImpacts.forEach(saveLocalActionPlanImpact);
+    refresh();
+    refreshWorkspace();
   }
 
   if (!mounted) {
@@ -142,6 +176,35 @@ function LocalActionPlansSection() {
                       ) : null}
                     </div>
                   ))}
+                </div>
+                <div className="mt-4 rounded-md border border-brand-100 bg-white p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-ink">Impact mesuré</p>
+                    <Button onClick={() => measureImpact(plan)}>Mesurer l&apos;impact</Button>
+                  </div>
+                  {(impacts.filter((impact) => impact.actionPlanId === plan.id)).length === 0 ? (
+                    <p className="mt-3 text-sm text-slate-600">
+                      Aucune mesure locale pour ce plan. Lancez une mesure après un nouveau point KPI.
+                    </p>
+                  ) : (
+                    <div className="mt-3 space-y-3">
+                      {impacts.filter((impact) => impact.actionPlanId === plan.id).map((impact) => (
+                        <div key={impact.id} className="rounded-md border border-line bg-slate-50 p-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant={impactVariant(impact.status)}>{impactStatusLabels[impact.status]}</Badge>
+                            <Badge>KPI {impact.relatedKpiId}</Badge>
+                            <Badge>{formatVariationValue(impact.variation)}</Badge>
+                          </div>
+                          <p className="mt-2 text-sm leading-6 text-slate-600">{impact.interpretation}</p>
+                          <div className="mt-2 grid gap-2 text-xs text-slate-500 sm:grid-cols-3">
+                            <p>Avant : {impact.beforeValue ?? "N/A"}</p>
+                            <p>Après : {impact.afterValue ?? "N/A"}</p>
+                            <p>Mesure : {new Date(impact.measuredAt).toLocaleDateString("fr-FR")}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {plan.status !== "done" && plan.status !== "cancelled" ? (

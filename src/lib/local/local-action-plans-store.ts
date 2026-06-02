@@ -1,4 +1,5 @@
 import type { LocalActionPlan } from "@/types/local-action-plans";
+import { deleteLocalActionPlanImpactsByPlanId } from "@/lib/local/local-action-plan-impact-store";
 
 const LOCAL_ACTION_PLANS_KEY = "atlas-local-action-plans-v1";
 
@@ -54,6 +55,7 @@ export function updateLocalActionPlan(plan: LocalActionPlan) {
 export function deleteLocalActionPlan(id: string) {
   const plans = getLocalActionPlans().filter((plan) => plan.id !== id);
   writePlans(plans);
+  deleteLocalActionPlanImpactsByPlanId(id);
 }
 
 export function clearLocalActionPlans() {
