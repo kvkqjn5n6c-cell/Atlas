@@ -105,8 +105,8 @@ export default function DemoPage() {
             <CardTitle>Avant Atlas</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3">
-            {demoScenarioMock.beforeAtlas.map((item) => (
-              <div key={item} className="rounded-md border border-line bg-slate-50 p-3 text-sm text-slate-700">
+            {demoScenarioMock.beforeAtlas.map((item, index) => (
+              <div key={`understanding-${index}-${item}`} className="rounded-md border border-line bg-slate-50 p-3 text-sm text-slate-700">
                 {item}
               </div>
             ))}
@@ -118,8 +118,8 @@ export default function DemoPage() {
             <CardTitle>Après traitement Atlas</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3">
-            {demoScenarioMock.afterAtlas.map((item) => (
-              <div key={item} className="rounded-md border border-brand-100 bg-brand-50 p-3 text-sm font-medium text-brand-700">
+            {demoScenarioMock.afterAtlas.map((item, index) => (
+              <div key={`value-${index}-${item}`} className="rounded-md border border-brand-100 bg-brand-50 p-3 text-sm font-medium text-brand-700">
                 {item}
               </div>
             ))}
@@ -179,8 +179,8 @@ export default function DemoPage() {
             <CardTitle>Ce que le dirigeant comprend</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 md:grid-cols-2">
-            {demoScenarioMock.atlasValue.map((item) => (
-              <div key={item} className="rounded-md border border-line bg-slate-50 p-4">
+            {demoScenarioMock.atlasValue.map((item, index) => (
+              <div key={`glossary-${index}-${item}`} className="rounded-md border border-line bg-slate-50 p-4">
                 <p className="text-sm font-semibold text-ink">{item}</p>
               </div>
             ))}

@@ -162,7 +162,7 @@ export function EditLocalKpiThresholds({
 
       {validation.errors.length > 0 || validation.warnings.length > 0 ? (
         <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-          {[...validation.errors, ...validation.warnings].map((item) => <p key={item}>{item}</p>)}
+          {[...validation.errors, ...validation.warnings].map((item, index) => <p key={`threshold-validation-${index}-${item}`}>{item}</p>)}
         </div>
       ) : null}
 

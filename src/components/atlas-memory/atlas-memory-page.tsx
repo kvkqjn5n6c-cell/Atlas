@@ -172,8 +172,8 @@ function ContextSourceList({ title, sources }: { title: string; sources: AtlasCo
         <p className="mt-2 rounded-md border border-line bg-slate-50 p-3 text-sm text-slate-600">Aucune source incluse.</p>
       ) : (
         <div className="mt-2 space-y-2">
-          {sources.slice(0, 5).map((source) => (
-            <div key={`${source.type}-${source.id}`} className="rounded-md border border-line bg-slate-50 p-3">
+          {sources.slice(0, 5).map((source, index) => (
+            <div key={`${source.type}-${source.id}-${index}`} className="rounded-md border border-line bg-slate-50 p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge>{source.type}</Badge>
                 {source.status ? <Badge>{source.status}</Badge> : null}
@@ -273,8 +273,8 @@ function ContextPacksSection({
                 </p>
               ) : (
                 <ul className="mt-2 space-y-2">
-                  {selectedPack.limitations.map((limitation) => (
-                    <li key={limitation} className="rounded-md border border-line bg-slate-50 p-3 text-sm text-slate-700">
+                  {selectedPack.limitations.map((limitation, index) => (
+                    <li key={`context-limitation-${index}-${limitation}`} className="rounded-md border border-line bg-slate-50 p-3 text-sm text-slate-700">
                       {limitation}
                     </li>
                   ))}
@@ -521,11 +521,11 @@ export function AtlasMemoryPage() {
       </section>
 
       <section className="grid gap-3 md:grid-cols-4">
-        {memoryLinks.map((item) => {
+        {memoryLinks.map((item, index) => {
           const Icon = item.icon;
 
           return (
-            <Card key={item.title}>
+            <Card key={`memory-link-${index}-${item.title}`}>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
                   <div className="rounded-md bg-brand-50 p-2 text-brand-700">

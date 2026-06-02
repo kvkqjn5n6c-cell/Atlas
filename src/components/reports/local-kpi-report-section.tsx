@@ -112,8 +112,8 @@ function ReportSummaryColumn({ title, items }: { title: string; items: string[] 
     <div>
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>
       <div className="mt-2 space-y-2">
-        {items.map((item) => (
-          <p key={item} className="rounded-md border border-line bg-white px-3 py-2 text-sm leading-5 text-slate-700">
+        {items.map((item, index) => (
+          <p key={`${title}-${index}-${item}`} className="rounded-md border border-line bg-white px-3 py-2 text-sm leading-5 text-slate-700">
             {item}
           </p>
         ))}
@@ -367,8 +367,8 @@ function DecisionHistoryReport({ entries }: { entries: DecisionJournalEntry[] })
         </p>
       ) : (
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
-          {visibleEntries.map((entry) => (
-            <article key={entry.id} className="rounded-md border border-line bg-slate-50 p-4">
+          {visibleEntries.map((entry, index) => (
+            <article key={`${entry.id}-${index}`} className="rounded-md border border-line bg-slate-50 p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge>{journalEntryTypeLabels[entry.type]}</Badge>
                 {entry.priority ? <Badge>Priorité {entry.priority}</Badge> : null}

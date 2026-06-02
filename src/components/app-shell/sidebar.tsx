@@ -40,6 +40,7 @@ const presentationNavigation = [
 
 const pilotageNavigation = [
   { name: "Pilotage", href: "/pilotage", icon: BarChart3 },
+  { name: "COPIL", href: "/copil", icon: Presentation },
   { name: "Indicateurs", href: "/indicators", icon: LineChart },
   { name: "Alertes", href: "/alerts", icon: ShieldAlert },
   { name: "Plans d'action", href: "/action-plans", icon: ListTodo },
@@ -105,8 +106,8 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
-        {sections.map((section) => (
-          <div key={section.title}>
+        {sections.map((section, sectionIndex) => (
+          <div key={`nav-section-${sectionIndex}-${section.title}`}>
             <p className="px-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
               {section.title}
             </p>

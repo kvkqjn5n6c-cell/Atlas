@@ -49,11 +49,11 @@ export function AtlasSettingsPage() {
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {settingsBlocks.map((block) => {
+        {settingsBlocks.map((block, blockIndex) => {
           const Icon = block.icon;
 
           return (
-            <Card key={block.title}>
+            <Card key={`settings-block-${blockIndex}-${block.title}`}>
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <div className="rounded-md bg-brand-50 p-2 text-brand-700">
@@ -63,8 +63,8 @@ export function AtlasSettingsPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
-                {block.items.map((item) => (
-                  <div key={item} className="rounded-md border border-line bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                {block.items.map((item, index) => (
+                  <div key={`${block.title}-${index}-${item}`} className="rounded-md border border-line bg-slate-50 px-3 py-2 text-sm text-slate-700">
                     {item}
                   </div>
                 ))}

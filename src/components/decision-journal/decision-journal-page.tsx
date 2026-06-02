@@ -193,8 +193,8 @@ export function DecisionJournalPage() {
             </p>
           ) : (
             <div className="space-y-3">
-              {filteredEntries.map((entry) => (
-                <article key={entry.id} className="rounded-md border border-line bg-slate-50 p-4">
+              {filteredEntries.map((entry, index) => (
+                <article key={`${entry.id}-${index}`} className="rounded-md border border-line bg-slate-50 p-4">
                   <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-start">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
