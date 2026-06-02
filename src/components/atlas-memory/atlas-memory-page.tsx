@@ -5,6 +5,7 @@ import { Bot, BrainCircuit, Check, Database, GitBranch, RotateCcw, Save, Search,
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useLocalKpiWorkspace } from "@/hooks/use-local-kpi-workspace";
 import { activeOrganizationId } from "@/lib/context/scope-defaults";
 import {
   approveAtlasKnowledgeItem,
@@ -17,9 +18,11 @@ import {
   resetAtlasMemoryDocument,
   saveAtlasMemoryDocument
 } from "@/lib/local/atlas-memory-store";
+import { buildAtlasContextPack } from "@/lib/memory/atlas-context-pack-engine";
 import { extractAtlasKnowledgeItems, generateMemoryContext } from "@/lib/memory/atlas-memory-engine";
 import { buildAtlasMemorySearchIndex, searchAtlasMemory } from "@/lib/memory/atlas-memory-search-engine";
 import { getAtlasMemoryMockByOrganization } from "@/lib/mock/atlas-memory";
+import type { AtlasContextPack, AtlasContextPurpose, AtlasContextSource } from "@/types/atlas-context-pack";
 import type { AtlasMemoryDocument, AtlasMemoryDocumentKey } from "@/types/atlas-memory";
 import type { AtlasKnowledgeItem, AtlasKnowledgeType, KnowledgeStatus } from "@/types/atlas-memory-knowledge";
 import type { AtlasMemorySearchResult, AtlasMemorySearchResultType, AtlasMemorySearchScope } from "@/types/atlas-memory-search";
@@ -92,6 +95,15 @@ const searchTypeLabels: Record<AtlasMemorySearchResultType, string> = {
   glossary: "Glossaire"
 };
 
+const contextPackPurposes: AtlasContextPurpose[] = [
+  "kpi_analysis",
+  "executive_summary",
+  "risk_review",
+  "copil_preparation",
+  "operational_recommendations",
+  "commercial_review"
+];
+
 function KnowledgeGovernanceList({
   items,
   onApprove,
@@ -145,6 +157,123 @@ function KnowledgeGovernanceList({
         ))
       )}
     </div>
+  );
+}
+
+function ContextSourceList({ title, sources }: { title: string; sources: AtlasContextSource[] }) {
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>
+      {sources.length === 0 ? (
+        <p className="mt-2 rounded-md border border-line bg-slate-50 p-3 text-sm text-slate-600">Aucune source incluse.</p>
+      ) : (
+        <div className="mt-2 space-y-2">
+          {sources.slice(0, 5).map((source) => (
+            <div key={`${source.type}-${source.id}`} className="rounded-md border border-line bg-slate-50 p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge>{source.type}</Badge>
+                {source.status ? <Badge>{source.status}</Badge> : null}
+                {source.sourceDocument ? <Badge>{source.sourceDocument}</Badge> : null}
+              </div>
+              <p className="mt-2 text-sm font-medium text-ink">{source.title}</p>
+              {source.excerpt ? <p className="mt-1 text-xs leading-5 text-slate-600">{source.excerpt}</p> : null}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ContextPacksSection({
+  packs,
+  selectedPack,
+  onSelectPack
+}: {
+  packs: AtlasContextPack[];
+  selectedPack?: AtlasContextPack;
+  onSelectPack: (purpose: AtlasContextPurpose) => void;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle>Contextes prêts pour agents futurs</CardTitle>
+          <Badge variant="brand">Préparation</Badge>
+          <Badge>Sans IA</Badge>
+        </div>
+        <p className="mt-1 text-sm text-slate-500">
+          Paquets de contexte déterministes destinés aux futurs agents spécialisés. Ils utilisent uniquement les connaissances validées.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <div className="grid gap-3 lg:grid-cols-3">
+          {packs.map((pack) => {
+            const sourceCount =
+              pack.includedDocuments.length +
+              pack.includedKnowledge.length +
+              pack.includedKpis.length +
+              pack.includedAlerts.length +
+              pack.includedRules.length;
+
+            return (
+              <article key={pack.id} className="rounded-md border border-line bg-slate-50 p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="brand">{pack.title}</Badge>
+                  <Badge>{sourceCount} source(s)</Badge>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-slate-700">{pack.summary}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Badge>{pack.includedKnowledge.length} connaissance(s)</Badge>
+                  <Badge>{pack.includedKpis.length} KPI</Badge>
+                  <Badge>{pack.includedAlerts.length} alerte(s)</Badge>
+                </div>
+                <p className="mt-3 text-xs text-slate-500">{pack.limitations.length} limite(s) détectée(s)</p>
+                <Button className="mt-4" onClick={() => onSelectPack(pack.purpose)}>
+                  Prévisualiser le contexte
+                </Button>
+              </article>
+            );
+          })}
+        </div>
+
+        {selectedPack ? (
+          <div className="rounded-md border border-brand-100 bg-white p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="brand">{selectedPack.title}</Badge>
+              <Badge>Contexte local</Badge>
+              <Badge>Non persisté</Badge>
+            </div>
+            <p className="mt-3 text-base font-semibold leading-7 text-ink">{selectedPack.summary}</p>
+            <p className="mt-2 text-sm text-slate-500">
+              Ce contexte pourra être transmis à un agent spécialisé plus tard. Aucun agent réel ni IA générative n&apos;est activé ici.
+            </p>
+            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+              <ContextSourceList title="Documents utilisés" sources={selectedPack.includedDocuments} />
+              <ContextSourceList title="Connaissances validées" sources={selectedPack.includedKnowledge} />
+              <ContextSourceList title="KPI inclus" sources={selectedPack.includedKpis} />
+              <ContextSourceList title="Alertes et règles" sources={[...selectedPack.includedAlerts, ...selectedPack.includedRules]} />
+            </div>
+            <div className="mt-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Limites et exclusions</p>
+              {selectedPack.limitations.length === 0 ? (
+                <p className="mt-2 rounded-md border border-line bg-slate-50 p-3 text-sm text-slate-600">
+                  Aucune limite majeure détectée pour ce contexte local.
+                </p>
+              ) : (
+                <ul className="mt-2 space-y-2">
+                  {selectedPack.limitations.map((limitation) => (
+                    <li key={limitation} className="rounded-md border border-line bg-slate-50 p-3 text-sm text-slate-700">
+                      {limitation}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -242,6 +371,7 @@ function MemorySearchSection({
 
 export function AtlasMemoryPage() {
   const [mounted, setMounted] = useState(false);
+  const { data: localKpiWorkspace } = useLocalKpiWorkspace();
   const [documents, setDocuments] = useState<AtlasMemoryDocument[]>(getInitialDocuments);
   const [knowledgeItems, setKnowledgeItems] = useState<AtlasKnowledgeItem[]>(getInitialKnowledgeItems);
   const [selectedKey, setSelectedKey] = useState<AtlasMemoryDocumentKey>("entreprise.md");
@@ -254,6 +384,7 @@ export function AtlasMemoryPage() {
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [searchScope, setSearchScope] = useState<AtlasMemorySearchScope>("all");
+  const [selectedContextPurpose, setSelectedContextPurpose] = useState<AtlasContextPurpose>("kpi_analysis");
   const draftContent = selectedDocument ? draftByKey[selectedDocument.key] ?? selectedDocument.content : "";
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const detectedKnowledgeItems = useMemo(() => extractAtlasKnowledgeItems(documents, activeOrganizationId), [documents]);
@@ -263,6 +394,23 @@ export function AtlasMemoryPage() {
     () => searchAtlasMemory(searchQuery, searchIndex, { scope: searchScope, limit: 12 }),
     [searchIndex, searchQuery, searchScope]
   );
+  const contextPacks = useMemo(
+    () =>
+      contextPackPurposes.map((purpose) =>
+        buildAtlasContextPack(purpose, {
+          organizationId: activeOrganizationId,
+          documents,
+          knowledgeItems,
+          kpiConfigurations: localKpiWorkspace.configurations,
+          kpiResults: localKpiWorkspace.results,
+          alerts: localKpiWorkspace.alerts,
+          alertRules: localKpiWorkspace.alertRules,
+          insights: localKpiWorkspace.insights
+        })
+      ),
+    [documents, knowledgeItems, localKpiWorkspace]
+  );
+  const selectedContextPack = contextPacks.find((pack) => pack.purpose === selectedContextPurpose) ?? contextPacks[0];
   const approvedKnowledgeCount = knowledgeItems.filter((item) => item.status === "approved").length;
   const rejectedKnowledgeCount = knowledgeItems.filter((item) => item.status === "rejected").length;
 
@@ -376,6 +524,12 @@ export function AtlasMemoryPage() {
         onQueryChange={setSearchQuery}
         onScopeChange={setSearchScope}
         onOpenDocument={setSelectedKey}
+      />
+
+      <ContextPacksSection
+        packs={contextPacks}
+        selectedPack={selectedContextPack}
+        onSelectPack={setSelectedContextPurpose}
       />
 
       <Card>
