@@ -13,6 +13,7 @@ import { getAvailableApprovedMemoryKnowledge } from "@/lib/services/local-data/l
 import type { AtlasKnowledgeItem, AtlasKnowledgeType } from "@/types/atlas-memory-knowledge";
 import type { LocalInsightMemoryReference } from "@/types/local-insights";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
+import type { LocalRecommendation, RecommendationPriority } from "@/types/local-recommendations";
 
 const statusVariant = {
   healthy: "success",
@@ -55,6 +56,20 @@ const knowledgeTypeLabels: Record<AtlasKnowledgeType, string> = {
   business_rule: "Règle métier validée",
   decision: "Décision historique validée",
   glossary: "Glossaire validé"
+};
+
+const recommendationPriorityVariant: Record<RecommendationPriority, "default" | "warning" | "danger"> = {
+  low: "default",
+  medium: "default",
+  high: "warning",
+  critical: "danger"
+};
+
+const recommendationPriorityLabels: Record<RecommendationPriority, string> = {
+  low: "Basse",
+  medium: "Moyenne",
+  high: "Haute",
+  critical: "Critique"
 };
 
 function formatDate(value: string) {
@@ -159,6 +174,59 @@ function MemoryReferencesCard({
   );
 }
 
+function RecommendationsSection({ recommendations }: { recommendations: LocalRecommendation[] }) {
+  return (
+    <Card className="border-brand-100">
+      <CardHeader>
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle>Recommandations Atlas</CardTitle>
+          <Badge variant="brand">Déterministe</Badge>
+          <Badge>{recommendations.length} action(s)</Badge>
+        </div>
+        <p className="mt-1 text-sm text-slate-500">
+          Actions priorisées à partir des KPI, alertes, règles, insights et connaissances mémoire validées.
+        </p>
+      </CardHeader>
+      <CardContent>
+        {recommendations.length === 0 ? (
+          <p className="rounded-md border border-line bg-slate-50 p-4 text-sm text-slate-600">
+            Aucune recommandation prioritaire pour l&apos;instant. Les KPI locaux restent insuffisants ou conformes.
+          </p>
+        ) : (
+          <div className="grid gap-3 lg:grid-cols-2">
+            {recommendations.slice(0, 5).map((recommendation) => (
+              <article key={recommendation.id} className="rounded-md border border-line bg-slate-50 p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={recommendationPriorityVariant[recommendation.priority]}>
+                    Priorité {recommendationPriorityLabels[recommendation.priority]}
+                  </Badge>
+                  <Badge>{recommendation.category}</Badge>
+                  <Badge>Effort {recommendation.effort}</Badge>
+                  <Badge>Urgence {recommendation.urgency}</Badge>
+                </div>
+                <h3 className="mt-3 font-semibold text-ink">{recommendation.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{recommendation.summary}</p>
+                <p className="mt-3 text-sm font-medium text-ink">Impact attendu : {recommendation.expectedImpact}</p>
+                {recommendation.recommendedActions[0] ? (
+                  <div className="mt-3 rounded-md bg-white p-3">
+                    <p className="text-sm font-semibold text-ink">{recommendation.recommendedActions[0].label}</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-600">{recommendation.recommendedActions[0].description}</p>
+                  </div>
+                ) : null}
+                {recommendation.evidence[0] ? (
+                  <p className="mt-3 text-xs text-slate-500">
+                    Preuve : {recommendation.evidence[0].label} - {recommendation.evidence[0].value}
+                  </p>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
   const [mounted, setMounted] = useState(false);
   const { data: workspace } = useLocalKpiWorkspace();
@@ -186,6 +254,7 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
   const summary = workspace.executiveSummary;
   const usedMemoryReferences = workspace.usedMemoryReferences;
   const availableMemoryKnowledge = getAvailableApprovedMemoryKnowledge(workspace.approvedMemoryKnowledge, usedMemoryReferences);
+  const recommendations = workspace.recommendations;
 
   if (results.length === 0) {
     return (
@@ -314,6 +383,8 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
           </CardContent>
         </Card>
       ) : null}
+
+      <RecommendationsSection recommendations={recommendations} />
 
       <MemoryReferencesCard usedReferences={usedMemoryReferences} availableKnowledge={availableMemoryKnowledge} />
 

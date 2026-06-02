@@ -7,6 +7,7 @@ import {
 } from "@/lib/memory/atlas-context-pack-engine";
 import { generateLocalKpiAlerts } from "@/lib/kpi-engine/local-kpi-alerts";
 import { extractAtlasKnowledgeItems } from "@/lib/memory/atlas-memory-engine";
+import { generateLocalRecommendations } from "@/lib/recommendations/local-recommendations-engine";
 import { getAtlasMemoryMockByOrganization } from "@/lib/mock/atlas-memory";
 import { buildAlertRule, buildKpiResult } from "../fixtures/local-engine-fixtures";
 
@@ -62,6 +63,25 @@ describe("atlas context pack engine", () => {
 
     expect(pack.includedAlerts.length).toBeGreaterThan(0);
     expect(pack.includedRules.length).toBeGreaterThan(0);
+  });
+
+  it("inclut les recommandations dans les packs appropries", () => {
+    const result = buildKpiResult({ status: "critical" });
+    const rule = buildAlertRule();
+    const alerts = generateLocalKpiAlerts([result], [], [rule]);
+    const recommendations = generateLocalRecommendations({ kpiResults: [result], alerts, alertRules: [rule] });
+    const pack = buildAtlasContextPack("operational_recommendations", {
+      organizationId,
+      documents,
+      knowledgeItems: approvedKnowledge,
+      kpiResults: [result],
+      alerts,
+      alertRules: [rule],
+      recommendations
+    });
+
+    expect(pack.includedRecommendations.length).toBeGreaterThan(0);
+    expect(pack.summary).toContain("recommandation");
   });
 
   it("ignore les connaissances detectees et rejetees", () => {

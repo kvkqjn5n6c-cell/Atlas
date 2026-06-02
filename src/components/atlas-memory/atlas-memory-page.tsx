@@ -253,6 +253,7 @@ function ContextPacksSection({
               <ContextSourceList title="Connaissances validées" sources={selectedPack.includedKnowledge} />
               <ContextSourceList title="KPI inclus" sources={selectedPack.includedKpis} />
               <ContextSourceList title="Alertes et règles" sources={[...selectedPack.includedAlerts, ...selectedPack.includedRules]} />
+              <ContextSourceList title="Recommandations incluses" sources={selectedPack.includedRecommendations} />
             </div>
             <div className="mt-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Limites et exclusions</p>
@@ -405,7 +406,8 @@ export function AtlasMemoryPage() {
           kpiResults: localKpiWorkspace.results,
           alerts: localKpiWorkspace.alerts,
           alertRules: localKpiWorkspace.alertRules,
-          insights: localKpiWorkspace.insights
+          insights: localKpiWorkspace.insights,
+          recommendations: localKpiWorkspace.recommendations
         })
       ),
     [documents, knowledgeItems, localKpiWorkspace]

@@ -1,6 +1,7 @@
 import { generateLocalExecutiveSummary } from "@/lib/insights/local-executive-summary-engine";
 import { generateLocalKpiInsights } from "@/lib/insights/local-insights-engine";
 import { generateLocalKpiAlerts } from "@/lib/kpi-engine/local-kpi-alerts";
+import { generateLocalRecommendations } from "@/lib/recommendations/local-recommendations-engine";
 import { activeOrganizationId } from "@/lib/context/scope-defaults";
 import { getAtlasMemoryKnowledge } from "@/lib/local/atlas-memory-knowledge-store";
 import { getAtlasMemoryDocuments } from "@/lib/local/atlas-memory-store";
@@ -18,6 +19,7 @@ import type { LocalKpiConfiguration } from "@/types/local-kpi";
 import type { LocalKpiHistoryPoint } from "@/types/local-kpi-history";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
 import type { LocalDataResult } from "@/types/local-data-result";
+import type { LocalRecommendation } from "@/types/local-recommendations";
 
 export type LocalKpiWorkspaceData = {
   configurations: LocalKpiConfiguration[];
@@ -28,6 +30,7 @@ export type LocalKpiWorkspaceData = {
   alerts: LocalKpiAlert[];
   insights: LocalInsight[];
   executiveSummary: LocalExecutiveSummary;
+  recommendations: LocalRecommendation[];
   approvedMemoryKnowledge: AtlasKnowledgeItem[];
   usedMemoryReferences: LocalInsightMemoryReference[];
 };
@@ -56,6 +59,7 @@ export const emptyLocalKpiWorkspaceData: LocalKpiWorkspaceData = {
   alerts: [],
   insights: [],
   executiveSummary: emptyExecutiveSummary,
+  recommendations: [],
   approvedMemoryKnowledge: [],
   usedMemoryReferences: []
 };
@@ -122,6 +126,16 @@ export function getLocalKpiWorkspaceData(): LocalDataResult<LocalKpiWorkspaceDat
     memoryContext
   });
   const usedMemoryReferences = getUsedMemoryReferences(insights);
+  const recommendations = generateLocalRecommendations({
+    organizationId: activeOrganizationId,
+    kpiResults: results,
+    histories: history,
+    alerts,
+    alertRules,
+    insights,
+    executiveSummary,
+    approvedMemoryKnowledge
+  });
 
   return {
     data: {
@@ -133,6 +147,7 @@ export function getLocalKpiWorkspaceData(): LocalDataResult<LocalKpiWorkspaceDat
       alerts,
       insights,
       executiveSummary,
+      recommendations,
       approvedMemoryKnowledge,
       usedMemoryReferences
     },

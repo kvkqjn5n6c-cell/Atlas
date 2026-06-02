@@ -10,6 +10,7 @@ import { getAvailableApprovedMemoryKnowledge } from "@/lib/services/local-data/l
 import type { AtlasKnowledgeItem, AtlasKnowledgeType } from "@/types/atlas-memory-knowledge";
 import type { LocalInsightMemoryReference } from "@/types/local-insights";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
+import type { LocalRecommendation, RecommendationPriority } from "@/types/local-recommendations";
 
 const statusVariant = {
   healthy: "success",
@@ -30,6 +31,13 @@ const knowledgeTypeLabels: Record<AtlasKnowledgeType, string> = {
   business_rule: "Règle métier validée",
   decision: "Décision historique validée",
   glossary: "Glossaire validé"
+};
+
+const recommendationPriorityVariant: Record<RecommendationPriority, "default" | "warning" | "danger"> = {
+  low: "default",
+  medium: "default",
+  high: "warning",
+  critical: "danger"
 };
 
 function impactForResult(result: LocalKpiResult) {
@@ -126,6 +134,47 @@ function MemoryMobilizedBlock({
   );
 }
 
+function RecommendedActionPlan({ recommendations }: { recommendations: LocalRecommendation[] }) {
+  return (
+    <div className="mb-5 rounded-md border border-brand-100 bg-white p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="brand">Plan d&apos;action recommandé</Badge>
+        <Badge>{recommendations.length} recommandation(s)</Badge>
+      </div>
+      {recommendations.length === 0 ? (
+        <p className="mt-4 rounded-md border border-line bg-slate-50 p-4 text-sm text-slate-600">
+          Aucune recommandation déterministe prioritaire pour ce rapport.
+        </p>
+      ) : (
+        <div className="mt-4 space-y-3">
+          {recommendations.slice(0, 5).map((recommendation) => (
+            <article key={recommendation.id} className="rounded-md border border-line bg-slate-50 p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={recommendationPriorityVariant[recommendation.priority]}>{recommendation.priority}</Badge>
+                <Badge>{recommendation.category}</Badge>
+                <Badge>Effort {recommendation.effort}</Badge>
+              </div>
+              <h3 className="mt-3 text-sm font-semibold text-ink">{recommendation.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{recommendation.summary}</p>
+              {recommendation.recommendedActions[0] ? (
+                <p className="mt-2 text-sm font-medium text-ink">
+                  Action : {recommendation.recommendedActions[0].label}
+                </p>
+              ) : null}
+              <p className="mt-2 text-xs text-slate-500">Impact attendu : {recommendation.expectedImpact}</p>
+              {recommendation.relatedMemoryReferences.length > 0 ? (
+                <p className="mt-2 text-xs text-slate-500">
+                  Mémoire liée : {recommendation.relatedMemoryReferences.slice(0, 2).join(" | ")}
+                </p>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function LocalKpiReportSection() {
   const { data: workspace } = useLocalKpiWorkspace();
   const results = workspace.results.slice(0, 6);
@@ -134,6 +183,7 @@ export function LocalKpiReportSection() {
   const ruleAlertCount = workspace.alerts.filter((alert) => alert.alertSource === "rule").length;
   const usedMemoryReferences = workspace.usedMemoryReferences;
   const availableMemoryKnowledge = getAvailableApprovedMemoryKnowledge(workspace.approvedMemoryKnowledge, usedMemoryReferences);
+  const recommendations = workspace.recommendations;
 
   if (results.length === 0) {
     return (
@@ -183,6 +233,8 @@ export function LocalKpiReportSection() {
             </div>
           </div>
         ) : null}
+
+        <RecommendedActionPlan recommendations={recommendations} />
 
         <MemoryMobilizedBlock usedReferences={usedMemoryReferences} availableKnowledge={availableMemoryKnowledge} />
 
