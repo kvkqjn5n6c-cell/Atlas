@@ -3,14 +3,18 @@
 import { useEffect, useState } from "react";
 import { ArrowDownRight, ArrowRight, ArrowUpRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { buildLocalActionPlanFromRecommendation } from "@/lib/action-plans/local-action-plan-builder";
 import { useLocalKpiWorkspace } from "@/hooks/use-local-kpi-workspace";
 import { formatKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
 import { calculateScoreWithLocalKpis } from "@/lib/kpi-engine/local-kpi-results";
 import { formatVariation } from "@/lib/kpi-engine/local-kpi-trends";
+import { saveLocalActionPlan } from "@/lib/local/local-action-plans-store";
 import { getAvailableApprovedMemoryKnowledge } from "@/lib/services/local-data/local-kpis-data.service";
 import type { AtlasKnowledgeItem, AtlasKnowledgeType } from "@/types/atlas-memory-knowledge";
+import type { LocalActionPlan } from "@/types/local-action-plans";
 import type { LocalInsightMemoryReference } from "@/types/local-insights";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
 import type { LocalRecommendation, RecommendationPriority } from "@/types/local-recommendations";
@@ -174,7 +178,33 @@ function MemoryReferencesCard({
   );
 }
 
-function RecommendationsSection({ recommendations }: { recommendations: LocalRecommendation[] }) {
+function RecommendationsSection({
+  recommendations,
+  actionPlans
+}: {
+  recommendations: LocalRecommendation[];
+  actionPlans: LocalActionPlan[];
+}) {
+  const [createdRecommendationIds, setCreatedRecommendationIds] = useState<string[]>(() =>
+    actionPlans.map((plan) => plan.sourceRecommendationId).filter((id): id is string => Boolean(id))
+  );
+  const [message, setMessage] = useState("");
+  const knownRecommendationIds = new Set([
+    ...actionPlans.map((plan) => plan.sourceRecommendationId).filter((id): id is string => Boolean(id)),
+    ...createdRecommendationIds
+  ]);
+
+  function createPlan(recommendation: LocalRecommendation) {
+    if (knownRecommendationIds.has(recommendation.id)) {
+      setMessage("Un plan d'action local existe déjà pour cette recommandation.");
+      return;
+    }
+
+    const plan = saveLocalActionPlan(buildLocalActionPlanFromRecommendation(recommendation));
+    setCreatedRecommendationIds((current) => [...current, recommendation.id]);
+    setMessage(`Plan d'action local créé : ${plan.title}`);
+  }
+
   return (
     <Card className="border-brand-100">
       <CardHeader>
@@ -188,6 +218,11 @@ function RecommendationsSection({ recommendations }: { recommendations: LocalRec
         </p>
       </CardHeader>
       <CardContent>
+        {message ? (
+          <p className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+            {message}
+          </p>
+        ) : null}
         {recommendations.length === 0 ? (
           <p className="rounded-md border border-line bg-slate-50 p-4 text-sm text-slate-600">
             Aucune recommandation prioritaire pour l&apos;instant. Les KPI locaux restent insuffisants ou conformes.
@@ -203,6 +238,7 @@ function RecommendationsSection({ recommendations }: { recommendations: LocalRec
                   <Badge>{recommendation.category}</Badge>
                   <Badge>Effort {recommendation.effort}</Badge>
                   <Badge>Urgence {recommendation.urgency}</Badge>
+                  {knownRecommendationIds.has(recommendation.id) ? <Badge variant="success">Plan créé</Badge> : null}
                 </div>
                 <h3 className="mt-3 font-semibold text-ink">{recommendation.title}</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-600">{recommendation.summary}</p>
@@ -218,6 +254,13 @@ function RecommendationsSection({ recommendations }: { recommendations: LocalRec
                     Preuve : {recommendation.evidence[0].label} - {recommendation.evidence[0].value}
                   </p>
                 ) : null}
+                <Button
+                  className="mt-4"
+                  disabled={knownRecommendationIds.has(recommendation.id)}
+                  onClick={() => createPlan(recommendation)}
+                >
+                  {knownRecommendationIds.has(recommendation.id) ? "Plan créé" : "Créer un plan d'action"}
+                </Button>
               </article>
             ))}
           </div>
@@ -255,6 +298,7 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
   const usedMemoryReferences = workspace.usedMemoryReferences;
   const availableMemoryKnowledge = getAvailableApprovedMemoryKnowledge(workspace.approvedMemoryKnowledge, usedMemoryReferences);
   const recommendations = workspace.recommendations;
+  const actionPlans = workspace.actionPlans;
 
   if (results.length === 0) {
     return (
@@ -384,7 +428,7 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
         </Card>
       ) : null}
 
-      <RecommendationsSection recommendations={recommendations} />
+      <RecommendationsSection recommendations={recommendations} actionPlans={actionPlans} />
 
       <MemoryReferencesCard usedReferences={usedMemoryReferences} availableKnowledge={availableMemoryKnowledge} />
 

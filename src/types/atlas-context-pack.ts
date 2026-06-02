@@ -10,7 +10,7 @@ export type AtlasContextPurpose =
   | "commercial_review";
 
 export type AtlasContextSource = {
-  type: "document" | "knowledge" | "kpi" | "alert" | "rule" | "insight" | "recommendation";
+  type: "document" | "knowledge" | "kpi" | "alert" | "rule" | "insight" | "recommendation" | "action_plan";
   id: string;
   title: string;
   sourceDocument?: AtlasMemoryDocumentKey;
@@ -30,6 +30,7 @@ export type AtlasContextPack = {
   includedAlerts: AtlasContextSource[];
   includedRules: AtlasContextSource[];
   includedRecommendations: AtlasContextSource[];
+  includedActionPlans: AtlasContextSource[];
   summary: string;
   limitations: string[];
   persisted: false;

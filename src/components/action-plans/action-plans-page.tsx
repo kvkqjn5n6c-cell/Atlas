@@ -1,20 +1,175 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatActionPriority, formatActionStatus } from "@/lib/formatters/status-labels";
+import { deleteLocalActionPlan, getLocalActionPlans, updateLocalActionPlan } from "@/lib/local/local-action-plans-store";
 import { actionPlansMock } from "@/lib/mock/action-plans";
 import { alertsMock } from "@/lib/mock/alerts";
 import { performanceKpisMock } from "@/lib/mock/kpis";
 import { organizationsMock } from "@/lib/mock/organizations";
+import type { LocalActionPlan, LocalActionPlanStatus } from "@/types/local-action-plans";
+
+const localStatusLabels: Record<LocalActionPlanStatus, string> = {
+  todo: "À faire",
+  in_progress: "En cours",
+  done: "Terminé",
+  cancelled: "Annulé"
+};
+
+const localPriorityLabels: Record<LocalActionPlan["priority"], string> = {
+  low: "Basse",
+  medium: "Moyenne",
+  high: "Haute",
+  critical: "Critique"
+};
+
+type BadgeVariant = "default" | "success" | "warning" | "danger" | "brand";
+
+function statusVariant(status: LocalActionPlanStatus): BadgeVariant {
+  if (status === "done") return "success";
+  if (status === "in_progress") return "warning";
+  if (status === "cancelled") return "default";
+  return "brand";
+}
+
+function priorityVariant(priority: LocalActionPlan["priority"]): BadgeVariant {
+  if (priority === "critical") return "danger";
+  if (priority === "high") return "warning";
+  return "default";
+}
+
+function nextStatus(status: LocalActionPlanStatus): LocalActionPlanStatus {
+  if (status === "todo") return "in_progress";
+  if (status === "in_progress") return "done";
+  return status;
+}
+
+function LocalActionPlansSection() {
+  const [mounted, setMounted] = useState(false);
+  const [plans, setPlans] = useState<LocalActionPlan[]>([]);
+
+  function refresh() {
+    setPlans(getLocalActionPlans());
+  }
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setMounted(true);
+      refresh();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, []);
+
+  function updateStatus(plan: LocalActionPlan, status: LocalActionPlanStatus) {
+    updateLocalActionPlan({ ...plan, status });
+    refresh();
+  }
+
+  function markTaskDone(plan: LocalActionPlan, taskId: string) {
+    updateLocalActionPlan({
+      ...plan,
+      actions: plan.actions.map((task) => task.id === taskId ? { ...task, status: "done" } : task)
+    });
+    refresh();
+  }
+
+  function deletePlan(id: string) {
+    deleteLocalActionPlan(id);
+    refresh();
+  }
+
+  if (!mounted) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Plans locaux issus des recommandations Atlas</CardTitle>
+          <p className="mt-1 text-sm text-slate-500">Chargement des plans locaux.</p>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle>Plans locaux issus des recommandations Atlas</CardTitle>
+          <Badge variant="brand">Local</Badge>
+          <Badge>Non persisté</Badge>
+          <Badge>{plans.length} plan(s)</Badge>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {plans.length === 0 ? (
+          <p className="rounded-md border border-line bg-slate-50 p-4 text-sm text-slate-600">
+            Aucun plan local pour l&apos;instant. Créez un plan depuis une recommandation dans Pilotage ou Rapports.
+          </p>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {plans.map((plan) => (
+              <article key={plan.id} className="rounded-md border border-line bg-slate-50 p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="brand">Plan local</Badge>
+                  <Badge variant="success">Depuis recommandation Atlas</Badge>
+                  <Badge variant={priorityVariant(plan.priority)}>{localPriorityLabels[plan.priority]}</Badge>
+                  <Badge variant={statusVariant(plan.status)}>{localStatusLabels[plan.status]}</Badge>
+                </div>
+                <h3 className="mt-3 font-semibold text-ink">{plan.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{plan.description}</p>
+                <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
+                  <p>Propriétaire : <span className="font-medium text-ink">{plan.owner}</span></p>
+                  <p>Échéance : <span className="font-medium text-ink">{plan.dueDate ?? "À définir"}</span></p>
+                  <p>KPI liés : <span className="font-medium text-ink">{plan.relatedKpiIds.length}</span></p>
+                  <p>Impact : <span className="font-medium text-ink">{plan.expectedImpact}</span></p>
+                </div>
+                <div className="mt-4 space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tâches</p>
+                  {plan.actions.map((task) => (
+                    <div key={task.id} className="rounded-md border border-line bg-white p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-medium text-ink">{task.label}</p>
+                        <Badge variant={statusVariant(task.status)}>{localStatusLabels[task.status]}</Badge>
+                      </div>
+                      {task.description ? <p className="mt-1 text-xs leading-5 text-slate-600">{task.description}</p> : null}
+                      {task.status !== "done" ? (
+                        <Button className="mt-3" onClick={() => markTaskDone(plan, task.id)}>
+                          Marquer terminée
+                        </Button>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {plan.status !== "done" && plan.status !== "cancelled" ? (
+                    <Button onClick={() => updateStatus(plan, nextStatus(plan.status))}>
+                      Passer à {localStatusLabels[nextStatus(plan.status)]}
+                    </Button>
+                  ) : null}
+                  <Button variant="ghost" onClick={() => deletePlan(plan.id)}>
+                    Supprimer
+                  </Button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export function ActionPlansPage() {
   return (
     <div className="space-y-6">
       <section className="rounded-lg border border-line bg-white p-6 shadow-soft">
         <Badge variant="brand">Plans d&apos;action</Badge>
-        <h2 className="mt-4 text-3xl font-semibold tracking-tight text-ink">Actions issues des alertes</h2>
+        <h2 className="mt-4 text-3xl font-semibold tracking-tight text-ink">Actions issues des alertes et recommandations</h2>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-          Prioriser les actions qui réduisent le risque, fiabilisent la donnée ou corrigent un écart
-          KPI.
+          Prioriser les actions qui réduisent le risque, fiabilisent la donnée ou corrigent un écart KPI. Les plans locaux complètent les plans modèles sans persistance réelle.
         </p>
       </section>
 
@@ -30,9 +185,14 @@ export function ActionPlansPage() {
         </CardContent>
       </Card>
 
+      <LocalActionPlansSection />
+
       <Card>
         <CardHeader>
-          <CardTitle>Plans reliés au pilotage</CardTitle>
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle>Plans modèles reliés au pilotage</CardTitle>
+            <Badge>Plan modèle</Badge>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto rounded-lg border border-line">

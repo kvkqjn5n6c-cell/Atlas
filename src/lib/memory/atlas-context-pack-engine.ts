@@ -2,6 +2,7 @@ import type { LocalKpiAlert } from "@/lib/kpi-engine/local-kpi-alerts";
 import type { AtlasContextPack, AtlasContextPurpose, AtlasContextSource } from "@/types/atlas-context-pack";
 import type { AtlasMemoryDocument, AtlasMemoryDocumentKey } from "@/types/atlas-memory";
 import type { AtlasKnowledgeItem } from "@/types/atlas-memory-knowledge";
+import type { LocalActionPlan } from "@/types/local-action-plans";
 import type { LocalAlertRule } from "@/types/local-alert-rules";
 import type { LocalInsight } from "@/types/local-insights";
 import type { LocalKpiConfiguration } from "@/types/local-kpi";
@@ -18,6 +19,7 @@ type ContextPackInput = {
   alertRules?: LocalAlertRule[];
   insights?: LocalInsight[];
   recommendations?: LocalRecommendation[];
+  actionPlans?: LocalActionPlan[];
 };
 
 const purposeConfig: Record<AtlasContextPurpose, {
@@ -148,6 +150,16 @@ function recommendationSource(recommendation: LocalRecommendation): AtlasContext
   };
 }
 
+function actionPlanSource(plan: LocalActionPlan): AtlasContextSource {
+  return {
+    type: "action_plan",
+    id: plan.id,
+    title: plan.title,
+    excerpt: `${plan.description} Impact attendu : ${plan.expectedImpact}`,
+    status: plan.status === "done" ? "active" : plan.priority === "critical" ? "critical" : plan.priority === "high" ? "warning" : undefined
+  };
+}
+
 function filterKnowledge(
   approvedKnowledge: AtlasKnowledgeItem[],
   config: typeof purposeConfig[AtlasContextPurpose]
@@ -175,6 +187,13 @@ function filterRecommendations(purpose: AtlasContextPurpose, recommendations: Lo
   return [];
 }
 
+function filterActionPlans(purpose: AtlasContextPurpose, actionPlans: LocalActionPlan[]) {
+  if (purpose === "operational_recommendations") return actionPlans;
+  if (purpose === "risk_review") return actionPlans.filter((plan) => plan.priority === "critical" || plan.priority === "high");
+  if (purpose === "executive_summary") return actionPlans.filter((plan) => plan.status !== "cancelled");
+  return [];
+}
+
 function buildLimitations(input: {
   approvedKnowledge: AtlasKnowledgeItem[];
   includedKnowledge: AtlasContextSource[];
@@ -182,6 +201,7 @@ function buildLimitations(input: {
   includedAlerts: AtlasContextSource[];
   includedRules: AtlasContextSource[];
   includedRecommendations: AtlasContextSource[];
+  includedActionPlans: AtlasContextSource[];
   rawKnowledgeItems: AtlasKnowledgeItem[];
 }) {
   const limitations: string[] = [];
@@ -194,6 +214,7 @@ function buildLimitations(input: {
   if (input.includedAlerts.length === 0) limitations.push("Aucune alerte locale disponible pour ce contexte.");
   if (input.includedRules.length === 0) limitations.push("Aucune règle d'alerte active pertinente pour ce contexte.");
   if (input.includedRecommendations.length === 0) limitations.push("Aucune recommandation déterministe incluse dans ce contexte.");
+  if (input.includedActionPlans.length === 0) limitations.push("Aucun plan d'action local inclus dans ce contexte.");
   if (pendingKnowledgeCount > 0) limitations.push(`${pendingKnowledgeCount} connaissance(s) détectée(s) ignorée(s) car non validée(s).`);
   if (rejectedKnowledgeCount > 0) limitations.push(`${rejectedKnowledgeCount} connaissance(s) rejetée(s) exclue(s).`);
 
@@ -207,8 +228,9 @@ function buildSummary(title: string, counts: {
   alerts: number;
   rules: number;
   recommendations: number;
+  actionPlans: number;
 }) {
-  return `${title} préparé avec ${counts.documents} document(s), ${counts.knowledge} connaissance(s) validée(s), ${counts.kpis} KPI, ${counts.alerts} alerte(s), ${counts.rules} règle(s) et ${counts.recommendations} recommandation(s).`;
+  return `${title} préparé avec ${counts.documents} document(s), ${counts.knowledge} connaissance(s) validée(s), ${counts.kpis} KPI, ${counts.alerts} alerte(s), ${counts.rules} règle(s), ${counts.recommendations} recommandation(s) et ${counts.actionPlans} plan(s) d'action.`;
 }
 
 export function buildAtlasContextPack(
@@ -228,6 +250,7 @@ export function buildAtlasContextPack(
   const includedAlerts = filterAlerts(purpose, input.alerts ?? []).map(alertSource);
   const includedRules = filterRules(purpose, input.alertRules ?? []).map(ruleSource);
   const includedRecommendations = filterRecommendations(purpose, input.recommendations ?? []).map(recommendationSource);
+  const includedActionPlans = filterActionPlans(purpose, input.actionPlans ?? []).map(actionPlanSource);
   const limitations = buildLimitations({
     approvedKnowledge,
     includedKnowledge,
@@ -235,6 +258,7 @@ export function buildAtlasContextPack(
     includedAlerts,
     includedRules,
     includedRecommendations,
+    includedActionPlans,
     rawKnowledgeItems: input.knowledgeItems
   });
 
@@ -250,13 +274,15 @@ export function buildAtlasContextPack(
     includedAlerts,
     includedRules,
     includedRecommendations,
+    includedActionPlans,
     summary: buildSummary(config.title, {
       documents: includedDocuments.length,
       knowledge: includedKnowledge.length,
       kpis: includedKpis.length,
       alerts: includedAlerts.length,
       rules: includedRules.length,
-      recommendations: includedRecommendations.length
+      recommendations: includedRecommendations.length,
+      actionPlans: includedActionPlans.length
     }),
     limitations,
     persisted: false
