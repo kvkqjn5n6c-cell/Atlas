@@ -37,7 +37,8 @@ import { formatUserRole } from "@/lib/formatters/status-labels";
 import { cn } from "@/lib/utils";
 
 const presentationNavigation = [
-  { name: "Démo", href: "/demo", icon: Presentation }
+  { name: "Démo produit", href: "/demo", icon: Presentation },
+  { name: "Démo Atlas guidée", href: "/demo-atlas", icon: Target }
 ];
 
 const pilotageNavigation = [
