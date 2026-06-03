@@ -13,6 +13,7 @@ export type LocalCopilBrief = {
   title: string;
   periodLabel: string;
   globalSituation: string;
+  mainPriorities: string[];
   keyKpis: string[];
   criticalAlerts: string[];
   keyRecommendations: string[];

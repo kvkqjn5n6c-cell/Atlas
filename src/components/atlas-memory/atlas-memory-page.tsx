@@ -219,7 +219,8 @@ function ContextPacksSection({
               pack.includedKpis.length +
               pack.includedAlerts.length +
               pack.includedRules.length +
-              pack.includedDecisionHistory.length;
+              pack.includedDecisionHistory.length +
+              pack.includedPriorities.length;
 
             return (
               <article key={pack.id} className="rounded-md border border-line bg-slate-50 p-4">
@@ -264,6 +265,7 @@ function ContextPacksSection({
               <ContextSourceList title="Plans d'action inclus" sources={selectedPack.includedActionPlans} />
               <ContextSourceList title="Impacts mesurés inclus" sources={selectedPack.includedActionPlanImpacts} />
               <ContextSourceList title="Historique décisionnel inclus" sources={selectedPack.includedDecisionHistory} />
+              <ContextSourceList title="Priorités Atlas incluses" sources={selectedPack.includedPriorities} />
             </div>
             <div className="mt-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Limites et exclusions</p>
@@ -422,7 +424,8 @@ export function AtlasMemoryPage() {
           recommendationConfidence: localKpiWorkspace.recommendationConfidence,
           actionPlans: localKpiWorkspace.actionPlans,
           actionPlanImpacts: localKpiWorkspace.actionPlanImpacts,
-          decisionJournalEntries: localKpiWorkspace.decisionJournalEntries
+          decisionJournalEntries: localKpiWorkspace.decisionJournalEntries,
+          priorities: localKpiWorkspace.priorities
         })
       ),
     [documents, knowledgeItems, localKpiWorkspace]

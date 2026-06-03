@@ -18,6 +18,7 @@ import {
   ShieldAlert,
   Settings,
   SlidersHorizontal,
+  Target,
   UploadCloud,
   Users,
   WalletCards
@@ -40,6 +41,7 @@ const presentationNavigation = [
 
 const pilotageNavigation = [
   { name: "Pilotage", href: "/pilotage", icon: BarChart3 },
+  { name: "PrioritÃ©s", href: "/priorities", icon: Target },
   { name: "COPIL", href: "/copil", icon: Presentation },
   { name: "Indicateurs", href: "/indicators", icon: LineChart },
   { name: "Alertes", href: "/alerts", icon: ShieldAlert },

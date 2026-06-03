@@ -99,6 +99,7 @@ function CopilContextCard({ pack }: { pack?: AtlasContextPack }) {
           <ContextSourceList title="Documents mémoire" sources={pack.includedDocuments} />
           <ContextSourceList title="Connaissances validées" sources={pack.includedKnowledge} />
           <ContextSourceList title="KPI et alertes" sources={[...pack.includedKpis, ...pack.includedAlerts]} />
+          <ContextSourceList title="Priorités Atlas" sources={pack.includedPriorities} />
           <ContextSourceList title="Décisions récentes" sources={pack.includedDecisionHistory} />
         </div>
         <div>
@@ -135,7 +136,8 @@ function buildCopilContextPack(
     recommendationConfidence: workspace.recommendationConfidence,
     actionPlans: workspace.actionPlans,
     actionPlanImpacts: workspace.actionPlanImpacts,
-    decisionJournalEntries: workspace.decisionJournalEntries
+    decisionJournalEntries: workspace.decisionJournalEntries,
+    priorities: workspace.priorities
   });
 }
 
@@ -176,6 +178,7 @@ export function LocalCopilPage() {
         impacts: workspace.actionPlanImpacts,
         feedbackItems: workspace.recommendationFeedback,
         confidenceScores: workspace.recommendationConfidence,
+        priorities: workspace.priorities,
         memoryReferences: workspace.usedMemoryReferences,
         decisionJournalEntries: workspace.decisionJournalEntries,
         copilContextPack
@@ -243,6 +246,7 @@ export function LocalCopilPage() {
       </Card>
 
       <section className="grid gap-4 lg:grid-cols-2">
+        <ListBlock title="Priorités principales" items={brief.mainPriorities} />
         <ListBlock title="KPI à examiner" items={brief.keyKpis} />
         <ListBlock title="Alertes critiques" items={brief.criticalAlerts} />
         <ListBlock title="Recommandations clés" items={brief.keyRecommendations} />

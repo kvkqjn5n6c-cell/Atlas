@@ -22,7 +22,8 @@ export type AtlasContextSource = {
     | "recommendation_confidence"
     | "action_plan"
     | "action_plan_impact"
-    | "decision_history";
+    | "decision_history"
+    | "priority";
   id: string;
   title: string;
   sourceDocument?: AtlasMemoryDocumentKey;
@@ -47,6 +48,7 @@ export type AtlasContextPack = {
   includedActionPlans: AtlasContextSource[];
   includedActionPlanImpacts: AtlasContextSource[];
   includedDecisionHistory: AtlasContextSource[];
+  includedPriorities: AtlasContextSource[];
   summary: string;
   limitations: string[];
   persisted: false;

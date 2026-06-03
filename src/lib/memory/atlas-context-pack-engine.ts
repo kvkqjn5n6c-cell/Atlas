@@ -9,6 +9,7 @@ import type { LocalAlertRule } from "@/types/local-alert-rules";
 import type { LocalInsight } from "@/types/local-insights";
 import type { LocalKpiConfiguration } from "@/types/local-kpi";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
+import type { LocalPriorityItem } from "@/types/local-priorities";
 import type { LocalRecommendationFeedback } from "@/types/local-recommendation-feedback";
 import type { LocalRecommendation } from "@/types/local-recommendations";
 import type { RecommendationConfidence } from "@/types/recommendation-confidence";
@@ -28,6 +29,7 @@ type ContextPackInput = {
   actionPlans?: LocalActionPlan[];
   actionPlanImpacts?: LocalActionPlanImpact[];
   decisionJournalEntries?: DecisionJournalEntry[];
+  priorities?: LocalPriorityItem[];
 };
 
 const purposeConfig: Record<AtlasContextPurpose, {
@@ -208,6 +210,16 @@ function decisionHistorySource(entry: DecisionJournalEntry): AtlasContextSource 
   };
 }
 
+function prioritySource(priority: LocalPriorityItem): AtlasContextSource {
+  return {
+    type: "priority",
+    id: priority.id,
+    title: `#${priority.rank} ${priority.title}`,
+    excerpt: `Score ${priority.priorityScore}/100. ${priority.summary} Action suivante : ${priority.recommendedNextAction}`,
+    status: priority.urgency === "critical" ? "critical" : priority.urgency === "high" ? "warning" : undefined
+  };
+}
+
 function filterKnowledge(
   approvedKnowledge: AtlasKnowledgeItem[],
   config: typeof purposeConfig[AtlasContextPurpose]
@@ -282,6 +294,14 @@ function filterDecisionHistory(purpose: AtlasContextPurpose, entries: DecisionJo
   return [];
 }
 
+function filterPriorities(purpose: AtlasContextPurpose, priorities: LocalPriorityItem[]) {
+  if (purpose === "executive_summary") return priorities.slice(0, 5);
+  if (purpose === "risk_review") return priorities.filter((priority) => priority.urgency === "critical" || priority.category === "risk").slice(0, 8);
+  if (purpose === "copil_preparation") return priorities.slice(0, 8);
+  if (purpose === "operational_recommendations") return priorities.filter((priority) => priority.sourceTypes.includes("recommendation")).slice(0, 8);
+  return [];
+}
+
 function buildLimitations(input: {
   approvedKnowledge: AtlasKnowledgeItem[];
   includedKnowledge: AtlasContextSource[];
@@ -294,6 +314,7 @@ function buildLimitations(input: {
   includedActionPlans: AtlasContextSource[];
   includedActionPlanImpacts: AtlasContextSource[];
   includedDecisionHistory: AtlasContextSource[];
+  includedPriorities: AtlasContextSource[];
   rawKnowledgeItems: AtlasKnowledgeItem[];
 }) {
   const limitations: string[] = [];
@@ -313,6 +334,8 @@ function buildLimitations(input: {
   if (input.includedDecisionHistory.length === 0) limitations.push("Aucun historique décisionnel local inclus dans ce contexte.");
   if (pendingKnowledgeCount > 0) limitations.push(`${pendingKnowledgeCount} connaissance(s) détectée(s) ignorée(s) car non validée(s).`);
   if (rejectedKnowledgeCount > 0) limitations.push(`${rejectedKnowledgeCount} connaissance(s) rejetée(s) exclue(s).`);
+
+  if (input.includedPriorities.length === 0) limitations.push("Aucune prioritÃ© Atlas incluse dans ce contexte.");
 
   return limitations;
 }
@@ -355,6 +378,7 @@ export function buildAtlasContextPack(
   const includedActionPlans = filterActionPlans(purpose, input.actionPlans ?? []).map(actionPlanSource);
   const includedActionPlanImpacts = filterActionPlanImpacts(purpose, input.actionPlanImpacts ?? []).map(actionPlanImpactSource);
   const includedDecisionHistory = filterDecisionHistory(purpose, input.decisionJournalEntries ?? []).map(decisionHistorySource);
+  const includedPriorities = filterPriorities(purpose, input.priorities ?? []).map(prioritySource);
   const limitations = buildLimitations({
     approvedKnowledge,
     includedKnowledge,
@@ -367,6 +391,7 @@ export function buildAtlasContextPack(
     includedActionPlans,
     includedActionPlanImpacts,
     includedDecisionHistory,
+    includedPriorities,
     rawKnowledgeItems: input.knowledgeItems
   });
 
@@ -387,6 +412,7 @@ export function buildAtlasContextPack(
     includedActionPlans,
     includedActionPlanImpacts,
     includedDecisionHistory,
+    includedPriorities,
     summary: buildSummary(config.title, {
       documents: includedDocuments.length,
       knowledge: includedKnowledge.length,

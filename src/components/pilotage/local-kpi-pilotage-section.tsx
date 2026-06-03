@@ -24,6 +24,7 @@ import type { LocalActionPlan } from "@/types/local-action-plans";
 import type { LocalActionPlanImpact } from "@/types/local-action-plan-impact";
 import type { LocalInsightMemoryReference } from "@/types/local-insights";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
+import type { LocalPriorityItem } from "@/types/local-priorities";
 import type {
   LocalRecommendationFeedback,
   RecommendationActionTaken,
@@ -139,6 +140,20 @@ function formatDate(value: string) {
     dateStyle: "short",
     timeStyle: "short"
   }).format(new Date(value));
+}
+
+const priorityUrgencyLabels: Record<LocalPriorityItem["urgency"], string> = {
+  low: "Faible",
+  medium: "Moyenne",
+  high: "Élevée",
+  critical: "Critique"
+};
+
+function priorityUrgencyVariant(urgency: LocalPriorityItem["urgency"]) {
+  if (urgency === "critical") return "danger";
+  if (urgency === "high") return "warning";
+  if (urgency === "medium") return "brand";
+  return "default";
 }
 
 function TrendIcon({ trend }: { trend?: LocalKpiResult["trend"] }) {
@@ -623,6 +638,47 @@ function DecisionActivityCard({ entries }: { entries: DecisionJournalEntry[] }) 
   );
 }
 
+function TopPrioritiesCard({ priorities }: { priorities: LocalPriorityItem[] }) {
+  const visiblePriorities = priorities.slice(0, 3);
+
+  return (
+    <Card className="border-brand-100">
+      <CardHeader>
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle>Top priorités Atlas</CardTitle>
+          <Badge variant="brand">À traiter maintenant</Badge>
+          <Badge>{visiblePriorities.length} sujet(s)</Badge>
+        </div>
+        <p className="mt-1 text-sm text-slate-500">
+          Classement déterministe issu des KPI, alertes, recommandations, plans, impacts, feedbacks et mémoire validée.
+        </p>
+      </CardHeader>
+      <CardContent>
+        {visiblePriorities.length === 0 ? (
+          <p className="rounded-md border border-line bg-slate-50 p-4 text-sm text-slate-600">
+            Aucune priorité particulière détectée.
+          </p>
+        ) : (
+          <div className="grid gap-3 lg:grid-cols-3">
+            {visiblePriorities.map((priority) => (
+              <article key={`pilotage-${priority.id}`} className="rounded-md border border-line bg-slate-50 p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="brand">#{priority.rank}</Badge>
+                  <Badge variant={priorityUrgencyVariant(priority.urgency)}>{priorityUrgencyLabels[priority.urgency]}</Badge>
+                  <Badge>{priority.priorityScore}/100</Badge>
+                </div>
+                <h3 className="mt-3 text-sm font-semibold text-ink">{priority.title}</h3>
+                <p className="mt-2 text-xs leading-5 text-slate-600">{priority.summary}</p>
+                <p className="mt-3 text-xs font-medium text-ink">{priority.recommendedNextAction}</p>
+              </article>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
   const [mounted, setMounted] = useState(false);
   const { data: workspace, refresh } = useLocalKpiWorkspace();
@@ -656,6 +712,7 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
   const recommendationFeedback = workspace.recommendationFeedback;
   const recommendationConfidence = workspace.recommendationConfidence;
   const decisionJournalEntries = workspace.decisionJournalEntries;
+  const priorities = workspace.priorities;
 
   if (results.length === 0) {
     return (
@@ -668,6 +725,7 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
             </p>
           </CardHeader>
         </Card>
+        <TopPrioritiesCard priorities={priorities} />
         <MemoryReferencesCard usedReferences={usedMemoryReferences} availableKnowledge={availableMemoryKnowledge} />
         <DecisionActivityCard entries={decisionJournalEntries} />
       </div>
@@ -798,6 +856,8 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
       <RecommendationFeedbackDashboard recommendations={recommendations} feedbackItems={recommendationFeedback} />
 
       <ActionPlanImpactOverview impacts={actionPlanImpacts} />
+
+      <TopPrioritiesCard priorities={priorities} />
 
       <DecisionActivityCard entries={decisionJournalEntries} />
 

@@ -18,6 +18,7 @@ import {
   recordConfidenceCalculated,
   recordRecommendationCreated
 } from "@/lib/journal/decision-journal-engine";
+import { generateLocalPriorities } from "@/lib/priorities/local-priorities-engine";
 import { calculateRecommendationsConfidence } from "@/lib/recommendations/recommendation-confidence-engine";
 import type { LocalAlertRule } from "@/types/local-alert-rules";
 import type { LocalActionPlan } from "@/types/local-action-plans";
@@ -34,6 +35,7 @@ import type { LocalRecommendationFeedback } from "@/types/local-recommendation-f
 import type { LocalRecommendation } from "@/types/local-recommendations";
 import type { RecommendationConfidence } from "@/types/recommendation-confidence";
 import type { DecisionJournalEntry } from "@/types/decision-journal";
+import type { LocalPriorityItem } from "@/types/local-priorities";
 
 export type LocalKpiWorkspaceData = {
   configurations: LocalKpiConfiguration[];
@@ -50,6 +52,7 @@ export type LocalKpiWorkspaceData = {
   actionPlanImpacts: LocalActionPlanImpact[];
   recommendationFeedback: LocalRecommendationFeedback[];
   decisionJournalEntries: DecisionJournalEntry[];
+  priorities: LocalPriorityItem[];
   approvedMemoryKnowledge: AtlasKnowledgeItem[];
   usedMemoryReferences: LocalInsightMemoryReference[];
 };
@@ -84,6 +87,7 @@ export const emptyLocalKpiWorkspaceData: LocalKpiWorkspaceData = {
   actionPlanImpacts: [],
   recommendationFeedback: [],
   decisionJournalEntries: [],
+  priorities: [],
   approvedMemoryKnowledge: [],
   usedMemoryReferences: []
 };
@@ -176,6 +180,19 @@ export function getLocalKpiWorkspaceData(): LocalDataResult<LocalKpiWorkspaceDat
   recommendations.forEach(recordRecommendationCreated);
   recommendationConfidence.forEach(recordConfidenceCalculated);
   const decisionJournalEntries = getJournalEntries();
+  const priorities = generateLocalPriorities({
+    organizationId: activeOrganizationId,
+    kpiResults: results,
+    alerts,
+    recommendations,
+    confidenceScores: recommendationConfidence,
+    actionPlans,
+    impacts: actionPlanImpacts,
+    feedbackItems: recommendationFeedback,
+    decisionJournalEntries,
+    approvedMemoryKnowledge,
+    histories: history
+  });
 
   return {
     data: {
@@ -193,6 +210,7 @@ export function getLocalKpiWorkspaceData(): LocalDataResult<LocalKpiWorkspaceDat
       actionPlanImpacts,
       recommendationFeedback,
       decisionJournalEntries,
+      priorities,
       approvedMemoryKnowledge,
       usedMemoryReferences
     },

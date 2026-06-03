@@ -7,6 +7,7 @@ import type { LocalCopilBrief, LocalCopilSection } from "@/types/local-copil";
 import type { LocalExecutiveSummary } from "@/types/local-executive-summary";
 import type { LocalInsight, LocalInsightMemoryReference } from "@/types/local-insights";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
+import type { LocalPriorityItem } from "@/types/local-priorities";
 import type { LocalRecommendationFeedback } from "@/types/local-recommendation-feedback";
 import type { LocalRecommendation } from "@/types/local-recommendations";
 import type { RecommendationConfidence } from "@/types/recommendation-confidence";
@@ -23,6 +24,7 @@ type LocalCopilBriefInput = {
   impacts?: LocalActionPlanImpact[];
   feedbackItems?: LocalRecommendationFeedback[];
   confidenceScores?: RecommendationConfidence[];
+  priorities?: LocalPriorityItem[];
   memoryReferences?: LocalInsightMemoryReference[];
   decisionJournalEntries?: DecisionJournalEntry[];
   copilContextPack?: AtlasContextPack;
@@ -163,6 +165,9 @@ export function generateLocalCopilBrief(input: LocalCopilBriefInput): LocalCopil
     (kpiResults.length > 0
       ? `${kpiResults.length} KPI local(aux) disponible(s) pour préparer le COPIL.`
       : "Aucune donnée locale suffisante pour produire une lecture COPIL complète.");
+  const mainPriorities = limit((input.priorities ?? []).map((priority) =>
+    `#${priority.rank} ${priority.title} - score ${priority.priorityScore}/100 - ${priority.recommendedNextAction}`
+  ), 5);
   const keyKpis = generateKeyKpis(kpiResults);
   const criticalAlerts = limit(alerts
     .filter((alert) => alert.severity === "critical")
@@ -204,6 +209,7 @@ export function generateLocalCopilBrief(input: LocalCopilBriefInput): LocalCopil
     title: "Préparation COPIL",
     periodLabel: input.periodLabel,
     globalSituation,
+    mainPriorities,
     keyKpis,
     criticalAlerts,
     keyRecommendations,
@@ -217,6 +223,7 @@ export function generateLocalCopilBrief(input: LocalCopilBriefInput): LocalCopil
     confidenceNotes,
     sections: [
       buildSection("Situation", globalSituation, keyKpis),
+      buildSection("Priorités", `${mainPriorities.length} priorité(s) à traiter.`, mainPriorities),
       buildSection("Risques", `${risks.length} risque(s) à examiner.`, risks),
       buildSection("Arbitrages", `${arbitrationPoints.length} point(s) à décider.`, arbitrationPoints),
       buildSection("Actions", `${nextActions.length} prochaine(s) action(s).`, nextActions)
@@ -239,6 +246,9 @@ export function generateLocalCopilBriefMarkdown(brief: LocalCopilBrief) {
     "",
     "## Situation globale",
     brief.globalSituation,
+    "",
+    "## Priorités principales",
+    markdownList(brief.mainPriorities),
     "",
     "## KPI à examiner",
     markdownList(brief.keyKpis),
