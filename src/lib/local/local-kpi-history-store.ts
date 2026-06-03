@@ -74,6 +74,16 @@ export function deleteLocalKpiHistoryByKpiId(kpiId: string) {
   }
 }
 
+export function deleteLocalKpiHistoryPointById(id: string) {
+  if (!canUseLocalStorage()) return;
+
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(getLocalKpiHistory().filter((point) => point.id !== id)));
+  } catch (error) {
+    console.warn("Impossible de supprimer le point d'historique KPI local Atlas.", error);
+  }
+}
+
 export function clearLocalKpiHistory() {
   if (!canUseLocalStorage()) return;
 

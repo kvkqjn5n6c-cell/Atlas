@@ -3,8 +3,9 @@ import { KpiDirection as PrismaKpiDirection } from "@prisma/client";
 import { inferKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
 import {
   deleteLocalKpiHistoryByKpiId,
+  deleteLocalKpiHistoryPointById as deleteLocalHistoryPointFromStore,
   getLocalKpiHistory,
-  getLocalKpiHistoryByKpiId,
+  getLocalKpiHistoryByKpiId as getLocalHistoryByKpiFromStore,
   saveLocalKpiHistoryPoint
 } from "@/lib/local/local-kpi-history-store";
 import type { KpiDirection } from "@/types/local-kpi";
@@ -104,9 +105,24 @@ export async function getLocalKpiHistoryByOrganization(organizationId: string) {
   }
 }
 
+export async function getLocalKpiHistoryPointById(id: string) {
+  lastFallbackUsed = false;
+  if (!isPrismaMode()) return getLocalKpiHistory().find((point) => point.id === id) ?? null;
+
+  try {
+    const prisma = await getPrisma();
+    const record = await prisma.localKpiHistoryPoint.findUnique({ where: { id } });
+    return record ? toLocalHistoryPoint(record) : null;
+  } catch (error) {
+    lastFallbackUsed = true;
+    console.warn("[DATA_MODE=prisma] getLocalKpiHistoryPointById failed, falling back to localStorage.", error);
+    return getLocalKpiHistory().find((point) => point.id === id) ?? null;
+  }
+}
+
 export async function getLocalKpiHistoryByKpi(kpiId: string) {
   lastFallbackUsed = false;
-  if (!isPrismaMode()) return getLocalKpiHistoryByKpiId(kpiId);
+  if (!isPrismaMode()) return getLocalHistoryByKpiFromStore(kpiId);
 
   try {
     const prisma = await getPrisma();
@@ -118,9 +134,11 @@ export async function getLocalKpiHistoryByKpi(kpiId: string) {
   } catch (error) {
     lastFallbackUsed = true;
     console.warn("[DATA_MODE=prisma] getLocalKpiHistoryByKpi failed, falling back to localStorage.", error);
-    return getLocalKpiHistoryByKpiId(kpiId);
+    return getLocalHistoryByKpiFromStore(kpiId);
   }
 }
+
+export const getLocalKpiHistoryByKpiId = getLocalKpiHistoryByKpi;
 
 export async function createLocalKpiHistoryPoint(point: LocalKpiHistoryPoint, organizationId: string) {
   lastFallbackUsed = false;
@@ -142,6 +160,25 @@ export async function createLocalKpiHistoryPoint(point: LocalKpiHistoryPoint, or
     console.warn("[DATA_MODE=prisma] createLocalKpiHistoryPoint failed, falling back to localStorage.", error);
     saveLocalKpiHistoryPoint(point);
     return point;
+  }
+}
+
+export const updateLocalKpiHistoryPoint = createLocalKpiHistoryPoint;
+
+export async function deleteLocalKpiHistoryPointById(id: string) {
+  lastFallbackUsed = false;
+  if (!isPrismaMode()) {
+    deleteLocalHistoryPointFromStore(id);
+    return;
+  }
+
+  try {
+    const prisma = await getPrisma();
+    await prisma.localKpiHistoryPoint.delete({ where: { id } });
+  } catch (error) {
+    lastFallbackUsed = true;
+    console.warn("[DATA_MODE=prisma] deleteLocalKpiHistoryPointById failed, falling back to localStorage.", error);
+    deleteLocalHistoryPointFromStore(id);
   }
 }
 

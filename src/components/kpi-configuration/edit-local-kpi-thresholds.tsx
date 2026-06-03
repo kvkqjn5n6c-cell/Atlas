@@ -104,6 +104,10 @@ export function EditLocalKpiThresholds({
       setMessage("Seuils modifiés localement, KPI recalculé et historique mis à jour.");
     } else {
       saveLocalKpiConfiguration(nextKpi);
+      void persistLocalKpiSnapshotAction({
+        organizationId: nextKpi.organizationId,
+        kpi: nextKpi
+      });
       setMessage("Seuils modifiés localement. Recalcul impossible : import source absent.");
     }
 

@@ -1,6 +1,7 @@
 import { isPrismaMode } from "@/lib/config/data-mode";
 import {
   deleteLocalKpi,
+  getLocalKpiById,
   getLocalKpisByOrganization,
   upsertLocalKpi,
   wasLocalKpiFallbackUsed
@@ -20,6 +21,14 @@ export async function getLocalKpiConfigurationsData(organizationId: string) {
   };
 }
 
+export async function getLocalKpiConfigurationByIdData(id: string) {
+  const data = await getLocalKpiById(id);
+  return {
+    data,
+    source: currentSource()
+  };
+}
+
 export async function saveLocalKpiConfigurationData(kpi: LocalKpiConfiguration) {
   const data = await upsertLocalKpi(kpi);
   return {
@@ -27,6 +36,9 @@ export async function saveLocalKpiConfigurationData(kpi: LocalKpiConfiguration) 
     source: currentSource()
   };
 }
+
+export const createLocalKpiConfigurationData = saveLocalKpiConfigurationData;
+export const updateLocalKpiConfigurationData = saveLocalKpiConfigurationData;
 
 export async function deleteLocalKpiConfigurationData(id: string) {
   await deleteLocalKpi(id);

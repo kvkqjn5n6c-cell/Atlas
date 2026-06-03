@@ -108,6 +108,21 @@ export async function getLocalKpiResultsByOrganization(organizationId: string) {
   }
 }
 
+export async function getLocalKpiResultById(id: string) {
+  lastFallbackUsed = false;
+  if (!isPrismaMode()) return getLocalKpiResults().find((result) => result.id === id) ?? null;
+
+  try {
+    const prisma = await getPrisma();
+    const record = await prisma.localKpiResult.findUnique({ where: { id } });
+    return record ? toLocalKpiResult(record) : null;
+  } catch (error) {
+    lastFallbackUsed = true;
+    console.warn("[DATA_MODE=prisma] getLocalKpiResultById failed, falling back to localStorage.", error);
+    return getLocalKpiResults().find((result) => result.id === id) ?? null;
+  }
+}
+
 export async function getLocalKpiResultsByKpiId(kpiId: string) {
   lastFallbackUsed = false;
   if (!isPrismaMode()) return getLocalKpiResults().filter((result) => result.kpiId === kpiId);
@@ -125,6 +140,8 @@ export async function getLocalKpiResultsByKpiId(kpiId: string) {
     return getLocalKpiResults().filter((result) => result.kpiId === kpiId);
   }
 }
+
+export const getLocalKpiResultsByKpi = getLocalKpiResultsByKpiId;
 
 export async function upsertLocalKpiResult(result: LocalKpiResult, organizationId: string) {
   lastFallbackUsed = false;
@@ -149,6 +166,9 @@ export async function upsertLocalKpiResult(result: LocalKpiResult, organizationI
   }
 }
 
+export const createLocalKpiResult = upsertLocalKpiResult;
+export const updateLocalKpiResult = upsertLocalKpiResult;
+
 export async function deleteLocalKpiResultById(id: string) {
   lastFallbackUsed = false;
   if (!isPrismaMode()) {
@@ -163,5 +183,22 @@ export async function deleteLocalKpiResultById(id: string) {
     lastFallbackUsed = true;
     console.warn("[DATA_MODE=prisma] deleteLocalKpiResultById failed, falling back to localStorage.", error);
     deleteLocalKpiResult(id);
+  }
+}
+
+export async function deleteLocalKpiResultsByKpiId(kpiId: string) {
+  lastFallbackUsed = false;
+  if (!isPrismaMode()) {
+    deleteLocalKpiResult(kpiId);
+    return;
+  }
+
+  try {
+    const prisma = await getPrisma();
+    await prisma.localKpiResult.deleteMany({ where: { kpiId } });
+  } catch (error) {
+    lastFallbackUsed = true;
+    console.warn("[DATA_MODE=prisma] deleteLocalKpiResultsByKpiId failed, falling back to localStorage.", error);
+    deleteLocalKpiResult(kpiId);
   }
 }

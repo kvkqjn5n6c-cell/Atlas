@@ -138,6 +138,21 @@ export async function getLocalKpisByOrganization(organizationId: string) {
   }
 }
 
+export async function getLocalKpiById(id: string) {
+  lastFallbackUsed = false;
+  if (!isPrismaMode()) return getLocalKpiConfigurations().find((kpi) => kpi.id === id) ?? null;
+
+  try {
+    const prisma = await getPrisma();
+    const record = await prisma.localKpiConfiguration.findUnique({ where: { id } });
+    return record ? toLocalKpi(record) : null;
+  } catch (error) {
+    lastFallbackUsed = true;
+    console.warn("[DATA_MODE=prisma] getLocalKpiById failed, falling back to localStorage.", error);
+    return getLocalKpiConfigurations().find((kpi) => kpi.id === id) ?? null;
+  }
+}
+
 export async function upsertLocalKpi(kpi: LocalKpiConfiguration) {
   lastFallbackUsed = false;
   if (!isPrismaMode()) {
@@ -161,6 +176,9 @@ export async function upsertLocalKpi(kpi: LocalKpiConfiguration) {
   }
 }
 
+export const createLocalKpi = upsertLocalKpi;
+export const updateLocalKpi = upsertLocalKpi;
+
 export async function deleteLocalKpi(id: string) {
   lastFallbackUsed = false;
   if (!isPrismaMode()) {
@@ -177,3 +195,5 @@ export async function deleteLocalKpi(id: string) {
     deleteLocalKpiConfiguration(id);
   }
 }
+
+export const deleteLocalKpiById = deleteLocalKpi;

@@ -2,7 +2,7 @@
 
 import { deleteLocalKpiConfigurationData, saveLocalKpiConfigurationData } from "@/lib/services/local-kpi.service";
 import { deleteLocalKpiHistoryData, saveLocalKpiHistoryPointData } from "@/lib/services/local-kpi-history.service";
-import { deleteLocalKpiResultData, saveLocalKpiResultData } from "@/lib/services/local-kpi-results.service";
+import { deleteLocalKpiResultsByKpiData, saveLocalKpiResultData } from "@/lib/services/local-kpi-results.service";
 import type { LocalKpiConfiguration } from "@/types/local-kpi";
 import type { LocalKpiHistoryPoint } from "@/types/local-kpi-history";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
@@ -30,7 +30,7 @@ export async function persistLocalKpiSnapshotAction(input: {
 export async function deleteLocalKpiSnapshotAction(input: { kpiId: string; resultId?: string }) {
   await Promise.all([
     deleteLocalKpiConfigurationData(input.kpiId),
-    input.resultId ? deleteLocalKpiResultData(input.resultId) : Promise.resolve(),
+    deleteLocalKpiResultsByKpiData(input.kpiId),
     deleteLocalKpiHistoryData(input.kpiId)
   ]);
 
