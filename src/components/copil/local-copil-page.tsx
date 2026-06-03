@@ -100,6 +100,7 @@ function CopilContextCard({ pack }: { pack?: AtlasContextPack }) {
           <ContextSourceList title="Connaissances validées" sources={pack.includedKnowledge} />
           <ContextSourceList title="KPI et alertes" sources={[...pack.includedKpis, ...pack.includedAlerts]} />
           <ContextSourceList title="Priorités Atlas" sources={pack.includedPriorities} />
+          <ContextSourceList title="Dashboard dirigeant" sources={pack.includedExecutiveDashboard} />
           <ContextSourceList title="Décisions récentes" sources={pack.includedDecisionHistory} />
         </div>
         <div>
@@ -137,7 +138,8 @@ function buildCopilContextPack(
     actionPlans: workspace.actionPlans,
     actionPlanImpacts: workspace.actionPlanImpacts,
     decisionJournalEntries: workspace.decisionJournalEntries,
-    priorities: workspace.priorities
+    priorities: workspace.priorities,
+    executiveDashboard: workspace.executiveDashboard
   });
 }
 

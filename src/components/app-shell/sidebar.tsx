@@ -10,6 +10,7 @@ import {
   ClipboardList,
   Database,
   Gauge,
+  LayoutDashboard,
   ListTodo,
   LineChart,
   Network,
@@ -40,8 +41,9 @@ const presentationNavigation = [
 ];
 
 const pilotageNavigation = [
+  { name: "Dashboard dirigeant", href: "/executive", icon: LayoutDashboard },
   { name: "Pilotage", href: "/pilotage", icon: BarChart3 },
-  { name: "PrioritÃ©s", href: "/priorities", icon: Target },
+  { name: "Priorités", href: "/priorities", icon: Target },
   { name: "COPIL", href: "/copil", icon: Presentation },
   { name: "Indicateurs", href: "/indicators", icon: LineChart },
   { name: "Alertes", href: "/alerts", icon: ShieldAlert },

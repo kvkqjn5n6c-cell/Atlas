@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowDownRight, ArrowRight, ArrowUpRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -679,6 +680,30 @@ function TopPrioritiesCard({ priorities }: { priorities: LocalPriorityItem[] }) 
   );
 }
 
+function ExecutiveDashboardLinkCard() {
+  return (
+    <Card className="border-brand-100">
+      <CardContent className="flex flex-col justify-between gap-4 p-5 lg:flex-row lg:items-center">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="brand">Dashboard dirigeant</Badge>
+            <Badge>Synthèse exécutive</Badge>
+          </div>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            Accédez à la lecture la plus synthétique : situation, priorités, risques, actions, décisions récentes et confiance Atlas.
+          </p>
+        </div>
+        <Link
+          href="/executive"
+          className="inline-flex h-9 items-center justify-center rounded-md bg-brand-600 px-3 text-sm font-medium text-white transition hover:bg-brand-700"
+        >
+          Voir le dashboard dirigeant
+        </Link>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
   const [mounted, setMounted] = useState(false);
   const { data: workspace, refresh } = useLocalKpiWorkspace();
@@ -717,6 +742,7 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
   if (results.length === 0) {
     return (
       <div className="space-y-6">
+        <ExecutiveDashboardLinkCard />
         <Card>
           <CardHeader>
             <CardTitle>KPI personnalisés</CardTitle>
@@ -739,6 +765,7 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
 
   return (
     <div className="space-y-6">
+      <ExecutiveDashboardLinkCard />
       <section className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
         <Card className="border-brand-100">
           <CardContent className="p-5">

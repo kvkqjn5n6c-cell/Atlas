@@ -18,6 +18,7 @@ import {
   recordConfidenceCalculated,
   recordRecommendationCreated
 } from "@/lib/journal/decision-journal-engine";
+import { generateLocalExecutiveDashboard } from "@/lib/executive/local-executive-dashboard-engine";
 import { generateLocalPriorities } from "@/lib/priorities/local-priorities-engine";
 import { calculateRecommendationsConfidence } from "@/lib/recommendations/recommendation-confidence-engine";
 import type { LocalAlertRule } from "@/types/local-alert-rules";
@@ -36,6 +37,7 @@ import type { LocalRecommendation } from "@/types/local-recommendations";
 import type { RecommendationConfidence } from "@/types/recommendation-confidence";
 import type { DecisionJournalEntry } from "@/types/decision-journal";
 import type { LocalPriorityItem } from "@/types/local-priorities";
+import type { LocalExecutiveDashboard } from "@/types/local-executive-dashboard";
 
 export type LocalKpiWorkspaceData = {
   configurations: LocalKpiConfiguration[];
@@ -53,6 +55,7 @@ export type LocalKpiWorkspaceData = {
   recommendationFeedback: LocalRecommendationFeedback[];
   decisionJournalEntries: DecisionJournalEntry[];
   priorities: LocalPriorityItem[];
+  executiveDashboard: LocalExecutiveDashboard;
   approvedMemoryKnowledge: AtlasKnowledgeItem[];
   usedMemoryReferences: LocalInsightMemoryReference[];
 };
@@ -88,6 +91,24 @@ export const emptyLocalKpiWorkspaceData: LocalKpiWorkspaceData = {
   recommendationFeedback: [],
   decisionJournalEntries: [],
   priorities: [],
+  executiveDashboard: {
+    id: "local-executive-dashboard-empty",
+    organizationId: "org-atlas-demo",
+    generatedAt: "",
+    globalStatus: "watch",
+    globalScore: 0,
+    confidenceLevel: "low",
+    topPriorities: [],
+    criticalRisks: [],
+    keyRecommendations: [],
+    activeActionPlans: [],
+    recentImpacts: [],
+    recentDecisions: [],
+    memorySignals: [],
+    dataReliabilityNotes: ["Aucune donnée locale suffisante."],
+    nextBestActions: [],
+    persisted: false
+  },
   approvedMemoryKnowledge: [],
   usedMemoryReferences: []
 };
@@ -193,6 +214,22 @@ export function getLocalKpiWorkspaceData(): LocalDataResult<LocalKpiWorkspaceDat
     approvedMemoryKnowledge,
     histories: history
   });
+  const executiveDashboard = generateLocalExecutiveDashboard({
+    organizationId: activeOrganizationId,
+    kpiResults: results,
+    alerts,
+    insights,
+    executiveSummary,
+    recommendations,
+    priorities,
+    actionPlans,
+    impacts: actionPlanImpacts,
+    feedbackItems: recommendationFeedback,
+    decisionJournalEntries,
+    approvedMemoryKnowledge,
+    confidenceScores: recommendationConfidence,
+    histories: history
+  });
 
   return {
     data: {
@@ -211,6 +248,7 @@ export function getLocalKpiWorkspaceData(): LocalDataResult<LocalKpiWorkspaceDat
       recommendationFeedback,
       decisionJournalEntries,
       priorities,
+      executiveDashboard,
       approvedMemoryKnowledge,
       usedMemoryReferences
     },

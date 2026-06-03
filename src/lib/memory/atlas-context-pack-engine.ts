@@ -5,6 +5,7 @@ import type { AtlasKnowledgeItem } from "@/types/atlas-memory-knowledge";
 import type { DecisionJournalEntry } from "@/types/decision-journal";
 import type { LocalActionPlan } from "@/types/local-action-plans";
 import type { LocalActionPlanImpact } from "@/types/local-action-plan-impact";
+import type { LocalExecutiveDashboard } from "@/types/local-executive-dashboard";
 import type { LocalAlertRule } from "@/types/local-alert-rules";
 import type { LocalInsight } from "@/types/local-insights";
 import type { LocalKpiConfiguration } from "@/types/local-kpi";
@@ -30,6 +31,7 @@ type ContextPackInput = {
   actionPlanImpacts?: LocalActionPlanImpact[];
   decisionJournalEntries?: DecisionJournalEntry[];
   priorities?: LocalPriorityItem[];
+  executiveDashboard?: LocalExecutiveDashboard;
 };
 
 const purposeConfig: Record<AtlasContextPurpose, {
@@ -220,6 +222,16 @@ function prioritySource(priority: LocalPriorityItem): AtlasContextSource {
   };
 }
 
+function executiveDashboardSource(dashboard: LocalExecutiveDashboard): AtlasContextSource {
+  return {
+    type: "executive_dashboard",
+    id: dashboard.id,
+    title: "Dashboard dirigeant",
+    excerpt: `Situation ${dashboard.globalStatus}. Score ${dashboard.globalScore}/100. ${dashboard.topPriorities.length} priorite(s), ${dashboard.criticalRisks.length} risque(s), ${dashboard.nextBestActions.length} action(s) suivante(s).`,
+    status: dashboard.globalStatus === "critical" ? "critical" : dashboard.globalStatus === "watch" ? "warning" : "active"
+  };
+}
+
 function filterKnowledge(
   approvedKnowledge: AtlasKnowledgeItem[],
   config: typeof purposeConfig[AtlasContextPurpose]
@@ -302,6 +314,14 @@ function filterPriorities(purpose: AtlasContextPurpose, priorities: LocalPriorit
   return [];
 }
 
+function filterExecutiveDashboard(purpose: AtlasContextPurpose, dashboard?: LocalExecutiveDashboard) {
+  if (!dashboard) return [];
+  if (purpose === "executive_summary" || purpose === "risk_review" || purpose === "copil_preparation") {
+    return [dashboard];
+  }
+  return [];
+}
+
 function buildLimitations(input: {
   approvedKnowledge: AtlasKnowledgeItem[];
   includedKnowledge: AtlasContextSource[];
@@ -315,6 +335,7 @@ function buildLimitations(input: {
   includedActionPlanImpacts: AtlasContextSource[];
   includedDecisionHistory: AtlasContextSource[];
   includedPriorities: AtlasContextSource[];
+  includedExecutiveDashboard: AtlasContextSource[];
   rawKnowledgeItems: AtlasKnowledgeItem[];
 }) {
   const limitations: string[] = [];
@@ -336,6 +357,7 @@ function buildLimitations(input: {
   if (rejectedKnowledgeCount > 0) limitations.push(`${rejectedKnowledgeCount} connaissance(s) rejetée(s) exclue(s).`);
 
   if (input.includedPriorities.length === 0) limitations.push("Aucune prioritÃ© Atlas incluse dans ce contexte.");
+  if (input.includedExecutiveDashboard.length === 0) limitations.push("Aucun dashboard dirigeant inclus dans ce contexte.");
 
   return limitations;
 }
@@ -379,6 +401,7 @@ export function buildAtlasContextPack(
   const includedActionPlanImpacts = filterActionPlanImpacts(purpose, input.actionPlanImpacts ?? []).map(actionPlanImpactSource);
   const includedDecisionHistory = filterDecisionHistory(purpose, input.decisionJournalEntries ?? []).map(decisionHistorySource);
   const includedPriorities = filterPriorities(purpose, input.priorities ?? []).map(prioritySource);
+  const includedExecutiveDashboard = filterExecutiveDashboard(purpose, input.executiveDashboard).map(executiveDashboardSource);
   const limitations = buildLimitations({
     approvedKnowledge,
     includedKnowledge,
@@ -392,6 +415,7 @@ export function buildAtlasContextPack(
     includedActionPlanImpacts,
     includedDecisionHistory,
     includedPriorities,
+    includedExecutiveDashboard,
     rawKnowledgeItems: input.knowledgeItems
   });
 
@@ -413,6 +437,7 @@ export function buildAtlasContextPack(
     includedActionPlanImpacts,
     includedDecisionHistory,
     includedPriorities,
+    includedExecutiveDashboard,
     summary: buildSummary(config.title, {
       documents: includedDocuments.length,
       knowledge: includedKnowledge.length,
