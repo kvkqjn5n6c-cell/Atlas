@@ -175,6 +175,8 @@ model Organization {
   localKpiHistoryPoints LocalKpiHistoryPoint[]
   localAlertRules   LocalAlertRule[]
   localAlertSnapshots LocalAlertSnapshot[]
+  atlasMemoryDocuments AtlasMemoryDocument[]
+  atlasMemoryKnowledgeItems AtlasMemoryKnowledgeItem[]
   localActionPlans  LocalActionPlan[]
   localRecommendationFeedback LocalRecommendationFeedback[]
   decisionJournalEntries DecisionJournalEntry[]
@@ -430,6 +432,56 @@ model BusinessDictionaryLinkedKpi {
 
   @@index([fieldId])
   @@index([kpiConfigurationId])
+}
+
+model AtlasMemoryDocument {
+  id              String       @id
+  organizationId  String
+  slug            String
+  title           String
+  description     String?
+  content         String
+  category        String
+  status          String
+  version         String?
+  persistedSource String       @default("prisma")
+  metadata        Json?
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  knowledgeItems  AtlasMemoryKnowledgeItem[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@unique([organizationId, slug])
+  @@index([organizationId])
+  @@index([slug])
+  @@index([status])
+  @@index([category])
+}
+
+model AtlasMemoryKnowledgeItem {
+  id                 String       @id
+  organizationId     String
+  sourceDocumentId   String?
+  sourceDocumentSlug String
+  type               String
+  value              String
+  status             String
+  detectedAt         DateTime
+  approvedAt         DateTime?
+  rejectedAt         DateTime?
+  notes              String?
+  persistedSource    String       @default("prisma")
+  metadata           Json?
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sourceDocument     AtlasMemoryDocument? @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([sourceDocumentId])
+  @@index([sourceDocumentSlug])
+  @@index([status])
+  @@index([type])
 }
 
 model LocalKpiConfiguration {

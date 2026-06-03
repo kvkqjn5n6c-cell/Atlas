@@ -66,6 +66,19 @@ export function saveAtlasMemoryKnowledgeItems(organizationId: string, items: Atl
   writeStoredKnowledge(organizationId, items);
 }
 
+export function saveAtlasMemoryKnowledgeItem(organizationId: string, item: AtlasKnowledgeItem) {
+  const items = readStoredKnowledge(organizationId).filter((storedItem) => storedItem.id !== item.id);
+  writeStoredKnowledge(organizationId, [item, ...items]);
+}
+
+export function getStoredAtlasMemoryKnowledge(organizationId: string) {
+  return readStoredKnowledge(organizationId);
+}
+
+export function deleteAtlasMemoryKnowledgeItem(organizationId: string, id: string) {
+  writeStoredKnowledge(organizationId, readStoredKnowledge(organizationId).filter((item) => item.id !== id));
+}
+
 function updateKnowledgeStatus(
   organizationId: string,
   detectedItems: AtlasKnowledgeItem[],

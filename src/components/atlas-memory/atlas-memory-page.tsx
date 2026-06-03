@@ -6,6 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocalKpiWorkspace } from "@/hooks/use-local-kpi-workspace";
+import {
+  resetAtlasMemoryDocumentAction,
+  saveAtlasMemoryDocumentAction,
+  saveAtlasMemoryKnowledgeItemAction
+} from "@/lib/actions/atlas-memory-persistence-actions";
 import { activeOrganizationId } from "@/lib/context/scope-defaults";
 import {
   recordMemoryKnowledgeApproved,
@@ -461,10 +466,13 @@ export function AtlasMemoryPage() {
   function saveDocument() {
     if (!selectedDocument) return;
 
-    saveAtlasMemoryDocument({
+    const nextDocument = {
       ...selectedDocument,
       content: draftContent
-    });
+    };
+
+    saveAtlasMemoryDocument(nextDocument);
+    void saveAtlasMemoryDocumentAction(nextDocument);
     refreshDocuments(selectedDocument.key);
     setSaveMessage("Document sauvegardé localement.");
   }
@@ -472,6 +480,10 @@ export function AtlasMemoryPage() {
   function resetDocument() {
     if (!selectedDocument) return;
     const resetDocumentValue = resetAtlasMemoryDocument(activeOrganizationId, selectedDocument.key);
+    void resetAtlasMemoryDocumentAction({
+      organizationId: activeOrganizationId,
+      key: selectedDocument.key
+    });
     refreshDocuments(selectedDocument.key);
     setDraftByKey((current) => ({
       ...current,
@@ -483,7 +495,10 @@ export function AtlasMemoryPage() {
   function approveKnowledge(id: string) {
     const nextItems = approveAtlasKnowledgeItem(activeOrganizationId, detectedKnowledgeItems, id);
     const approvedItem = nextItems.find((item) => item.id === id);
-    if (approvedItem) recordMemoryKnowledgeApproved(approvedItem);
+    if (approvedItem) {
+      recordMemoryKnowledgeApproved(approvedItem);
+      void saveAtlasMemoryKnowledgeItemAction(approvedItem);
+    }
     setKnowledgeItems(nextItems);
     setSaveMessage("Connaissance validée pour le moteur métier.");
   }
@@ -491,13 +506,19 @@ export function AtlasMemoryPage() {
   function rejectKnowledge(id: string) {
     const nextItems = rejectAtlasKnowledgeItem(activeOrganizationId, detectedKnowledgeItems, id);
     const rejectedItem = nextItems.find((item) => item.id === id);
-    if (rejectedItem) recordMemoryKnowledgeRejected(rejectedItem);
+    if (rejectedItem) {
+      recordMemoryKnowledgeRejected(rejectedItem);
+      void saveAtlasMemoryKnowledgeItemAction(rejectedItem);
+    }
     setKnowledgeItems(nextItems);
     setSaveMessage("Connaissance rejetée et ignorée par le moteur métier.");
   }
 
   function resetKnowledge(id: string) {
-    setKnowledgeItems(resetAtlasKnowledgeItem(activeOrganizationId, detectedKnowledgeItems, id));
+    const nextItems = resetAtlasKnowledgeItem(activeOrganizationId, detectedKnowledgeItems, id);
+    const resetItem = nextItems.find((item) => item.id === id);
+    if (resetItem) void saveAtlasMemoryKnowledgeItemAction(resetItem);
+    setKnowledgeItems(nextItems);
     setSaveMessage("Statut de connaissance réinitialisé.");
   }
 
