@@ -2,6 +2,7 @@ import { isPrismaMode } from "@/lib/config/data-mode";
 import {
   createLocalAlertRule,
   deleteLocalAlertRule,
+  getLocalAlertRuleById,
   getLocalAlertRulesByKpiId,
   getLocalAlertRulesByOrganization,
   toggleLocalAlertRule,
@@ -31,6 +32,14 @@ export async function getLocalAlertRulesByKpiData(kpiId: string, organizationId?
   };
 }
 
+export async function getLocalAlertRuleByIdData(id: string, organizationId?: string) {
+  const data = await getLocalAlertRuleById(id, organizationId);
+  return {
+    data,
+    source: currentSource()
+  };
+}
+
 export async function saveLocalAlertRuleData(rule: LocalAlertRule, organizationId: string) {
   const data = await createLocalAlertRule(rule, organizationId);
   return {
@@ -38,6 +47,8 @@ export async function saveLocalAlertRuleData(rule: LocalAlertRule, organizationI
     source: currentSource()
   };
 }
+
+export const createLocalAlertRuleData = saveLocalAlertRuleData;
 
 export async function updateLocalAlertRuleData(rule: LocalAlertRule, organizationId: string) {
   const data = await updateLocalAlertRule(rule, organizationId);

@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { saveLocalAlertSnapshotsAction } from "@/lib/actions/local-alert-snapshots-actions";
+import { activeOrganizationId } from "@/lib/context/scope-defaults";
+import { buildLocalAlertSnapshots, saveLocalAlertSnapshots } from "@/lib/local/local-alert-snapshots-store";
 import {
   getEmptyLocalAlertsData,
   getLocalAlertsData,
@@ -12,7 +15,11 @@ export function useLocalKpiAlerts() {
   const [result, setResult] = useState<LocalDataResult<LocalAlertsData>>(() => getEmptyLocalAlertsData());
 
   const refresh = useCallback(() => {
-    setResult(getLocalAlertsData());
+    const nextResult = getLocalAlertsData();
+    const snapshots = buildLocalAlertSnapshots(nextResult.data.alerts, activeOrganizationId);
+    saveLocalAlertSnapshots(snapshots);
+    if (snapshots.length > 0) void saveLocalAlertSnapshotsAction(snapshots);
+    setResult(nextResult);
   }, []);
 
   useEffect(() => {

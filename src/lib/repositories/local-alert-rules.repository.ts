@@ -180,6 +180,29 @@ export async function getLocalAlertRulesByOrganization(organizationId: string) {
   }
 }
 
+export async function getLocalAlertRuleById(id: string, organizationId?: string) {
+  lastFallbackUsed = false;
+  if (!isPrismaMode()) {
+    const rules = organizationId
+      ? getLocalAlertRules().filter((rule) => !rule.organizationId || rule.organizationId === organizationId)
+      : getLocalAlertRules();
+    return rules.find((rule) => rule.id === id) ?? null;
+  }
+
+  try {
+    const prisma = await getPrisma();
+    const record = await prisma.localAlertRule.findUnique({ where: { id } });
+    return record ? toLocalAlertRule(record) : null;
+  } catch (error) {
+    lastFallbackUsed = true;
+    console.warn("[DATA_MODE=prisma] getLocalAlertRuleById failed, falling back to localStorage.", error);
+    const rules = organizationId
+      ? getLocalAlertRules().filter((rule) => !rule.organizationId || rule.organizationId === organizationId)
+      : getLocalAlertRules();
+    return rules.find((rule) => rule.id === id) ?? null;
+  }
+}
+
 export async function getLocalAlertRulesByKpiId(kpiId: string, organizationId?: string) {
   lastFallbackUsed = false;
   if (!isPrismaMode()) return getLocalAlertRulesByKpiIdLocal(kpiId);

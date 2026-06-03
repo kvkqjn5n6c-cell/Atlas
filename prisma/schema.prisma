@@ -174,6 +174,7 @@ model Organization {
   localKpiResults   LocalKpiResult[]
   localKpiHistoryPoints LocalKpiHistoryPoint[]
   localAlertRules   LocalAlertRule[]
+  localAlertSnapshots LocalAlertSnapshot[]
   localActionPlans  LocalActionPlan[]
   localRecommendationFeedback LocalRecommendationFeedback[]
   decisionJournalEntries DecisionJournalEntry[]
@@ -523,6 +524,7 @@ model LocalAlertRule {
   organization            Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   localKpiConfiguration   LocalKpiConfiguration?  @relation(fields: [localKpiConfigurationId], references: [id], onDelete: Cascade)
   kpiConfiguration        KPIConfiguration?       @relation(fields: [kpiConfigurationId], references: [id], onDelete: SetNull)
+  alertSnapshots          LocalAlertSnapshot[]
   createdAt               DateTime                @default(now())
   updatedAt               DateTime                @updatedAt
 
@@ -530,6 +532,34 @@ model LocalAlertRule {
   @@index([localKpiConfigurationId])
   @@index([kpiConfigurationId])
   @@index([isActive])
+}
+
+model LocalAlertSnapshot {
+  id              String       @id
+  organizationId  String
+  alertId         String
+  sourceType      String
+  sourceId        String
+  severity        String
+  status          String
+  title           String
+  message         String
+  relatedKpiId    String?
+  relatedRuleId   String?
+  generatedAt     DateTime
+  persistedSource String       @default("prisma")
+  metadata        Json?
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  alertRule       LocalAlertRule? @relation(fields: [relatedRuleId], references: [id], onDelete: SetNull)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([alertId])
+  @@index([sourceType, sourceId])
+  @@index([relatedKpiId])
+  @@index([relatedRuleId])
+  @@index([generatedAt])
 }
 
 model LocalKpiHistoryPoint {
