@@ -4,6 +4,10 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  saveDecisionJournalEntryAction,
+  saveLocalActionPlanAction
+} from "@/lib/actions/decision-engine-persistence-actions";
 import { useLocalKpiWorkspace } from "@/hooks/use-local-kpi-workspace";
 import { buildLocalActionPlanFromRecommendation } from "@/lib/action-plans/local-action-plan-builder";
 import { generateExecutiveLocalSummary } from "@/lib/insights/local-insights-engine";
@@ -221,7 +225,9 @@ function RecommendedActionPlan({
     }
 
     const plan = saveLocalActionPlan(buildLocalActionPlanFromRecommendation(recommendation));
-    recordActionPlanCreated(plan);
+    const journalEntry = recordActionPlanCreated(plan);
+    void saveLocalActionPlanAction(plan);
+    void saveDecisionJournalEntryAction({ organizationId: plan.organizationId, entry: journalEntry });
     setCreatedRecommendationIds((current) => [...current, recommendation.id]);
     setMessage(`Plan d'action local créé : ${plan.title}`);
   }

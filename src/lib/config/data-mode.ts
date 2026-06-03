@@ -1,6 +1,7 @@
-export type DataMode = "mock" | "prisma";
+export type DataMode = "mock" | "local" | "prisma";
 
 export function getDataMode(): DataMode {
+  if (process.env.DATA_MODE === "local") return "local";
   return process.env.DATA_MODE === "prisma" ? "prisma" : "mock";
 }
 
@@ -9,5 +10,6 @@ export function isPrismaMode() {
 }
 
 export function isMockMode() {
-  return getDataMode() === "mock";
+  const mode = getDataMode();
+  return mode === "mock" || mode === "local";
 }

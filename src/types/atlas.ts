@@ -1,3 +1,5 @@
+import type { DataMode } from "@/lib/config/data-mode";
+
 export type Organization = {
   id: string;
   name: string;
@@ -252,7 +254,7 @@ export type ActionResult<T = unknown> = {
   message: string;
   data?: T;
   validationErrors?: Record<string, string>;
-  mode: "mock" | "prisma";
+  mode: DataMode;
   persisted: boolean;
 };
 

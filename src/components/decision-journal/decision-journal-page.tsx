@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { deleteDecisionJournalEntryAction } from "@/lib/actions/decision-engine-persistence-actions";
 import { deleteJournalEntry, getJournalEntries } from "@/lib/local/decision-journal-store";
 import type { DecisionJournalEntry, DecisionJournalEntryType } from "@/types/decision-journal";
 
@@ -104,6 +105,7 @@ export function DecisionJournalPage() {
 
   function deleteEntry(id: string) {
     deleteJournalEntry(id);
+    void deleteDecisionJournalEntryAction(id);
     refresh();
   }
 

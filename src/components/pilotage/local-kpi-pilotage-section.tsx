@@ -6,6 +6,11 @@ import { ArrowDownRight, ArrowRight, ArrowUpRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  saveDecisionJournalEntryAction,
+  saveLocalActionPlanAction,
+  saveRecommendationFeedbackAction
+} from "@/lib/actions/decision-engine-persistence-actions";
 import { Progress } from "@/components/ui/progress";
 import { buildLocalActionPlanFromRecommendation } from "@/lib/action-plans/local-action-plan-builder";
 import { useLocalKpiWorkspace } from "@/hooks/use-local-kpi-workspace";
@@ -271,7 +276,9 @@ function RecommendationFeedbackPanel({
 
   function saveFeedback() {
     const saved = saveRecommendationFeedback(draft);
-    recordFeedbackRecorded(saved);
+    const journalEntry = recordFeedbackRecorded(saved);
+    void saveRecommendationFeedbackAction({ organizationId: recommendation.organizationId, feedback: saved });
+    void saveDecisionJournalEntryAction({ organizationId: recommendation.organizationId, entry: journalEntry });
     setDraft(saved);
     onSaved();
   }
@@ -417,7 +424,9 @@ function RecommendationsSection({
     }
 
     const plan = saveLocalActionPlan(buildLocalActionPlanFromRecommendation(recommendation));
-    recordActionPlanCreated(plan);
+    const journalEntry = recordActionPlanCreated(plan);
+    void saveLocalActionPlanAction(plan);
+    void saveDecisionJournalEntryAction({ organizationId: plan.organizationId, entry: journalEntry });
     setCreatedRecommendationIds((current) => [...current, recommendation.id]);
     setMessage(`Plan d'action local créé : ${plan.title}`);
     onDataChanged();

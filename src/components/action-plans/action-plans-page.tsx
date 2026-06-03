@@ -6,6 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocalKpiWorkspace } from "@/hooks/use-local-kpi-workspace";
 import { measureActionPlanImpact } from "@/lib/action-plans/local-action-plan-impact-engine";
+import {
+  deleteLocalActionPlanAction,
+  saveDecisionJournalEntryAction,
+  updateLocalActionPlanAction
+} from "@/lib/actions/decision-engine-persistence-actions";
 import { formatActionPriority, formatActionStatus } from "@/lib/formatters/status-labels";
 import { recordActionPlanUpdated, recordImpactMeasured } from "@/lib/journal/decision-journal-engine";
 import { getLocalActionPlanImpacts, saveLocalActionPlanImpact } from "@/lib/local/local-action-plan-impact-store";
@@ -94,7 +99,9 @@ function LocalActionPlansSection() {
 
   function updateStatus(plan: LocalActionPlan, status: LocalActionPlanStatus) {
     const updatedPlan = updateLocalActionPlan({ ...plan, status });
-    recordActionPlanUpdated(updatedPlan, `Statut passé à ${localStatusLabels[status]}.`);
+    const journalEntry = recordActionPlanUpdated(updatedPlan, `Statut passé à ${localStatusLabels[status]}.`);
+    void updateLocalActionPlanAction(updatedPlan);
+    void saveDecisionJournalEntryAction({ organizationId: updatedPlan.organizationId, entry: journalEntry });
     refresh();
   }
 
@@ -103,12 +110,15 @@ function LocalActionPlansSection() {
       ...plan,
       actions: plan.actions.map((task) => task.id === taskId ? { ...task, status: "done" } : task)
     });
-    recordActionPlanUpdated(updatedPlan, "Une tâche du plan a été marquée comme terminée.");
+    const journalEntry = recordActionPlanUpdated(updatedPlan, "Une tâche du plan a été marquée comme terminée.");
+    void updateLocalActionPlanAction(updatedPlan);
+    void saveDecisionJournalEntryAction({ organizationId: updatedPlan.organizationId, entry: journalEntry });
     refresh();
   }
 
   function deletePlan(id: string) {
     deleteLocalActionPlan(id);
+    void deleteLocalActionPlanAction(id);
     refresh();
   }
 
@@ -116,7 +126,8 @@ function LocalActionPlansSection() {
     const measuredImpacts = measureActionPlanImpact(plan, workspace.history, workspace.results);
     measuredImpacts.forEach((impact) => {
       const savedImpact = saveLocalActionPlanImpact(impact);
-      recordImpactMeasured(savedImpact);
+      const journalEntry = recordImpactMeasured(savedImpact);
+      void saveDecisionJournalEntryAction({ organizationId: plan.organizationId, entry: journalEntry });
     });
     refresh();
     refreshWorkspace();
