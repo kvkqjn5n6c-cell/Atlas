@@ -1,4 +1,5 @@
 import { Database, Plus } from "lucide-react";
+import Link from "next/link";
 import { TechnicalModeBadge } from "@/components/admin/technical-mode-badge";
 import { LocalFileImportPanel } from "@/components/data-import/local-file-import-panel";
 import { AddSourceWizard } from "@/components/data-sources/add-source-wizard";
@@ -50,6 +51,28 @@ export function DataSourcesPage({ result }: { result: ServiceResult<DataSourcesD
 
       <DataSourceSummaryCards sources={result.data.sources} />
       <LocalFileImportPanel />
+
+      <Card className="border-brand-100">
+        <CardHeader>
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle>Connecteur SQL V1</CardTitle>
+            <Badge>Lecture seule</Badge>
+            <Badge>PostgreSQL / SQL Server</Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <p className="max-w-3xl text-sm leading-6 text-slate-600">
+            Explorer une base SQL externe sans ecriture, sans ETL et sans creation automatique de KPI. Apercu limite a 100 lignes.
+          </p>
+          <Link
+            href="/sql-connections"
+            className="inline-flex h-9 items-center justify-center rounded-md bg-brand-600 px-3 text-sm font-medium text-white transition hover:bg-brand-700"
+          >
+            Ouvrir connexions SQL
+          </Link>
+        </CardContent>
+      </Card>
+
       <AddSourceWizard />
       <DataSourcesTable sources={result.data.sources} />
       <ImportJournal jobs={result.data.imports} />
