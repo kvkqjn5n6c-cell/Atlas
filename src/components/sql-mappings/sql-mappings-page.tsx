@@ -10,10 +10,14 @@ import { atlasFieldCatalog, getAtlasFieldById } from "@/lib/connectors/sql/atlas
 import { createMapping, suggestSqlMappings, updateMapping, validateMapping } from "@/lib/connectors/sql/sql-mapping-engine";
 import type { SqlMappingBundle } from "@/lib/connectors/sql/sql-mapping-types";
 import { createMockSqlConnector } from "@/lib/connectors/sql/sql-mock-connector";
+import { createPreparedSqlSource, summarizePreparedSqlSource } from "@/lib/connectors/sql/sql-prepared-source-engine";
+import type { PreparedSqlSourceBundle } from "@/lib/connectors/sql/sql-prepared-source-types";
+import { readTablePreview } from "@/lib/connectors/sql/sql-preview-reader";
 import { readSqlSchema } from "@/lib/connectors/sql/sql-schema-reader";
 import type { SqlConnectionConfig, SqlSchemaReadResult, SqlTableInfo } from "@/lib/connectors/sql/sql-types";
 import { getSqlConnections } from "@/lib/local/sql-connections-store";
 import { getSqlMappings, saveSqlMapping } from "@/lib/local/sql-mappings-store";
+import { getPreparedSqlSources, savePreparedSqlSource } from "@/lib/local/sql-prepared-sources-store";
 
 function scoreVariant(score: number) {
   if (score >= 80) return "success";
@@ -33,6 +37,8 @@ export function SqlMappingsPage() {
   const [selectedTableKey, setSelectedTableKey] = useState("");
   const [currentMapping, setCurrentMapping] = useState<SqlMappingBundle | undefined>();
   const [savedMappings, setSavedMappings] = useState<SqlMappingBundle[]>([]);
+  const [preparedSources, setPreparedSources] = useState<PreparedSqlSourceBundle[]>([]);
+  const [lastPreparedSource, setLastPreparedSource] = useState<PreparedSqlSourceBundle | undefined>();
   const [message, setMessage] = useState("");
   const connector = useMemo(() => createMockSqlConnector(), []);
   const selectedConnection = connections.find((connection) => connection.id === selectedConnectionId) ?? connections[0];
@@ -43,6 +49,7 @@ export function SqlMappingsPage() {
     [selectedTable]
   );
   const validation = currentMapping ? validateMapping(currentMapping) : undefined;
+  const canPrepareSource = Boolean(currentMapping && validation && validation.mappedColumnCount > 0 && selectedConnection && selectedTable);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -50,6 +57,7 @@ export function SqlMappingsPage() {
       setConnections(nextConnections);
       setSelectedConnectionId(nextConnections[0]?.id ?? "");
       setSavedMappings(getSqlMappings());
+      setPreparedSources(getPreparedSqlSources());
       setMounted(true);
     }, 0);
 
@@ -64,6 +72,7 @@ export function SqlMappingsPage() {
     setSchema(nextSchema);
     setSelectedTableKey(nextTables[0] ? `${nextTables[0].schema ?? ""}.${nextTables[0].name}` : "");
     setCurrentMapping(undefined);
+    setLastPreparedSource(undefined);
     setMessage(`Schema lu : ${nextSchema.tables.length} table(s), ${nextSchema.views.length} vue(s).`);
   }
 
@@ -76,6 +85,7 @@ export function SqlMappingsPage() {
       description: `Mapping metier Atlas pour ${table.schema ? `${table.schema}.` : ""}${table.name}`
     });
     setCurrentMapping(mapping);
+    setLastPreparedSource(undefined);
     setMessage("Suggestions deterministes appliquees. Verifiez les champs avant sauvegarde.");
   }
 
@@ -106,6 +116,17 @@ export function SqlMappingsPage() {
     setCurrentMapping(saved);
     setSavedMappings(getSqlMappings());
     setMessage("Mapping SQL sauvegarde localement. Aucune donnee n'a ete importee.");
+  }
+
+  async function prepareSource() {
+    if (!currentMapping || !selectedConnection || !selectedTable || !canPrepareSource) return;
+
+    const preview = await readTablePreview(selectedConnection, selectedTable.name, selectedTable.schema, connector);
+    const prepared = createPreparedSqlSource(currentMapping, selectedTable, preview);
+    const saved = savePreparedSqlSource(prepared);
+    setLastPreparedSource(saved);
+    setPreparedSources(getPreparedSqlSources());
+    setMessage("Source SQL preparee localement. Atlas conserve uniquement le mapping et un apercu limite.");
   }
 
   if (!mounted) {
@@ -337,10 +358,33 @@ export function SqlMappingsPage() {
                 </div>
               ) : null}
 
-              <Button variant="primary" onClick={saveMapping}>
-                <Save className="h-4 w-4" aria-hidden="true" />
-                Sauvegarder mapping local
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="primary" onClick={saveMapping}>
+                  <Save className="h-4 w-4" aria-hidden="true" />
+                  Sauvegarder mapping local
+                </Button>
+                <Button onClick={prepareSource} disabled={!canPrepareSource}>
+                  <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                  Preparer cette source
+                </Button>
+              </div>
+
+              {lastPreparedSource ? (
+                <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="success">Source preparee</Badge>
+                    <Badge>Score {lastPreparedSource.source.qualityScore}/100</Badge>
+                    <Badge>{lastPreparedSource.source.availableAtlasFields.length} champ(s) Atlas</Badge>
+                    <Badge>{lastPreparedSource.preview.rows.length} ligne(s) apercu</Badge>
+                  </div>
+                  <p className="mt-3 text-sm font-semibold text-emerald-950">
+                    {summarizePreparedSqlSource(lastPreparedSource.source).summary}
+                  </p>
+                  <p className="mt-2 text-sm text-emerald-800">
+                    Champs disponibles : {summarizePreparedSqlSource(lastPreparedSource.source).fields}.
+                  </p>
+                </div>
+              ) : null}
             </>
           )}
         </CardContent>
@@ -378,6 +422,40 @@ export function SqlMappingsPage() {
                   </article>
                 );
               })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle>Sources SQL preparees</CardTitle>
+            <Badge>{preparedSources.length}</Badge>
+            <Badge>Pretes pour pipeline futur</Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {preparedSources.length === 0 ? (
+            <p className="rounded-md border border-line bg-slate-50 p-4 text-sm text-slate-600">
+              Aucune source SQL preparee. Validez un mapping puis utilisez le bouton Preparer cette source.
+            </p>
+          ) : (
+            <div className="grid gap-3 lg:grid-cols-2">
+              {preparedSources.map(({ source, preview }) => (
+                <article key={source.id} className="rounded-md border border-line bg-slate-50 p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={scoreVariant(source.qualityScore)}>Score {source.qualityScore}/100</Badge>
+                    <Badge>{source.availableAtlasFields.length} champ(s)</Badge>
+                    <Badge>{preview.rows.length} ligne(s) apercu</Badge>
+                  </div>
+                  <h3 className="mt-3 text-sm font-semibold text-ink">{source.displayName}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    Champs Atlas : {source.availableAtlasFields.map((field) => field.label).join(", ") || "aucun"}.
+                  </p>
+                  <p className="mt-3 text-xs text-slate-500">Preparee : {new Date(source.updatedAt).toLocaleString("fr-FR")}</p>
+                </article>
+              ))}
             </div>
           )}
         </CardContent>

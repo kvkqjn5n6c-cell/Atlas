@@ -6,6 +6,7 @@ import { AddSourceWizard } from "@/components/data-sources/add-source-wizard";
 import { DataSourceSummaryCards } from "@/components/data-sources/data-source-summary-cards";
 import { DataSourcesTable } from "@/components/data-sources/data-sources-table";
 import { ImportJournal } from "@/components/data-sources/import-journal";
+import { PreparedSqlSourcesSection } from "@/components/data-sources/prepared-sql-sources-section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -80,6 +81,8 @@ export function DataSourcesPage({ result }: { result: ServiceResult<DataSourcesD
           </div>
         </CardContent>
       </Card>
+
+      <PreparedSqlSourcesSection />
 
       <AddSourceWizard />
       <DataSourcesTable sources={result.data.sources} />
