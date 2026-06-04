@@ -26,6 +26,9 @@ Le schema contient :
 | --- | --- | --- |
 | `20260526172500_add_local_kpi_persistence` | Ajoute `KpiDirection`, `LocalKpiConfiguration`, `LocalKpiResult`, `LocalKpiHistoryPoint` | Incomplete seule : depend de `Organization` et `BusinessDictionaryField` |
 | `20260527103000_add_local_alert_rules` | Ajoute les enums de regles et `LocalAlertRule` | Incomplete seule : depend de `Organization`, `LocalKpiConfiguration`, `KPIConfiguration` |
+| `20260603090000_add_decision_engine_local_persistence` | Ajoute plans d'action locaux, feedback recommandations et journal decisionnel | Incomplete seule : depend de `Organization` |
+| `20260603100000_add_local_alert_snapshots` | Ajoute les snapshots d'alertes locales | Incomplete seule : depend de `Organization` et `LocalAlertRule` |
+| `20260603110000_add_atlas_memory_persistence` | Ajoute documents Atlas Memory et connaissances gouvernees | Incomplete seule : depend de `Organization` |
 
 Il n'y a pas de migration initiale pour les tables coeur :
 
@@ -43,6 +46,12 @@ Il n'y a pas de migration initiale pour les tables coeur :
 - `BusinessDictionaryField`
 - `BusinessDictionarySourceColumn`
 - `BusinessDictionaryLinkedKpi`
+- `LocalActionPlan`
+- `LocalRecommendationFeedback`
+- `DecisionJournalEntry`
+- `LocalAlertSnapshot`
+- `AtlasMemoryDocument`
+- `AtlasMemoryKnowledgeItem`
 
 Il n'y a pas non plus de `migration_lock.toml` dans `prisma/migrations`, ce qui confirme que l'historique Prisma n'est pas encore une chaine complete issue de `migrate dev`.
 
@@ -231,3 +240,23 @@ Pour cette phase, la decision saine est :
 - documenter la strategie de baseline ;
 - valider Prisma avec une `DATABASE_URL` temporaire locale en environnement de commande.
 
+## Etat Phase 55
+
+Le 4 juin 2026, l'environnement local a été audité pour valider PostgreSQL réellement :
+
+- `psql` est absent du `PATH`.
+- Aucun service PostgreSQL Windows n'a été détecté.
+- `localhost:5432` ne répond pas.
+- `npx.cmd prisma validate` fonctionne.
+- `npm.cmd run prisma:generate` fonctionne.
+- `npx.cmd prisma migrate dev --skip-generate --skip-seed` ne peut pas aller au bout car PostgreSQL local est indisponible.
+- `npm.cmd run prisma:seed` échoue pour la même raison.
+
+Point important : même lorsque PostgreSQL sera disponible, l'historique de migrations reste une chaîne de migrations de transition. Il ne contient toujours pas de baseline initiale complète pour créer toutes les tables cœur sur une base vide.
+
+La validation PostgreSQL complète doit donc suivre l'une de ces deux voies :
+
+1. Créer une baseline Prisma officielle avant `migrate dev` sur base vide.
+2. Utiliser temporairement le SQL de référence `docs/prisma/atlas_initial_schema_from_empty.sql` pour initialiser une base locale de test, puis documenter cette base comme non représentative d'un historique Prisma officiel.
+
+La recommandation reste de créer une baseline dédiée avant toute généralisation du mode `DATA_MODE=prisma`.

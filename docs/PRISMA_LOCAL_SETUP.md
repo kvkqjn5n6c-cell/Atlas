@@ -112,3 +112,85 @@ Les badges techniques `Mode local`, `Mode Prisma` et `Fallback local actif` indi
 ## Prochaine étape
 
 La suite logique sera une synchronisation explicite local vers Prisma, puis une lecture serveur des KPI locaux dans le cockpit, les alertes et les rapports.
+
+## Résultat de validation Phase 55
+
+Validation réalisée le 4 juin 2026 dans cet environnement local :
+
+- `psql` : absent du `PATH`.
+- Service PostgreSQL Windows : aucun service PostgreSQL détecté.
+- Port `localhost:5432` : fermé.
+- Base `atlas` : non vérifiable, serveur indisponible.
+- Utilisateur `atlas` : non vérifiable, serveur indisponible.
+- `.env` local : créé avec `DATABASE_URL="postgresql://atlas:atlas@localhost:5432/atlas"` et `DATA_MODE="local"`.
+- `.env.example` : aligné sur la configuration locale Atlas.
+- `npx.cmd prisma validate` : OK avec la configuration locale.
+- `npm.cmd run prisma:generate` : OK.
+- `npx.cmd prisma migrate dev --skip-generate --skip-seed` : bloqué car PostgreSQL ne répond pas sur `localhost:5432`.
+- `npm.cmd run prisma:seed` : bloqué car PostgreSQL ne répond pas sur `localhost:5432`.
+
+Le blocage est donc infrastructurel : PostgreSQL local n'est pas installé, pas démarré, ou pas exposé sur le port attendu.
+
+## Installation PostgreSQL Windows
+
+Option locale classique :
+
+1. Installer PostgreSQL pour Windows.
+2. Ajouter le dossier `bin` de PostgreSQL au `PATH` si `psql` n'est pas reconnu.
+3. Vérifier le service Windows PostgreSQL.
+4. Vérifier le port :
+
+```powershell
+Test-NetConnection -ComputerName localhost -Port 5432
+```
+
+5. Créer l'utilisateur et la base depuis un compte administrateur PostgreSQL :
+
+```sql
+CREATE USER atlas WITH PASSWORD 'atlas';
+CREATE DATABASE atlas OWNER atlas;
+GRANT ALL PRIVILEGES ON DATABASE atlas TO atlas;
+```
+
+Si l'utilisateur existe déjà :
+
+```sql
+ALTER USER atlas WITH PASSWORD 'atlas';
+```
+
+Si la base existe déjà :
+
+```sql
+ALTER DATABASE atlas OWNER TO atlas;
+```
+
+## Procédure Phase 55 attendue une fois PostgreSQL actif
+
+Depuis le dossier du projet :
+
+```powershell
+$env:DATABASE_URL="postgresql://atlas:atlas@localhost:5432/atlas"
+npx.cmd prisma validate
+npm.cmd run prisma:generate
+npx.cmd prisma migrate dev
+npm.cmd run prisma:seed
+```
+
+Puis tester l'application :
+
+```powershell
+$env:DATA_MODE="prisma"
+npm.cmd run dev
+```
+
+## Reset local de développement
+
+À utiliser uniquement sur une base locale jetable :
+
+```powershell
+$env:DATABASE_URL="postgresql://atlas:atlas@localhost:5432/atlas"
+npx.cmd prisma migrate reset
+npm.cmd run prisma:seed
+```
+
+Attention : cette commande supprime les données PostgreSQL locales. Elle ne supprime pas les données localStorage du navigateur.
