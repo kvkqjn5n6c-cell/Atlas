@@ -64,12 +64,20 @@ export function DataSourcesPage({ result }: { result: ServiceResult<DataSourcesD
           <p className="max-w-3xl text-sm leading-6 text-slate-600">
             Explorer une base SQL externe sans ecriture, sans ETL et sans creation automatique de KPI. Apercu limite a 100 lignes.
           </p>
-          <Link
-            href="/sql-connections"
-            className="inline-flex h-9 items-center justify-center rounded-md bg-brand-600 px-3 text-sm font-medium text-white transition hover:bg-brand-700"
-          >
-            Ouvrir connexions SQL
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/sql-connections"
+              className="inline-flex h-9 items-center justify-center rounded-md bg-brand-600 px-3 text-sm font-medium text-white transition hover:bg-brand-700"
+            >
+              Ouvrir connexions SQL
+            </Link>
+            <Link
+              href="/sql-mappings"
+              className="inline-flex h-9 items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            >
+              Mapper une table SQL
+            </Link>
+          </div>
         </CardContent>
       </Card>
 

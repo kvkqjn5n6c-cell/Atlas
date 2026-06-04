@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Database, Eye, PlugZap, Save, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -99,6 +100,12 @@ function SqlSchemaList({
             <Eye className="h-4 w-4" aria-hidden="true" />
             Voir apercu
           </Button>
+          <Link
+            href="/sql-mappings"
+            className="ml-2 mt-4 inline-flex h-9 items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+          >
+            Mapper cette table
+          </Link>
         </article>
       ))}
     </div>
