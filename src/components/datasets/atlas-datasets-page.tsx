@@ -606,7 +606,7 @@ export function AtlasDatasetsPage() {
                         Sauvegarder analyse comparative
                       </Button>
                       <Badge>{previousAnalyses.length} analyse(s) historique(s)</Badge>
-                      <Badge>Exploitable par recommandations : phase suivante</Badge>
+                      <Badge>Exploité par recommandations et priorités Atlas</Badge>
                     </div>
 
                     <div className="mt-4 rounded-lg border border-line bg-slate-50 p-4">

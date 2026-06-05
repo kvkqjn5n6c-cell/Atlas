@@ -61,7 +61,32 @@ Dans `/datasets`, apres une analyse comparative, Atlas affiche :
 - raisons ;
 - action recommandee.
 
-Un badge indique que ces signaux sont exploitables par les recommandations dans une phase suivante.
+Un badge indique que ces signaux sont exploites par les recommandations et priorites Atlas.
+
+## Integration decisionnelle
+
+Depuis la Phase 66, les insights Group By sauvegardes localement sont exposes dans le workspace local Atlas.
+
+Ils peuvent alimenter :
+
+- les recommandations Atlas, via `sourceType = dataset_groupby_insight` ;
+- les priorites Atlas, avec score, urgence et sources liees ;
+- le dashboard dirigeant, comme signaux comparatifs et risques a surveiller ;
+- le brief COPIL, comme points d'arbitrage.
+
+Les regles restent simples et deterministes :
+
+- `concentration` genere une recommandation d'analyse de concentration ;
+- `weak_group` genere une recommandation d'examen du groupe le moins performant ;
+- `anomaly_candidate` genere une recommandation d'audit du groupe atypique ;
+- `dispersion` genere une recommandation de comparaison des pratiques entre groupes.
+
+Les objets produits conservent les liens vers :
+
+- `relatedDatasetIds` ;
+- `relatedGroupByInsightIds` ;
+- l'analyse Group By source ;
+- les raisons explicables de l'insight.
 
 ## Stockage
 
@@ -75,7 +100,7 @@ Les insights KPI interpretent des KPI locaux, leurs seuils, alertes et historiqu
 
 Les insights Group By interpretent une comparaison de groupes dans un Dataset Atlas.
 
-Ils pourront plus tard alimenter recommandations, priorites et dashboard dirigeant.
+Ils alimentent maintenant les recommandations, les priorites, le dashboard dirigeant et le COPIL.
 
 ## Limites
 
@@ -85,4 +110,5 @@ Ils pourront plus tard alimenter recommandations, priorites et dashboard dirigea
 - pas de SQL live ;
 - pas de moteur statistique avance ;
 - pas de detection causale ;
-- pas encore d'integration automatique dans recommandations/priorites.
+- pas de recommandation avancee ou causale ;
+- pas de lien automatique vers un plan d'action sans validation utilisateur.

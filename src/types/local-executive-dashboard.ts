@@ -25,6 +25,7 @@ export type LocalExecutiveDashboard = {
   recentImpacts: ExecutiveDashboardCard[];
   recentDecisions: ExecutiveDashboardCard[];
   memorySignals: ExecutiveDashboardCard[];
+  comparativeSignals?: ExecutiveDashboardCard[];
   dataReliabilityNotes: string[];
   nextBestActions: string[];
   persisted: false;

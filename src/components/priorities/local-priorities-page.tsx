@@ -63,6 +63,8 @@ function PriorityCard({ priority }: { priority: LocalPriorityItem }) {
             {priority.relatedAlertIds.length > 0 ? <Badge>{priority.relatedAlertIds.length} alerte(s)</Badge> : null}
             {priority.relatedRecommendationIds.length > 0 ? <Badge>{priority.relatedRecommendationIds.length} recommandation(s)</Badge> : null}
             {priority.relatedActionPlanIds.length > 0 ? <Badge>{priority.relatedActionPlanIds.length} plan(s)</Badge> : null}
+            {(priority.relatedGroupByInsightIds?.length ?? 0) > 0 ? <Badge>{priority.relatedGroupByInsightIds?.length} insight(s) comparatif(s)</Badge> : null}
+            {(priority.relatedDatasetIds?.length ?? 0) > 0 ? <Badge>{priority.relatedDatasetIds?.length} dataset(s)</Badge> : null}
             {priority.relatedMemoryReferences.length > 0 ? <Badge>{priority.relatedMemoryReferences.length} mémoire</Badge> : null}
           </div>
           {priority.warnings.length > 0 ? (

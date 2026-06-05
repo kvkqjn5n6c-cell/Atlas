@@ -11,6 +11,7 @@ import type { LocalPriorityItem } from "@/types/local-priorities";
 import type { LocalRecommendationFeedback } from "@/types/local-recommendation-feedback";
 import type { LocalRecommendation } from "@/types/local-recommendations";
 import type { RecommendationConfidence } from "@/types/recommendation-confidence";
+import type { DatasetGroupByInsight } from "@/lib/datasets/dataset-groupby-insight-types";
 
 type LocalCopilBriefInput = {
   organizationId: string;
@@ -28,6 +29,7 @@ type LocalCopilBriefInput = {
   memoryReferences?: LocalInsightMemoryReference[];
   decisionJournalEntries?: DecisionJournalEntry[];
   copilContextPack?: AtlasContextPack;
+  datasetGroupByInsights?: DatasetGroupByInsight[];
 };
 
 function now() {
@@ -61,6 +63,7 @@ export function generateCopilRiskSummary(input: {
   alerts?: LocalKpiAlert[];
   insights?: LocalInsight[];
   executiveSummary?: LocalExecutiveSummary;
+  datasetGroupByInsights?: DatasetGroupByInsight[];
 }) {
   const alertRisks = (input.alerts ?? [])
     .filter((alert) => alert.severity === "critical")
@@ -69,8 +72,11 @@ export function generateCopilRiskSummary(input: {
     .filter((insight) => insight.severity === "critical")
     .map((insight) => insight.summary);
   const summaryRisks = input.executiveSummary?.mainRisks ?? [];
+  const comparativeRisks = (input.datasetGroupByInsights ?? [])
+    .filter((insight) => insight.severity === "critical" || insight.severity === "watch")
+    .map((insight) => `${insight.title} (${insight.groupValue}) : ${insight.summary}`);
 
-  return limit([...alertRisks, ...insightRisks, ...summaryRisks], 6);
+  return limit([...alertRisks, ...comparativeRisks, ...insightRisks, ...summaryRisks], 6);
 }
 
 export function generateCopilArbitrationPoints(input: {
@@ -79,6 +85,7 @@ export function generateCopilArbitrationPoints(input: {
   actionPlans?: LocalActionPlan[];
   impacts?: LocalActionPlanImpact[];
   confidenceScores?: RecommendationConfidence[];
+  datasetGroupByInsights?: DatasetGroupByInsight[];
 }) {
   const criticalAlerts = (input.alerts ?? [])
     .filter((alert) => alert.severity === "critical")
@@ -96,7 +103,25 @@ export function generateCopilArbitrationPoints(input: {
     .filter((confidence) => confidence.score < 50)
     .map((confidence) => `Décider si la recommandation ${confidence.recommendationId} est exploitable malgré une confiance faible (${confidence.score} %).`);
 
-  return limit([...criticalAlerts, ...criticalRecommendations, ...negativeImpacts, ...latePlans, ...lowConfidence], 8);
+  const comparativePoints = (input.datasetGroupByInsights ?? [])
+    .filter((insight) => insight.severity === "critical" || insight.severity === "watch")
+    .map((insight) => {
+      if (insight.insightType === "concentration") {
+        return `Pourquoi ${insight.groupValue} concentre-t-il autant de valeur ?`;
+      }
+
+      if (insight.insightType === "weak_group") {
+        return `Faut-il revoir les pratiques de ${insight.groupValue} ?`;
+      }
+
+      if (insight.insightType === "anomaly_candidate") {
+        return `Faut-il auditer le groupe atypique ${insight.groupValue} ?`;
+      }
+
+      return `Faut-il comparer les pratiques entre groupes autour de ${insight.groupValue} ?`;
+    });
+
+  return limit([...criticalAlerts, ...criticalRecommendations, ...comparativePoints, ...negativeImpacts, ...latePlans, ...lowConfidence], 8);
 }
 
 export function generateCopilNextActions(input: {
@@ -160,6 +185,7 @@ export function generateLocalCopilBrief(input: LocalCopilBriefInput): LocalCopil
   const actionPlans = input.actionPlans ?? [];
   const impacts = input.impacts ?? [];
   const decisionJournalEntries = input.decisionJournalEntries ?? [];
+  const datasetGroupByInsights = input.datasetGroupByInsights ?? [];
   const globalSituation =
     input.executiveSummary?.globalSituation ??
     (kpiResults.length > 0
@@ -185,14 +211,16 @@ export function generateLocalCopilBrief(input: LocalCopilBriefInput): LocalCopil
   const risks = generateCopilRiskSummary({
     alerts,
     insights: input.insights,
-    executiveSummary: input.executiveSummary
+    executiveSummary: input.executiveSummary,
+    datasetGroupByInsights
   });
   const arbitrationPoints = generateCopilArbitrationPoints({
     alerts,
     recommendations,
     actionPlans,
     impacts,
-    confidenceScores: input.confidenceScores
+    confidenceScores: input.confidenceScores,
+    datasetGroupByInsights
   });
   const nextActions = generateCopilNextActions({
     recommendations,
@@ -201,6 +229,9 @@ export function generateLocalCopilBrief(input: LocalCopilBriefInput): LocalCopil
   });
   const memoryReferences = input.memoryReferences ?? [];
   const confidenceNotes = generateConfidenceNotes(input.confidenceScores);
+  const comparativeInsights = limit(datasetGroupByInsights.map((insight) =>
+    `${insight.title} - groupe ${insight.groupValue} - ${insight.summary}`
+  ), 6);
 
   return {
     id: `${input.organizationId}-local-copil-brief`,
@@ -219,6 +250,7 @@ export function generateLocalCopilBrief(input: LocalCopilBriefInput): LocalCopil
     arbitrationPoints,
     risks,
     nextActions,
+    comparativeInsights,
     memoryReferences,
     confidenceNotes,
     sections: [

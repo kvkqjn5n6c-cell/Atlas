@@ -183,7 +183,8 @@ export function LocalCopilPage() {
         priorities: workspace.priorities,
         memoryReferences: workspace.usedMemoryReferences,
         decisionJournalEntries: workspace.decisionJournalEntries,
-        copilContextPack
+        copilContextPack,
+        datasetGroupByInsights: workspace.datasetGroupByInsights
       }),
     [copilContextPack, workspace]
   );
@@ -255,6 +256,7 @@ export function LocalCopilPage() {
         <ListBlock title="Plans d'action actifs" items={brief.activeActionPlans} />
         <ListBlock title="Impacts mesurés" items={brief.measuredImpacts} />
         <ListBlock title="Décisions récentes" items={brief.recentDecisions} />
+        <ListBlock title="Signaux comparatifs Dataset" items={brief.comparativeInsights ?? []} />
         <ListBlock title="Points à arbitrer" items={brief.arbitrationPoints} />
         <ListBlock title="Prochaines actions" items={brief.nextActions} />
       </section>

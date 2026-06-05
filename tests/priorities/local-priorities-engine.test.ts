@@ -6,6 +6,7 @@ import {
 } from "@/lib/priorities/local-priorities-engine";
 import type { LocalActionPlanImpact } from "@/types/local-action-plan-impact";
 import type { LocalRecommendation } from "@/types/local-recommendations";
+import type { DatasetGroupByInsight } from "@/lib/datasets/dataset-groupby-insight-types";
 import { buildKpiResult } from "../fixtures/local-engine-fixtures";
 
 const organizationId = "org-atlas-demo";
@@ -51,6 +52,25 @@ function negativeImpact(): LocalActionPlanImpact {
     interpretation: "Impact négatif observé.",
     evidence: [],
     persisted: false
+  };
+}
+
+function groupByInsight(overrides: Partial<DatasetGroupByInsight> = {}): DatasetGroupByInsight {
+  return {
+    id: "groupby-insight-1",
+    datasetId: "dataset-1",
+    groupByAnalysisId: "analysis-1",
+    title: "Concentration couts region Est",
+    summary: "La region Est concentre une part importante du cout.",
+    insightType: "concentration",
+    severity: "critical",
+    groupValue: "Region Est",
+    value: 62,
+    reasons: ["Concentration superieure a 50 %."],
+    recommendedAction: "Analyser la concentration",
+    createdAt: "2026-06-01T10:00:00.000Z",
+    persisted: false,
+    ...overrides
   };
 }
 
@@ -110,6 +130,22 @@ describe("local priorities engine", () => {
     });
 
     expect(priorities[0].reasons.some((reason) => reason.includes("Aucun plan"))).toBe(true);
+  });
+
+  it("transforme un insight comparatif en priorite", () => {
+    const priorities = generateLocalPriorities({
+      organizationId,
+      datasetGroupByInsights: [groupByInsight()]
+    });
+
+    expect(priorities[0]).toMatchObject({
+      urgency: "critical",
+      category: "comparative",
+      relatedDatasetIds: ["dataset-1"],
+      relatedGroupByInsightIds: ["groupby-insight-1"]
+    });
+    expect(priorities[0].sourceTypes).toContain("dataset_groupby_insight");
+    expect(priorities[0].priorityScore).toBeGreaterThanOrEqual(40);
   });
 
   it("trie les priorites par score décroissant", () => {

@@ -8,6 +8,7 @@ import { buildLocalActionPlanFromRecommendation } from "@/lib/action-plans/local
 import { generateLocalKpiAlerts } from "@/lib/kpi-engine/local-kpi-alerts";
 import { generateLocalRecommendations } from "@/lib/recommendations/local-recommendations-engine";
 import type { DecisionJournalEntry } from "@/types/decision-journal";
+import type { DatasetGroupByInsight } from "@/lib/datasets/dataset-groupby-insight-types";
 import { buildAlertRule, buildKpiResult } from "../fixtures/local-engine-fixtures";
 
 const organizationId = "org-atlas-demo";
@@ -28,6 +29,25 @@ function journalEntry(): DecisionJournalEntry {
     relatedActionPlanIds: ["plan-1"],
     relatedMemoryReferences: [],
     metadata: {}
+  };
+}
+
+function groupByInsight(overrides: Partial<DatasetGroupByInsight> = {}): DatasetGroupByInsight {
+  return {
+    id: "groupby-insight-1",
+    datasetId: "dataset-1",
+    groupByAnalysisId: "analysis-1",
+    title: "Concentration couts region Est",
+    summary: "La region Est concentre 62 % des couts.",
+    insightType: "concentration",
+    severity: "critical",
+    groupValue: "Region Est",
+    value: 62,
+    reasons: ["Concentration superieure a 50 %."],
+    recommendedAction: "Analyser les causes de concentration",
+    createdAt: "2026-06-01T10:00:00.000Z",
+    persisted: false,
+    ...overrides
   };
 }
 
@@ -72,6 +92,21 @@ describe("local copil brief engine", () => {
 
     expect(points.length).toBeGreaterThan(0);
     expect(points.some((point) => point.includes("Décider") || point.includes("Arbitrer"))).toBe(true);
+  });
+
+  it("inclut un point d'arbitrage comparatif Dataset", () => {
+    const points = generateCopilArbitrationPoints({
+      datasetGroupByInsights: [groupByInsight()]
+    });
+    const brief = generateLocalCopilBrief({
+      organizationId,
+      periodLabel: "Mai 2026",
+      datasetGroupByInsights: [groupByInsight()]
+    });
+
+    expect(points.some((point) => point.includes("Region Est"))).toBe(true);
+    expect(brief.comparativeInsights?.[0]).toContain("Region Est");
+    expect(brief.risks.some((risk) => risk.includes("Region Est"))).toBe(true);
   });
 
   it("inclut les plans d'action actifs", () => {

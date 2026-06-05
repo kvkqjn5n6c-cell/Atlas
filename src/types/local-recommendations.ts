@@ -19,7 +19,7 @@ export type RecommendationAction = {
 };
 
 export type RecommendationEvidence = {
-  type: "kpi" | "alert" | "rule" | "insight" | "memory" | "history" | "summary";
+  type: "kpi" | "alert" | "rule" | "insight" | "memory" | "history" | "summary" | "dataset_groupby_insight";
   label: string;
   value: string | number;
   source?: string;
@@ -32,10 +32,12 @@ export type LocalRecommendation = {
   summary: string;
   priority: RecommendationPriority;
   category: RecommendationCategory;
-  sourceType: "kpi" | "alert" | "rule" | "insight" | "memory" | "summary";
+  sourceType: "kpi" | "alert" | "rule" | "insight" | "memory" | "summary" | "dataset_groupby_insight";
   relatedKpiIds: string[];
   relatedAlertIds: string[];
   relatedInsightIds: string[];
+  relatedDatasetIds?: string[];
+  relatedGroupByInsightIds?: string[];
   relatedMemoryReferences: string[];
   evidence: RecommendationEvidence[];
   recommendedActions: RecommendationAction[];

@@ -7,6 +7,7 @@ import type { LocalInsight } from "@/types/local-insights";
 import type { LocalKpiHistoryPoint } from "@/types/local-kpi-history";
 import type { LocalKpiResult } from "@/types/local-kpi-results";
 import type { LocalRecommendation, RecommendationPriority } from "@/types/local-recommendations";
+import type { DatasetGroupByInsight } from "@/lib/datasets/dataset-groupby-insight-types";
 
 type RecommendationInput = {
   organizationId?: string;
@@ -18,6 +19,7 @@ type RecommendationInput = {
   executiveSummary?: LocalExecutiveSummary;
   approvedMemoryKnowledge?: AtlasKnowledgeItem[];
   contextPacks?: AtlasContextPack[];
+  datasetGroupByInsights?: DatasetGroupByInsight[];
 };
 
 const defaultOrganizationId = "org-atlas-demo";
@@ -58,6 +60,15 @@ function insightEvidence(insight: LocalInsight) {
     type: "insight" as const,
     label: insight.title,
     value: insight.summary
+  };
+}
+
+function groupByInsightEvidence(insight: DatasetGroupByInsight) {
+  return {
+    type: "dataset_groupby_insight" as const,
+    label: insight.title,
+    value: insight.value,
+    source: insight.groupByAnalysisId
   };
 }
 
@@ -265,6 +276,96 @@ export function generateStrategyRecommendations(input: RecommendationInput): Loc
     }));
 }
 
+function groupByInsightPriority(insight: DatasetGroupByInsight): RecommendationPriority {
+  if (insight.severity === "critical") return "high";
+  if (insight.severity === "watch") return "medium";
+  return "low";
+}
+
+function groupByInsightAction(insight: DatasetGroupByInsight) {
+  if (insight.insightType === "concentration") {
+    return {
+      title: `Analyser la concentration observee sur ${insight.groupValue}`,
+      summary: `${insight.summary} Atlas recommande de comprendre pourquoi ce groupe concentre une part importante du signal compare.`,
+      action: "Identifier les causes de concentration",
+      description: "Comparer les volumes, couts ou pratiques du groupe concerne avec les autres groupes avant arbitrage.",
+      impact: "Reduire un risque de dependance ou de concentration operationnelle."
+    };
+  }
+
+  if (insight.insightType === "weak_group") {
+    return {
+      title: "Examiner le groupe le moins performant",
+      summary: `${insight.groupValue} ressort comme groupe faible dans l'analyse comparative.`,
+      action: "Comparer le groupe faible aux meilleurs groupes",
+      description: "Identifier les ecarts de pratiques, de portefeuille ou de donnees qui expliquent la sous-performance.",
+      impact: "Cibler l'effort d'amelioration sur le groupe qui tire la performance vers le bas."
+    };
+  }
+
+  if (insight.insightType === "anomaly_candidate") {
+    return {
+      title: "Auditer le groupe atypique",
+      summary: `${insight.groupValue} se distingue fortement du reste du dataset et merite une verification metier.`,
+      action: "Verifier le groupe atypique",
+      description: "Controler les donnees et qualifier si l'ecart est une anomalie, une opportunite ou un risque reel.",
+      impact: "Eviter une decision basee sur un ecart non qualifie."
+    };
+  }
+
+  return {
+    title: "Comparer les pratiques entre groupes",
+    summary: `${insight.summary} L'ecart observe invite a comparer les pratiques des groupes concernes.`,
+    action: "Organiser une comparaison entre groupes",
+    description: "Analyser les differences de pratiques entre les groupes extremes et isoler les leviers reproductibles.",
+    impact: "Transformer une comparaison Dataset en action operationnelle ciblee."
+  };
+}
+
+export function generateGroupByInsightRecommendations(input: RecommendationInput): LocalRecommendation[] {
+  return (input.datasetGroupByInsights ?? [])
+    .filter((insight) => insight.insightType !== "best_group")
+    .map((insight) => {
+      const wording = groupByInsightAction(insight);
+
+      return recommendation({
+        id: `local-rec-groupby-${insight.id}`,
+        organizationId: input.organizationId,
+        title: wording.title,
+        summary: wording.summary,
+        priority: groupByInsightPriority(insight),
+        category: insight.insightType === "weak_group" ? "operations" : "risk",
+        sourceType: "dataset_groupby_insight",
+        relatedKpiIds: [],
+        relatedAlertIds: [],
+        relatedInsightIds: [],
+        relatedDatasetIds: [insight.datasetId],
+        relatedGroupByInsightIds: [insight.id],
+        relatedMemoryReferences: [],
+        evidence: [
+          groupByInsightEvidence(insight),
+          ...insight.reasons.map((reason) => ({
+            type: "dataset_groupby_insight" as const,
+            label: "Raison comparative",
+            value: reason,
+            source: insight.groupByAnalysisId
+          }))
+        ],
+        recommendedActions: [
+          {
+            label: insight.recommendedAction ?? wording.action,
+            description: wording.description,
+            ownerSuggestion: "Direction / operations",
+            timeframe: insight.severity === "critical" ? "48 h" : "7 jours"
+          }
+        ],
+        expectedImpact: wording.impact,
+        effort: insight.insightType === "anomaly_candidate" ? "low" : "medium",
+        urgency: insight.severity === "critical" ? "high" : insight.severity === "watch" ? "medium" : "low"
+      });
+    });
+}
+
 function priorityScore(priority: RecommendationPriority) {
   if (priority === "critical") return 100;
   if (priority === "high") return 70;
@@ -301,7 +402,8 @@ export function generateLocalRecommendations(input: RecommendationInput) {
     ...generateQualityRecommendations(input),
     ...generateRiskRecommendations(input),
     ...generateDataQualityRecommendations(input),
-    ...generateStrategyRecommendations(input)
+    ...generateStrategyRecommendations(input),
+    ...generateGroupByInsightRecommendations(input)
   ];
 
   return rankLocalRecommendations(recommendations);

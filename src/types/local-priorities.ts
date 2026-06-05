@@ -11,7 +11,8 @@ export type LocalPrioritySourceType =
   | "impact"
   | "feedback"
   | "journal"
-  | "memory";
+  | "memory"
+  | "dataset_groupby_insight";
 
 export type LocalPriorityItem = {
   id: string;
@@ -29,6 +30,8 @@ export type LocalPriorityItem = {
   relatedAlertIds: string[];
   relatedRecommendationIds: string[];
   relatedActionPlanIds: string[];
+  relatedDatasetIds?: string[];
+  relatedGroupByInsightIds?: string[];
   relatedMemoryReferences: string[];
   recommendedNextAction: string;
   reasons: string[];

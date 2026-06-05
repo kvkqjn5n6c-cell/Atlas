@@ -12,6 +12,7 @@ import type { LocalPriorityItem } from "@/types/local-priorities";
 import type { LocalRecommendationFeedback } from "@/types/local-recommendation-feedback";
 import type { LocalRecommendation } from "@/types/local-recommendations";
 import type { ConfidenceLevel, RecommendationConfidence } from "@/types/recommendation-confidence";
+import type { DatasetGroupByInsight } from "@/lib/datasets/dataset-groupby-insight-types";
 
 type LocalExecutiveDashboardInput = {
   organizationId: string;
@@ -28,6 +29,7 @@ type LocalExecutiveDashboardInput = {
   approvedMemoryKnowledge?: AtlasKnowledgeItem[];
   confidenceScores?: RecommendationConfidence[];
   histories?: LocalKpiHistoryPoint[];
+  datasetGroupByInsights?: DatasetGroupByInsight[];
 };
 
 function now() {
@@ -73,11 +75,14 @@ export function calculateExecutiveGlobalScore(input: LocalExecutiveDashboardInpu
   const actionPlans = input.actionPlans ?? [];
   const impacts = input.impacts ?? [];
   const confidenceAverage = averageConfidence(input.confidenceScores);
+  const datasetGroupByInsights = input.datasetGroupByInsights ?? [];
 
   score -= priorities.filter((priority) => priority.urgency === "critical").length * 12;
   score -= priorities.filter((priority) => priority.urgency === "high").length * 6;
   score -= alerts.filter((alert) => alert.severity === "critical").length * 10;
   score -= alerts.filter((alert) => alert.severity === "warning").length * 4;
+  score -= datasetGroupByInsights.filter((insight) => insight.severity === "critical").length * 6;
+  score -= datasetGroupByInsights.filter((insight) => insight.severity === "watch").length * 3;
   score -= impacts.filter((impact) => impact.status === "negative").length * 8;
   score += Math.min(6, actionPlans.filter((plan) => plan.status === "in_progress" || plan.status === "todo").length * 2);
   score += Math.min(10, impacts.filter((impact) => impact.status === "positive").length * 5);
@@ -100,6 +105,9 @@ export function generateExecutiveReliabilityNotes(input: LocalExecutiveDashboard
   }
   if ((input.confidenceScores ?? []).length === 0) {
     notes.push("Aucun score de confiance disponible sur les recommandations locales.");
+  }
+  if ((input.datasetGroupByInsights ?? []).length > 0) {
+    notes.push(`${input.datasetGroupByInsights?.length ?? 0} signal(aux) comparatifs Dataset pris en compte.`);
   }
 
   return Array.from(new Set(notes)).slice(0, 5);
@@ -144,8 +152,19 @@ function riskCards(input: LocalExecutiveDashboardInput): ExecutiveDashboardCard[
     status: "watch" as const,
     sourceIds: [input.executiveSummary?.id ?? "executive-summary"]
   }));
+  const comparativeRisks = (input.datasetGroupByInsights ?? [])
+    .filter((insight) => insight.severity === "critical" || insight.severity === "watch")
+    .slice(0, 3)
+    .map((insight) => ({
+      title: insight.title,
+      summary: insight.summary,
+      status: insight.severity === "critical" ? "critical" as const : "watch" as const,
+      score: Math.round(insight.value),
+      sourceIds: [insight.id, insight.datasetId, insight.groupByAnalysisId],
+      actionLabel: insight.recommendedAction
+    }));
 
-  return [...alertRisks, ...summaryRisks].slice(0, 5);
+  return [...alertRisks, ...comparativeRisks, ...summaryRisks].slice(0, 5);
 }
 
 function recommendationCards(recommendations: LocalRecommendation[] = [], confidenceScores: RecommendationConfidence[] = []): ExecutiveDashboardCard[] {
@@ -207,6 +226,17 @@ function memoryCards(knowledge: AtlasKnowledgeItem[] = []): ExecutiveDashboardCa
   }));
 }
 
+function comparativeCards(insights: DatasetGroupByInsight[] = []): ExecutiveDashboardCard[] {
+  return insights.slice(0, 5).map((insight) => ({
+    title: insight.title,
+    summary: insight.summary,
+    status: insight.severity === "critical" ? "critical" : insight.severity === "watch" ? "watch" : "healthy",
+    score: Math.round(insight.value),
+    sourceIds: [insight.id, insight.datasetId, insight.groupByAnalysisId],
+    actionLabel: insight.recommendedAction
+  }));
+}
+
 export function generateLocalExecutiveDashboard(input: LocalExecutiveDashboardInput): LocalExecutiveDashboard {
   const globalScore = calculateExecutiveGlobalScore(input);
   const confidenceAverage = averageConfidence(input.confidenceScores);
@@ -225,6 +255,7 @@ export function generateLocalExecutiveDashboard(input: LocalExecutiveDashboardIn
     recentImpacts: impactCards(input.impacts),
     recentDecisions: decisionCards(input.decisionJournalEntries),
     memorySignals: memoryCards(input.approvedMemoryKnowledge),
+    comparativeSignals: comparativeCards(input.datasetGroupByInsights),
     dataReliabilityNotes: generateExecutiveReliabilityNotes(input),
     nextBestActions: generateExecutiveNextBestActions(input),
     persisted: false

@@ -23,6 +23,7 @@ export type LocalCopilBrief = {
   arbitrationPoints: string[];
   risks: string[];
   nextActions: string[];
+  comparativeInsights?: string[];
   memoryReferences: LocalInsightMemoryReference[];
   confidenceNotes: string[];
   sections: LocalCopilSection[];

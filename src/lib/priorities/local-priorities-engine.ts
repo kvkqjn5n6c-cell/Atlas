@@ -9,6 +9,7 @@ import type { LocalRecommendationFeedback } from "@/types/local-recommendation-f
 import type { LocalRecommendation } from "@/types/local-recommendations";
 import type { LocalPriorityItem, LocalPrioritySourceType, PriorityImpact, PriorityUrgency } from "@/types/local-priorities";
 import type { RecommendationConfidence } from "@/types/recommendation-confidence";
+import type { DatasetGroupByInsight } from "@/lib/datasets/dataset-groupby-insight-types";
 
 type LocalPrioritiesInput = {
   organizationId: string;
@@ -22,12 +23,14 @@ type LocalPrioritiesInput = {
   decisionJournalEntries?: DecisionJournalEntry[];
   approvedMemoryKnowledge?: AtlasKnowledgeItem[];
   histories?: LocalKpiHistoryPoint[];
+  datasetGroupByInsights?: DatasetGroupByInsight[];
 };
 
 type ScoreContext = {
   recommendation?: LocalRecommendation;
   alert?: LocalKpiAlert;
   kpiResult?: LocalKpiResult;
+  groupByInsight?: DatasetGroupByInsight;
   confidence?: RecommendationConfidence;
   actionPlans: LocalActionPlan[];
   impacts: LocalActionPlanImpact[];
@@ -92,6 +95,26 @@ function scoreParts(context: ScoreContext) {
     reasons.push(`Recommandation ${context.recommendation.priority} associée (+${weight}).`);
   }
 
+  if (context.groupByInsight) {
+    if (context.groupByInsight.severity === "critical") {
+      score += 30;
+      reasons.push("Insight comparatif critique detecte (+30).");
+    } else if (context.groupByInsight.severity === "watch") {
+      score += 15;
+      reasons.push("Insight comparatif a surveiller detecte (+15).");
+    }
+
+    if (context.groupByInsight.insightType === "concentration") {
+      score += 10;
+      reasons.push("Concentration comparative detectee (+10).");
+    }
+
+    if (context.groupByInsight.insightType === "anomaly_candidate") {
+      score += 15;
+      reasons.push("Groupe atypique candidat detecte (+15).");
+    }
+  }
+
   if ((context.confidence?.score ?? 0) > 80) {
     score += 10;
     reasons.push("Confiance Atlas supérieure à 80 % (+10).");
@@ -148,8 +171,8 @@ export function determinePriorityUrgency(score: number): PriorityUrgency {
 }
 
 export function determinePriorityImpact(context: ScoreContext, score = calculatePriorityScore(context)): PriorityImpact {
-  if (context.alert?.severity === "critical" || context.recommendation?.priority === "critical" || score >= 70) return "high";
-  if (context.alert?.severity === "warning" || context.recommendation?.priority === "high" || score >= 40) return "medium";
+  if (context.alert?.severity === "critical" || context.recommendation?.priority === "critical" || context.groupByInsight?.severity === "critical" || score >= 70) return "high";
+  if (context.alert?.severity === "warning" || context.recommendation?.priority === "high" || context.groupByInsight?.severity === "watch" || score >= 40) return "medium";
   return "low";
 }
 
@@ -162,14 +185,15 @@ function sourceTypes(context: ScoreContext): LocalPrioritySourceType[] {
     context.actionPlans.length > 0 ? "action_plan" : undefined,
     context.impacts.length > 0 ? "impact" : undefined,
     context.feedbackItems.length > 0 ? "feedback" : undefined,
-    hasMemoryLink(context.recommendation, context.approvedMemoryKnowledge) ? "memory" : undefined
+    hasMemoryLink(context.recommendation, context.approvedMemoryKnowledge) ? "memory" : undefined,
+    context.groupByInsight ? "dataset_groupby_insight" : undefined
   ].filter((item): item is LocalPrioritySourceType => Boolean(item)));
 }
 
 function buildPriorityItem(context: ScoreContext, organizationId: string): LocalPriorityItem {
   const { score, reasons, warnings } = scoreParts(context);
   const urgency =
-    context.alert?.severity === "critical" || context.kpiResult?.status === "critical"
+    context.alert?.severity === "critical" || context.kpiResult?.status === "critical" || context.groupByInsight?.severity === "critical"
       ? "critical"
       : determinePriorityUrgency(score);
   const impact = determinePriorityImpact(context, score);
@@ -184,29 +208,40 @@ function buildPriorityItem(context: ScoreContext, organizationId: string): Local
   ]);
   const relatedRecommendationIds = context.recommendation ? [context.recommendation.id] : [];
   const relatedActionPlanIds = context.actionPlans.map((plan) => plan.id);
+  const relatedDatasetIds = unique([
+    ...(context.recommendation?.relatedDatasetIds ?? []),
+    ...(context.groupByInsight ? [context.groupByInsight.datasetId] : [])
+  ]);
+  const relatedGroupByInsightIds = unique([
+    ...(context.recommendation?.relatedGroupByInsightIds ?? []),
+    ...(context.groupByInsight ? [context.groupByInsight.id] : [])
+  ]);
   const title = context.recommendation?.title ?? context.alert?.title ?? context.kpiResult?.name ?? "Priorité Atlas";
   const summary = context.recommendation?.summary ?? context.alert?.cause ?? `KPI ${context.kpiResult?.name ?? "local"} à examiner.`;
   const nextAction =
     context.recommendation?.recommendedActions[0]?.label ??
     context.alert?.recommendedAction ??
+    context.groupByInsight?.recommendedAction ??
     "Qualifier le sujet, désigner un responsable et décider de l'action à lancer.";
 
   return {
-    id: `priority-${context.recommendation?.id ?? context.alert?.id ?? context.kpiResult?.id ?? title}`,
+    id: `priority-${context.recommendation?.id ?? context.alert?.id ?? context.groupByInsight?.id ?? context.kpiResult?.id ?? title}`,
     organizationId,
-    title,
-    summary,
+    title: context.groupByInsight && !context.recommendation && !context.alert && !context.kpiResult ? context.groupByInsight.title : title,
+    summary: context.groupByInsight && !context.recommendation && !context.alert && !context.kpiResult ? context.groupByInsight.summary : summary,
     rank: 0,
     priorityScore: score,
     urgency,
     impact,
     confidenceScore: context.confidence?.score,
-    category: context.recommendation?.category ?? (context.alert?.severity === "critical" ? "risk" : "operations"),
+    category: context.recommendation?.category ?? (context.groupByInsight ? "comparative" : context.alert?.severity === "critical" ? "risk" : "operations"),
     sourceTypes: sourceTypes(context),
     relatedKpiIds,
     relatedAlertIds,
     relatedRecommendationIds,
     relatedActionPlanIds,
+    relatedDatasetIds,
+    relatedGroupByInsightIds,
     relatedMemoryReferences: context.recommendation?.relatedMemoryReferences ?? [],
     recommendedNextAction: nextAction,
     reasons,
@@ -232,6 +267,7 @@ export function generateLocalPriorities(input: LocalPrioritiesInput) {
   const confidenceScores = input.confidenceScores ?? [];
   const histories = input.histories ?? [];
   const approvedMemoryKnowledge = input.approvedMemoryKnowledge ?? [];
+  const datasetGroupByInsights = input.datasetGroupByInsights ?? [];
 
   const prioritiesFromRecommendations = recommendations.map((recommendation) => {
     const recommendationPlans = actionPlans.filter((plan) => plan.sourceRecommendationId === recommendation.id);
@@ -240,6 +276,7 @@ export function generateLocalPriorities(input: LocalPrioritiesInput) {
 
     return buildPriorityItem({
       recommendation,
+      groupByInsight: datasetGroupByInsights.find((insight) => recommendation.relatedGroupByInsightIds?.includes(insight.id)),
       alert: alerts.find((alert) => recommendation.relatedAlertIds.includes(alert.id) || relatedKpiIds.has(alert.kpiId)),
       kpiResult: kpiResults.find((result) => relatedKpiIds.has(result.kpiId)),
       confidence: confidenceScores.find((confidence) => confidence.recommendationId === recommendation.id),
@@ -252,6 +289,7 @@ export function generateLocalPriorities(input: LocalPrioritiesInput) {
   });
 
   const recommendationAlertIds = new Set(recommendations.flatMap((recommendation) => recommendation.relatedAlertIds));
+  const recommendationGroupByInsightIds = new Set(recommendations.flatMap((recommendation) => recommendation.relatedGroupByInsightIds ?? []));
   const prioritiesFromStandaloneAlerts = alerts
     .filter((alert) => !recommendationAlertIds.has(alert.id))
     .map((alert) => buildPriorityItem({
@@ -264,7 +302,18 @@ export function generateLocalPriorities(input: LocalPrioritiesInput) {
       approvedMemoryKnowledge
     }, input.organizationId));
 
-  const priorities = rankLocalPriorities([...prioritiesFromRecommendations, ...prioritiesFromStandaloneAlerts])
+  const prioritiesFromStandaloneGroupByInsights = datasetGroupByInsights
+    .filter((insight) => !recommendationGroupByInsightIds.has(insight.id))
+    .map((groupByInsight) => buildPriorityItem({
+      groupByInsight,
+      actionPlans: [],
+      impacts: [],
+      feedbackItems: [],
+      histories,
+      approvedMemoryKnowledge
+    }, input.organizationId));
+
+  const priorities = rankLocalPriorities([...prioritiesFromRecommendations, ...prioritiesFromStandaloneAlerts, ...prioritiesFromStandaloneGroupByInsights])
     .filter((priority) => priority.priorityScore > 0);
 
   return priorities;

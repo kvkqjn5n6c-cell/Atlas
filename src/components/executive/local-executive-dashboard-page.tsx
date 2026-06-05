@@ -193,6 +193,14 @@ export function LocalExecutiveDashboardPage() {
           cards={dashboard.criticalRisks}
         />
         <ExecutiveCardList
+          title="Signaux comparatifs Dataset"
+          emptyLabel="Aucun signal comparatif Dataset disponible."
+          cards={dashboard.comparativeSignals ?? []}
+        />
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <ExecutiveCardList
           title="Recommandations clés"
           emptyLabel="Aucune recommandation prioritaire disponible."
           cards={dashboard.keyRecommendations}

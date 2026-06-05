@@ -12,6 +12,7 @@ import type { LocalKpiAlert } from "@/lib/kpi-engine/local-kpi-alerts";
 import type { LocalPriorityItem } from "@/types/local-priorities";
 import type { LocalRecommendation } from "@/types/local-recommendations";
 import type { RecommendationConfidence } from "@/types/recommendation-confidence";
+import type { DatasetGroupByInsight } from "@/lib/datasets/dataset-groupby-insight-types";
 import { buildKpiResult } from "../fixtures/local-engine-fixtures";
 
 const organizationId = "org-atlas-demo";
@@ -153,6 +154,25 @@ function buildKnowledge(): AtlasKnowledgeItem {
   };
 }
 
+function buildGroupByInsight(overrides: Partial<DatasetGroupByInsight> = {}): DatasetGroupByInsight {
+  return {
+    id: "groupby-insight-1",
+    datasetId: "dataset-1",
+    groupByAnalysisId: "analysis-1",
+    title: "Concentration couts region Est",
+    summary: "La region Est concentre une part importante des couts.",
+    insightType: "concentration",
+    severity: "critical",
+    groupValue: "Region Est",
+    value: 62,
+    reasons: ["Concentration superieure a 50 %."],
+    recommendedAction: "Analyser les causes de concentration",
+    createdAt: now,
+    persisted: false,
+    ...overrides
+  };
+}
+
 describe("local executive dashboard engine", () => {
   it("cree un dashboard avec une priorite critique", () => {
     const dashboard = generateLocalExecutiveDashboard({
@@ -235,5 +255,16 @@ describe("local executive dashboard engine", () => {
 
     expect(dashboard.memorySignals).toHaveLength(1);
     expect(dashboard.memorySignals[0].sourceIds).toContain("objectifs.md");
+  });
+
+  it("integre les signaux comparatifs Dataset dans les risques", () => {
+    const dashboard = generateLocalExecutiveDashboard({
+      organizationId,
+      datasetGroupByInsights: [buildGroupByInsight()]
+    });
+
+    expect(dashboard.criticalRisks.some((risk) => risk.sourceIds.includes("groupby-insight-1"))).toBe(true);
+    expect(dashboard.comparativeSignals?.[0].title).toContain("Concentration");
+    expect(dashboard.dataReliabilityNotes.some((note) => note.includes("comparatifs Dataset"))).toBe(true);
   });
 });
