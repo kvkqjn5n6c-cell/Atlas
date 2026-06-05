@@ -52,6 +52,14 @@ Quand un KPI est genere :
 
 Le KPI garde comme source le nom du Dataset Atlas. Il ne se fait pas passer pour un import CSV.
 
+Depuis la Phase 63, un KPI peut aussi etre calcule sur un Dataset Atlas filtre. Le generateur affiche alors :
+
+- le nombre de lignes du dataset total ;
+- le nombre de lignes du dataset filtre ;
+- le nombre de lignes reellement utilisees dans le calcul.
+
+Les filtres utilises sont conserves dans la definition Dataset KPI locale.
+
 ## Limites
 
 - calcul sur preview uniquement ;

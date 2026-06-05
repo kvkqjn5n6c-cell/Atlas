@@ -7,10 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getDatasetStatistics, summarizeDataset, validateDataset } from "@/lib/datasets/atlas-dataset-engine";
+import { applyDatasetFilters, summarizeDatasetFilters, validateDatasetFilters } from "@/lib/datasets/dataset-filter-engine";
+import type { DatasetFilter, DatasetFilterOperator, DatasetFilterSet } from "@/lib/datasets/dataset-filter-types";
 import { convertToLocalKpi, createDatasetKpi, previewDatasetKpi, validateDatasetKpi } from "@/lib/datasets/dataset-kpi-engine";
 import type { AtlasDataset } from "@/lib/datasets/atlas-dataset-types";
 import type { DatasetKpiAggregation, DatasetKpiDefinition } from "@/lib/datasets/dataset-kpi-types";
 import { getDatasets } from "@/lib/local/atlas-datasets-store";
+import { getDatasetFilterSetsByDatasetId, saveDatasetFilterSet } from "@/lib/local/dataset-filters-store";
 import { saveDatasetKpi } from "@/lib/local/dataset-kpi-store";
 import { saveLocalKpiHistoryPoint } from "@/lib/local/local-kpi-history-store";
 import { saveLocalKpiResult } from "@/lib/local/local-kpi-results-store";
@@ -34,6 +37,18 @@ const aggregationLabels: Record<DatasetKpiAggregation, string> = {
   ratio: "RATIO - Ratio"
 };
 
+const operatorLabels: Record<DatasetFilterOperator, string> = {
+  EQUALS: "egal a",
+  NOT_EQUALS: "different de",
+  CONTAINS: "contient",
+  STARTS_WITH: "commence par",
+  ENDS_WITH: "termine par",
+  GREATER_THAN: "superieur a",
+  LESS_THAN: "inferieur a",
+  IS_EMPTY: "est vide",
+  IS_NOT_EMPTY: "n'est pas vide"
+};
+
 function defaultKpiName(dataset: AtlasDataset, aggregation: DatasetKpiAggregation, fieldKey?: string) {
   const field = dataset.fields.find((item) => item.key === fieldKey);
   const label = field?.label ?? "lignes";
@@ -47,6 +62,7 @@ function defaultKpiName(dataset: AtlasDataset, aggregation: DatasetKpiAggregatio
 export function AtlasDatasetsPage() {
   const [mounted, setMounted] = useState(false);
   const [datasets, setDatasets] = useState<AtlasDataset[]>([]);
+  const [filterSets, setFilterSets] = useState<Record<string, DatasetFilterSet>>({});
   const [drafts, setDrafts] = useState<Record<string, {
     name: string;
     aggregation: DatasetKpiAggregation;
@@ -63,6 +79,69 @@ export function AtlasDatasetsPage() {
 
     return () => window.clearTimeout(timeoutId);
   }, []);
+
+  function defaultFilter(dataset: AtlasDataset, index: number): DatasetFilter {
+    return {
+      id: `dataset-filter-${dataset.id}-${index}`,
+      field: dataset.fields[0]?.key ?? "",
+      operator: "CONTAINS",
+      value: ""
+    };
+  }
+
+  function getFilterSet(dataset: AtlasDataset): DatasetFilterSet {
+    const saved = getDatasetFilterSetsByDatasetId(dataset.id)[0];
+
+    return filterSets[dataset.id] ?? saved ?? {
+      id: `dataset-filter-set-${dataset.id}`,
+      datasetId: dataset.id,
+      name: "Filtre temporaire",
+      filters: [],
+      createdAt: new Date().toISOString()
+    };
+  }
+
+  function updateFilterSet(dataset: AtlasDataset, nextFilterSet: DatasetFilterSet) {
+    setFilterSets((items) => ({ ...items, [dataset.id]: nextFilterSet }));
+    setMessage("");
+  }
+
+  function addFilter(dataset: AtlasDataset) {
+    const current = getFilterSet(dataset);
+    updateFilterSet(dataset, {
+      ...current,
+      filters: [...current.filters, defaultFilter(dataset, current.filters.length + 1)]
+    });
+  }
+
+  function updateFilter(dataset: AtlasDataset, filterId: string, patch: Partial<DatasetFilter>) {
+    const current = getFilterSet(dataset);
+    updateFilterSet(dataset, {
+      ...current,
+      filters: current.filters.map((filter) => filter.id === filterId ? { ...filter, ...patch } : filter)
+    });
+  }
+
+  function removeFilter(dataset: AtlasDataset, filterId: string) {
+    const current = getFilterSet(dataset);
+    updateFilterSet(dataset, {
+      ...current,
+      filters: current.filters.filter((filter) => filter.id !== filterId)
+    });
+  }
+
+  function saveFilters(dataset: AtlasDataset) {
+    const current = getFilterSet(dataset);
+    const validation = validateDatasetFilters(dataset, current);
+
+    if (!validation.valid) {
+      setMessage(validation.errors.join(" "));
+      return;
+    }
+
+    saveDatasetFilterSet(current);
+    setMessage(`Jeu de filtres "${current.name}" sauvegarde localement.`);
+  }
 
   function getDraft(dataset: AtlasDataset) {
     const firstNumericField = dataset.fields.find((field) => field.atlasType === "number") ?? dataset.fields[0];
@@ -87,6 +166,7 @@ export function AtlasDatasetsPage() {
 
   function buildDefinition(dataset: AtlasDataset): DatasetKpiDefinition {
     const draft = getDraft(dataset);
+    const filterSet = getFilterSet(dataset);
 
     return createDatasetKpi({
       dataset,
@@ -94,7 +174,8 @@ export function AtlasDatasetsPage() {
       aggregation: draft.aggregation,
       field: draft.aggregation === "count" ? undefined : draft.field,
       secondaryField: draft.aggregation === "ratio" ? draft.secondaryField : undefined,
-      description: `KPI genere depuis ${dataset.displayName}`
+      description: `KPI genere depuis ${dataset.displayName}`,
+      filterSet: filterSet.filters.length > 0 ? filterSet : undefined
     });
   }
 
@@ -107,7 +188,8 @@ export function AtlasDatasetsPage() {
       return;
     }
 
-    const { kpi, result, historyPoint } = convertToLocalKpi({ dataset, definition });
+    const filterSet = getFilterSet(dataset).filters.length > 0 ? getFilterSet(dataset) : undefined;
+    const { kpi, result, historyPoint } = convertToLocalKpi({ dataset, definition, filterSet });
     saveDatasetKpi(definition);
     saveLocalKpiConfiguration(kpi);
     saveLocalKpiResult(result);
@@ -178,10 +260,14 @@ export function AtlasDatasetsPage() {
             const validation = validateDataset(dataset);
             const statistics = getDatasetStatistics(dataset);
             const summary = summarizeDataset(dataset);
+            const filterSet = getFilterSet(dataset);
+            const filtered = applyDatasetFilters(dataset, filterSet);
+            const filterValidation = validateDatasetFilters(dataset, filterSet);
+            const filterSummary = summarizeDatasetFilters(dataset, filtered.dataset, filterSet);
             const draft = getDraft(dataset);
             const definition = buildDefinition(dataset);
-            const kpiPreview = previewDatasetKpi(dataset, definition);
-            const kpiValidation = validateDatasetKpi(dataset, definition);
+            const kpiPreview = previewDatasetKpi(dataset, definition, filterSet.filters.length > 0 ? filterSet : undefined);
+            const kpiValidation = validateDatasetKpi(dataset, definition, filterSet.filters.length > 0 ? filterSet : undefined);
             const numericFields = dataset.fields.filter((field) => field.atlasType === "number");
 
             return (
@@ -229,6 +315,87 @@ export function AtlasDatasetsPage() {
                         {field.label} - {field.atlasType}
                       </Badge>
                     ))}
+                  </div>
+
+                  <div className="rounded-lg border border-line bg-white p-4">
+                    <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-start">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="brand">Filtres Dataset</Badge>
+                          <Badge>{filterSummary.filteredRows}/{filterSummary.totalRows} ligne(s)</Badge>
+                          <Badge>{filterSummary.percentage}% conserve</Badge>
+                        </div>
+                        <p className="mt-2 text-sm leading-6 text-slate-600">
+                          {filterSummary.label} Les KPI crees depuis ce dataset utiliseront ce sous-ensemble tant que ces filtres sont actifs.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button onClick={() => addFilter(dataset)}>Ajouter filtre</Button>
+                        <Button onClick={() => saveFilters(dataset)} disabled={!filterValidation.valid}>Sauvegarder filtres</Button>
+                      </div>
+                    </div>
+
+                    {filterSet.filters.length > 0 ? (
+                      <div className="mt-4 space-y-3">
+                        {filterSet.filters.map((filter) => {
+                          const selectedField = dataset.fields.find((field) => field.key === filter.field);
+                          const valueDisabled = filter.operator === "IS_EMPTY" || filter.operator === "IS_NOT_EMPTY";
+
+                          return (
+                            <div key={filter.id} className="grid gap-3 rounded-md border border-line bg-slate-50 p-3 lg:grid-cols-[1fr_180px_1fr_120px]">
+                              <label className="space-y-1 text-sm">
+                                <span className="font-medium text-slate-700">Champ</span>
+                                <select
+                                  className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none transition focus:border-brand-300"
+                                  value={filter.field}
+                                  onChange={(event) => updateFilter(dataset, filter.id, { field: event.target.value })}
+                                >
+                                  {dataset.fields.map((field) => (
+                                    <option key={`${dataset.id}-filter-field-${field.key}-${field.sourceColumn}`} value={field.key}>
+                                      {field.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <label className="space-y-1 text-sm">
+                                <span className="font-medium text-slate-700">Operateur</span>
+                                <select
+                                  className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none transition focus:border-brand-300"
+                                  value={filter.operator}
+                                  onChange={(event) => updateFilter(dataset, filter.id, { operator: event.target.value as DatasetFilterOperator })}
+                                >
+                                  {Object.entries(operatorLabels).map(([value, label]) => (
+                                    <option key={value} value={value}>{label}</option>
+                                  ))}
+                                </select>
+                              </label>
+                              <label className="space-y-1 text-sm">
+                                <span className="font-medium text-slate-700">Valeur</span>
+                                <input
+                                  className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none transition focus:border-brand-300 disabled:bg-slate-100"
+                                  value={filter.value ?? ""}
+                                  disabled={valueDisabled}
+                                  placeholder={selectedField?.atlasType === "number" ? "Ex. 1000" : "Valeur"}
+                                  onChange={(event) => updateFilter(dataset, filter.id, { value: event.target.value })}
+                                />
+                              </label>
+                              <div className="flex items-end">
+                                <Button className="w-full" onClick={() => removeFilter(dataset, filter.id)}>Retirer</Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {[...filterValidation.errors, ...filterValidation.warnings].length > 0 ? (
+                          <p className="text-xs leading-5 text-amber-700">
+                            {[...filterValidation.errors, ...filterValidation.warnings].join(" ")}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <p className="mt-4 rounded-md border border-line bg-slate-50 p-3 text-sm text-slate-600">
+                        Aucun filtre actif : le KPI sera calcule sur l&apos;ensemble du dataset.
+                      </p>
+                    )}
                   </div>
 
                   {[...validation.errors, ...statistics.warnings].length > 0 ? (
@@ -338,7 +505,7 @@ export function AtlasDatasetsPage() {
                         <p className="text-sm font-semibold text-ink">Apercu KPI</p>
                         <p className="mt-2 text-2xl font-semibold text-brand-700">{kpiPreview.value}</p>
                         <p className="mt-1 text-sm text-slate-600">
-                          {kpiPreview.rowCount} ligne(s) utilisee(s). Champ : {kpiPreview.sourceField?.label ?? "Toutes les lignes"}.
+                          Dataset total : {kpiPreview.totalRowCount} ligne(s). Dataset filtre : {kpiPreview.filteredRowCount} ligne(s). KPI calcule sur : {kpiPreview.rowCount} ligne(s). Champ : {kpiPreview.sourceField?.label ?? "Toutes les lignes"}.
                         </p>
                         {[...kpiValidation.errors, ...kpiPreview.warnings].length > 0 ? (
                           <p className="mt-2 text-xs leading-5 text-amber-700">

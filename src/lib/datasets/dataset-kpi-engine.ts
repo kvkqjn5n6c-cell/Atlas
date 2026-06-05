@@ -1,4 +1,6 @@
 import type { AtlasDataset, AtlasDatasetField } from "@/lib/datasets/atlas-dataset-types";
+import { applyDatasetFilters } from "@/lib/datasets/dataset-filter-engine";
+import type { DatasetFilterSet } from "@/lib/datasets/dataset-filter-types";
 import type { DatasetKpiDefinition, DatasetKpiPreview, DatasetKpiValidationResult } from "@/lib/datasets/dataset-kpi-types";
 import { getLocalKpiStatus, inferKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
 import { buildLocalKpiHistoryPoint } from "@/lib/kpi-engine/local-kpi-results";
@@ -85,6 +87,7 @@ export function createDatasetKpi(input: {
   targetValue?: number;
   warningThreshold?: number;
   criticalThreshold?: number;
+  filterSet?: DatasetFilterSet;
 }): DatasetKpiDefinition {
   const timestamp = now();
   const fieldLabel = findField(input.dataset, input.field)?.label ?? "lignes";
@@ -101,20 +104,27 @@ export function createDatasetKpi(input: {
     targetValue: input.targetValue,
     warningThreshold: input.warningThreshold,
     criticalThreshold: input.criticalThreshold,
+    filterSet: input.filterSet,
+    filteredRowCount: input.filterSet ? applyDatasetFilters(input.dataset, input.filterSet).dataset.rowCount : undefined,
     createdAt: timestamp,
     persisted: false
   };
 }
 
-export function validateDatasetKpi(dataset: AtlasDataset, definition: DatasetKpiDefinition): DatasetKpiValidationResult {
+function effectiveDataset(dataset: AtlasDataset, filterSet?: DatasetFilterSet) {
+  return filterSet ? applyDatasetFilters(dataset, filterSet).dataset : dataset;
+}
+
+export function validateDatasetKpi(dataset: AtlasDataset, definition: DatasetKpiDefinition, filterSet?: DatasetFilterSet): DatasetKpiValidationResult {
   const warnings: string[] = [];
   const errors: string[] = [];
-  const field = findField(dataset, definition.field);
-  const secondaryField = findField(dataset, definition.secondaryField);
+  const scopedDataset = effectiveDataset(dataset, filterSet ?? definition.filterSet);
+  const field = findField(scopedDataset, definition.field);
+  const secondaryField = findField(scopedDataset, definition.secondaryField);
 
   if (!definition.name.trim()) errors.push("Le nom du KPI est obligatoire.");
   if (definition.datasetId !== dataset.id) errors.push("La definition KPI ne correspond pas au dataset selectionne.");
-  if (dataset.records.length === 0) errors.push("Le dataset ne contient aucun record.");
+  if (scopedDataset.records.length === 0) errors.push("Le dataset filtre ne contient aucun record.");
   if (definition.aggregation !== "count" && !field) errors.push("Le champ principal est obligatoire.");
   if (["sum", "average"].includes(definition.aggregation) && field?.atlasType !== "number") {
     errors.push("Somme et moyenne necessitent un champ numerique.");
@@ -133,32 +143,40 @@ export function validateDatasetKpi(dataset: AtlasDataset, definition: DatasetKpi
   };
 }
 
-export function previewDatasetKpi(dataset: AtlasDataset, definition: DatasetKpiDefinition): DatasetKpiPreview {
-  const validation = validateDatasetKpi(dataset, definition);
-  const field = findField(dataset, definition.field);
-  const secondaryField = findField(dataset, definition.secondaryField);
+export function previewDatasetKpi(dataset: AtlasDataset, definition: DatasetKpiDefinition, filterSet?: DatasetFilterSet): DatasetKpiPreview {
+  const scopedFilterSet = filterSet ?? definition.filterSet;
+  const scopedDataset = effectiveDataset(dataset, scopedFilterSet);
+  const validation = validateDatasetKpi(dataset, definition, scopedFilterSet);
+  const field = findField(scopedDataset, definition.field);
+  const secondaryField = findField(scopedDataset, definition.secondaryField);
   const warnings = [...validation.warnings, ...validation.errors];
 
   if (!validation.valid) {
     return {
       value: 0,
       rowCount: 0,
+      totalRowCount: dataset.rowCount,
+      filteredRowCount: scopedDataset.rowCount,
       sourceField: field,
       secondarySourceField: secondaryField,
+      filterSet: scopedFilterSet,
       warnings
     };
   }
 
   if (definition.aggregation === "count") {
     return {
-      value: dataset.records.length,
-      rowCount: dataset.records.length,
+      value: scopedDataset.records.length,
+      rowCount: scopedDataset.records.length,
+      totalRowCount: dataset.rowCount,
+      filteredRowCount: scopedDataset.rowCount,
       sourceField: field,
+      filterSet: scopedFilterSet,
       warnings
     };
   }
 
-  const values = dataset.records
+  const values = scopedDataset.records
     .map((record) => numericValue(record.values[definition.field]))
     .filter((value): value is number => value !== null);
 
@@ -166,7 +184,10 @@ export function previewDatasetKpi(dataset: AtlasDataset, definition: DatasetKpiD
     return {
       value: Math.round(values.reduce((total, current) => total + current, 0) * 100) / 100,
       rowCount: values.length,
+      totalRowCount: dataset.rowCount,
+      filteredRowCount: scopedDataset.rowCount,
       sourceField: field,
+      filterSet: scopedFilterSet,
       warnings
     };
   }
@@ -175,12 +196,15 @@ export function previewDatasetKpi(dataset: AtlasDataset, definition: DatasetKpiD
     return {
       value: values.length > 0 ? Math.round((values.reduce((total, current) => total + current, 0) / values.length) * 100) / 100 : 0,
       rowCount: values.length,
+      totalRowCount: dataset.rowCount,
+      filteredRowCount: scopedDataset.rowCount,
       sourceField: field,
+      filterSet: scopedFilterSet,
       warnings: values.length === 0 ? [...warnings, "Aucune valeur numerique exploitable."] : warnings
     };
   }
 
-  const secondaryValues = dataset.records
+  const secondaryValues = scopedDataset.records
     .map((record) => numericValue(record.values[definition.secondaryField ?? ""]))
     .filter((value): value is number => value !== null);
   const numerator = values.reduce((total, current) => total + current, 0);
@@ -189,8 +213,11 @@ export function previewDatasetKpi(dataset: AtlasDataset, definition: DatasetKpiD
   return {
     value: denominator !== 0 ? Math.round((numerator / denominator) * 100) / 100 : 0,
     rowCount: Math.min(values.length, secondaryValues.length),
+    totalRowCount: dataset.rowCount,
+    filteredRowCount: scopedDataset.rowCount,
     sourceField: field,
     secondarySourceField: secondaryField,
+    filterSet: scopedFilterSet,
     warnings: denominator === 0 ? [...warnings, "Denominateur nul pour le ratio."] : warnings
   };
 }
@@ -199,12 +226,14 @@ export function convertToLocalKpi(input: {
   dataset: AtlasDataset;
   definition: DatasetKpiDefinition;
   organizationId?: string;
+  filterSet?: DatasetFilterSet;
 }): {
   kpi: LocalKpiConfiguration;
   result: LocalKpiResult;
   historyPoint: LocalKpiHistoryPoint;
 } {
-  const preview = previewDatasetKpi(input.dataset, input.definition);
+  const filterSet = input.filterSet ?? input.definition.filterSet;
+  const preview = previewDatasetKpi(input.dataset, input.definition, filterSet);
   const field = preview.sourceField;
   const direction = inferKpiDirection({ name: input.definition.name, displayFieldLabel: field?.label });
   const thresholds = {
@@ -216,7 +245,7 @@ export function convertToLocalKpi(input: {
   const testResult: LocalKpiTestResult = {
     value: preview.value,
     rowsUsed: preview.rowCount,
-    ignoredRows: Math.max(0, input.dataset.rowCount - preview.rowCount),
+    ignoredRows: Math.max(0, preview.totalRowCount - preview.rowCount),
     status: getLocalKpiStatus(preview.value, {
       direction,
       name: input.definition.name,
@@ -224,7 +253,7 @@ export function convertToLocalKpi(input: {
       ...thresholds
     }),
     warning: preview.warnings[0] ?? "Calcul base sur un Dataset Atlas temporaire issu d'une preview SQL limitee.",
-    period: "Preview SQL limitee"
+    period: filterSet ? `Preview SQL filtree : ${filterSet.name}` : "Preview SQL limitee"
   };
   const kpiId = `local-kpi-${input.definition.id}`;
   const createdAt = now();
@@ -249,7 +278,9 @@ export function convertToLocalKpi(input: {
     criticalThreshold: thresholds.criticalThreshold,
     frequency: "monthly",
     owner: "Direction",
-    expectedImpact: input.definition.description,
+    expectedImpact: filterSet
+      ? `${input.definition.description} Filtres utilises : ${filterSet.filters.map((filter) => `${filter.field} ${filter.operator} ${filter.value ?? ""}`.trim()).join(", ")}.`
+      : input.definition.description,
     testResult,
     persisted: false
   };
