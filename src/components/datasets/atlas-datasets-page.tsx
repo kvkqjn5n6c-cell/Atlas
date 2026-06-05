@@ -10,6 +10,8 @@ import { getDatasetStatistics, summarizeDataset, validateDataset } from "@/lib/d
 import { applyDatasetFilters, summarizeDatasetFilters, validateDatasetFilters } from "@/lib/datasets/dataset-filter-engine";
 import type { DatasetFilter, DatasetFilterOperator, DatasetFilterSet } from "@/lib/datasets/dataset-filter-types";
 import { groupDataset, summarizeGroupBy, supportedGroupFields, validateGroupBy } from "@/lib/datasets/dataset-groupby-engine";
+import { generateGroupByInsights } from "@/lib/datasets/dataset-groupby-insight-engine";
+import type { DatasetGroupByInsight } from "@/lib/datasets/dataset-groupby-insight-types";
 import type { DatasetGroupByAggregation, DatasetGroupByAnalysis } from "@/lib/datasets/dataset-groupby-types";
 import { convertToLocalKpi, createDatasetKpi, previewDatasetKpi, validateDatasetKpi } from "@/lib/datasets/dataset-kpi-engine";
 import type { AtlasDataset } from "@/lib/datasets/atlas-dataset-types";
@@ -17,6 +19,7 @@ import type { DatasetKpiAggregation, DatasetKpiDefinition } from "@/lib/datasets
 import { getDatasets } from "@/lib/local/atlas-datasets-store";
 import { getDatasetFilterSetsByDatasetId, saveDatasetFilterSet } from "@/lib/local/dataset-filters-store";
 import { getDatasetGroupByAnalysesByDatasetId, saveDatasetGroupByAnalysis } from "@/lib/local/dataset-groupby-store";
+import { getGroupByInsightsByAnalysisId, saveGroupByInsights } from "@/lib/local/dataset-groupby-insights-store";
 import { saveDatasetKpi } from "@/lib/local/dataset-kpi-store";
 import { saveLocalKpiHistoryPoint } from "@/lib/local/local-kpi-history-store";
 import { saveLocalKpiResult } from "@/lib/local/local-kpi-results-store";
@@ -26,6 +29,12 @@ function scoreVariant(score: number) {
   if (score >= 80) return "success";
   if (score >= 55) return "warning";
   return "danger";
+}
+
+function insightVariant(severity: DatasetGroupByInsight["severity"]) {
+  if (severity === "critical") return "danger";
+  if (severity === "watch") return "warning";
+  return "success";
 }
 
 function valueToText(value: unknown) {
@@ -78,6 +87,7 @@ export function AtlasDatasetsPage() {
     groupedByField: string;
   }>>({});
   const [groupByAnalyses, setGroupByAnalyses] = useState<Record<string, DatasetGroupByAnalysis[]>>({});
+  const [groupByInsights, setGroupByInsights] = useState<Record<string, DatasetGroupByInsight[]>>({});
   const [drafts, setDrafts] = useState<Record<string, {
     name: string;
     aggregation: DatasetKpiAggregation;
@@ -213,11 +223,16 @@ export function AtlasDatasetsPage() {
       ...analysis,
       datasetId: dataset.id
     });
+    const insights = saveGroupByInsights(generateGroupByInsights(saved));
     setGroupByAnalyses((items) => ({
       ...items,
       [dataset.id]: [saved, ...savedAnalyses(dataset).filter((item) => item.id !== saved.id)]
     }));
-    setMessage(`Analyse comparative ${saved.groupedBy.label} sauvegardee localement.`);
+    setGroupByInsights((items) => ({
+      ...items,
+      [saved.id]: insights
+    }));
+    setMessage(`Analyse comparative ${saved.groupedBy.label} sauvegardee localement avec ${insights.length} insight(s).`);
   }
 
   function updateDraft(dataset: AtlasDataset, patch: Partial<ReturnType<typeof getDraft>>) {
@@ -346,6 +361,7 @@ export function AtlasDatasetsPage() {
                 })
               : undefined;
             const currentGroupBySummary = currentGroupByAnalysis ? summarizeGroupBy(currentGroupByAnalysis) : undefined;
+            const currentGroupByInsights = currentGroupByAnalysis ? generateGroupByInsights(currentGroupByAnalysis) : [];
             const previousAnalyses = savedAnalyses(dataset);
             const draft = getDraft(dataset);
             const definition = buildDefinition(dataset);
@@ -590,7 +606,60 @@ export function AtlasDatasetsPage() {
                         Sauvegarder analyse comparative
                       </Button>
                       <Badge>{previousAnalyses.length} analyse(s) historique(s)</Badge>
+                      <Badge>Exploitable par recommandations : phase suivante</Badge>
                     </div>
+
+                    <div className="mt-4 rounded-lg border border-line bg-slate-50 p-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="brand">Insights comparatifs</Badge>
+                        <Badge>{currentGroupByInsights.length}</Badge>
+                      </div>
+                      {currentGroupByInsights.length === 0 ? (
+                        <p className="mt-3 text-sm text-slate-600">
+                          Aucun insight comparatif exploitable pour cette analyse.
+                        </p>
+                      ) : (
+                        <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                          {currentGroupByInsights.map((insight) => (
+                            <article key={insight.id} className="rounded-md border border-line bg-white p-3">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge variant={insightVariant(insight.severity)}>{insight.severity}</Badge>
+                                <Badge>{insight.insightType}</Badge>
+                                <Badge>{insight.groupValue}</Badge>
+                              </div>
+                              <h4 className="mt-2 text-sm font-semibold text-ink">{insight.title}</h4>
+                              <p className="mt-2 text-sm leading-6 text-slate-600">{insight.summary}</p>
+                              <ul className="mt-2 space-y-1">
+                                {insight.reasons.slice(0, 2).map((reason, index) => (
+                                  <li key={`${insight.id}-reason-${index}`} className="text-xs text-slate-500">
+                                    {reason}
+                                  </li>
+                                ))}
+                              </ul>
+                              {insight.recommendedAction ? (
+                                <p className="mt-2 text-xs font-medium text-brand-700">{insight.recommendedAction}</p>
+                              ) : null}
+                            </article>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {previousAnalyses.length > 0 ? (
+                      <div className="mt-4 rounded-md border border-line bg-slate-50 p-3">
+                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Derniers insights sauvegardes</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {previousAnalyses.slice(0, 3).flatMap((analysis) => {
+                            const insights = groupByInsights[analysis.id] ?? getGroupByInsightsByAnalysisId(analysis.id);
+                            return insights.slice(0, 2).map((insight) => (
+                              <Badge key={`${analysis.id}-${insight.id}`} variant={insightVariant(insight.severity)}>
+                                {insight.title}
+                              </Badge>
+                            ));
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
 
                   {[...validation.errors, ...statistics.warnings].length > 0 ? (
