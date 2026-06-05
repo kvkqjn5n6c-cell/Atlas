@@ -7,8 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getDatasetStatistics, summarizeDataset, validateDataset } from "@/lib/datasets/atlas-dataset-engine";
+import { convertToLocalKpi, createDatasetKpi, previewDatasetKpi, validateDatasetKpi } from "@/lib/datasets/dataset-kpi-engine";
 import type { AtlasDataset } from "@/lib/datasets/atlas-dataset-types";
+import type { DatasetKpiAggregation, DatasetKpiDefinition } from "@/lib/datasets/dataset-kpi-types";
 import { getDatasets } from "@/lib/local/atlas-datasets-store";
+import { saveDatasetKpi } from "@/lib/local/dataset-kpi-store";
+import { saveLocalKpiHistoryPoint } from "@/lib/local/local-kpi-history-store";
+import { saveLocalKpiResult } from "@/lib/local/local-kpi-results-store";
+import { saveLocalKpiConfiguration } from "@/lib/local/local-kpi-store";
 
 function scoreVariant(score: number) {
   if (score >= 80) return "success";
@@ -21,9 +27,33 @@ function valueToText(value: unknown) {
   return String(value);
 }
 
+const aggregationLabels: Record<DatasetKpiAggregation, string> = {
+  count: "COUNT - Nombre de lignes",
+  sum: "SUM - Somme",
+  average: "AVERAGE - Moyenne",
+  ratio: "RATIO - Ratio"
+};
+
+function defaultKpiName(dataset: AtlasDataset, aggregation: DatasetKpiAggregation, fieldKey?: string) {
+  const field = dataset.fields.find((item) => item.key === fieldKey);
+  const label = field?.label ?? "lignes";
+
+  if (aggregation === "count") return `Nombre ${dataset.displayName.replace("Dataset Atlas - ", "")}`;
+  if (aggregation === "sum") return `Somme ${label}`;
+  if (aggregation === "average") return `Moyenne ${label}`;
+  return `Ratio ${label}`;
+}
+
 export function AtlasDatasetsPage() {
   const [mounted, setMounted] = useState(false);
   const [datasets, setDatasets] = useState<AtlasDataset[]>([]);
+  const [drafts, setDrafts] = useState<Record<string, {
+    name: string;
+    aggregation: DatasetKpiAggregation;
+    field: string;
+    secondaryField: string;
+  }>>({});
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -33,6 +63,57 @@ export function AtlasDatasetsPage() {
 
     return () => window.clearTimeout(timeoutId);
   }, []);
+
+  function getDraft(dataset: AtlasDataset) {
+    const firstNumericField = dataset.fields.find((field) => field.atlasType === "number") ?? dataset.fields[0];
+
+    return drafts[dataset.id] ?? {
+      name: defaultKpiName(dataset, "count", firstNumericField?.key),
+      aggregation: "count" as DatasetKpiAggregation,
+      field: firstNumericField?.key ?? "",
+      secondaryField: dataset.fields.find((field) => field.atlasType === "number" && field.key !== firstNumericField?.key)?.key ?? ""
+    };
+  }
+
+  function updateDraft(dataset: AtlasDataset, patch: Partial<ReturnType<typeof getDraft>>) {
+    const current = getDraft(dataset);
+    const next = { ...current, ...patch };
+    const normalizedNext = patch.aggregation && !patch.name
+      ? { ...next, name: defaultKpiName(dataset, patch.aggregation, next.field) }
+      : next;
+    setDrafts((items) => ({ ...items, [dataset.id]: normalizedNext }));
+    setMessage("");
+  }
+
+  function buildDefinition(dataset: AtlasDataset): DatasetKpiDefinition {
+    const draft = getDraft(dataset);
+
+    return createDatasetKpi({
+      dataset,
+      name: draft.name,
+      aggregation: draft.aggregation,
+      field: draft.aggregation === "count" ? undefined : draft.field,
+      secondaryField: draft.aggregation === "ratio" ? draft.secondaryField : undefined,
+      description: `KPI genere depuis ${dataset.displayName}`
+    });
+  }
+
+  function generateKpi(dataset: AtlasDataset) {
+    const definition = buildDefinition(dataset);
+    const validation = validateDatasetKpi(dataset, definition);
+
+    if (!validation.valid) {
+      setMessage(validation.errors.join(" "));
+      return;
+    }
+
+    const { kpi, result, historyPoint } = convertToLocalKpi({ dataset, definition });
+    saveDatasetKpi(definition);
+    saveLocalKpiConfiguration(kpi);
+    saveLocalKpiResult(result);
+    saveLocalKpiHistoryPoint(historyPoint);
+    setMessage(`${kpi.name} genere comme KPI local Atlas. Il apparaitra dans KPI Configuration et Pilotage.`);
+  }
 
   if (!mounted) {
     return (
@@ -92,10 +173,16 @@ export function AtlasDatasetsPage() {
         </Card>
       ) : (
         <div className="space-y-6">
+          {message ? <p className="rounded-md border border-line bg-slate-50 p-3 text-sm text-slate-600">{message}</p> : null}
           {datasets.map((dataset) => {
             const validation = validateDataset(dataset);
             const statistics = getDatasetStatistics(dataset);
             const summary = summarizeDataset(dataset);
+            const draft = getDraft(dataset);
+            const definition = buildDefinition(dataset);
+            const kpiPreview = previewDatasetKpi(dataset, definition);
+            const kpiValidation = validateDatasetKpi(dataset, definition);
+            const numericFields = dataset.fields.filter((field) => field.atlasType === "number");
 
             return (
               <Card key={dataset.id} className="border-brand-100">
@@ -182,10 +269,94 @@ export function AtlasDatasetsPage() {
                     </table>
                   </div>
 
-                  <Button disabled>
-                    <TableProperties className="h-4 w-4" aria-hidden="true" />
-                    Creer KPI depuis ce dataset - Phase suivante
-                  </Button>
+                  <div className="rounded-lg border border-brand-100 bg-brand-50 p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="brand">Generateur KPI Dataset V1</Badge>
+                      <Badge>COUNT</Badge>
+                      <Badge>SUM</Badge>
+                      <Badge>AVERAGE</Badge>
+                      <Badge>RATIO</Badge>
+                    </div>
+                    <div className="mt-4 grid gap-3 lg:grid-cols-4">
+                      <label className="space-y-1 text-sm lg:col-span-2">
+                        <span className="font-medium text-slate-700">Nom KPI</span>
+                        <input
+                          className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none transition focus:border-brand-300"
+                          value={draft.name}
+                          onChange={(event) => updateDraft(dataset, { name: event.target.value })}
+                        />
+                      </label>
+                      <label className="space-y-1 text-sm">
+                        <span className="font-medium text-slate-700">Type</span>
+                        <select
+                          className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none transition focus:border-brand-300"
+                          value={draft.aggregation}
+                          onChange={(event) => updateDraft(dataset, { aggregation: event.target.value as DatasetKpiAggregation })}
+                        >
+                          {Object.entries(aggregationLabels).map(([value, label]) => (
+                            <option key={value} value={value}>{label}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="space-y-1 text-sm">
+                        <span className="font-medium text-slate-700">Champ</span>
+                        <select
+                          className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none transition focus:border-brand-300"
+                          value={draft.field}
+                          disabled={draft.aggregation === "count"}
+                          onChange={(event) => updateDraft(dataset, {
+                            field: event.target.value,
+                            name: defaultKpiName(dataset, draft.aggregation, event.target.value)
+                          })}
+                        >
+                          {(draft.aggregation === "sum" || draft.aggregation === "average" || draft.aggregation === "ratio" ? numericFields : dataset.fields).map((field) => (
+                            <option key={`${dataset.id}-kpi-field-${field.key}-${field.sourceColumn}`} value={field.key}>
+                              {field.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      {draft.aggregation === "ratio" ? (
+                        <label className="space-y-1 text-sm">
+                          <span className="font-medium text-slate-700">Denominateur</span>
+                          <select
+                            className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none transition focus:border-brand-300"
+                            value={draft.secondaryField}
+                            onChange={(event) => updateDraft(dataset, { secondaryField: event.target.value })}
+                          >
+                            {numericFields.map((field) => (
+                              <option key={`${dataset.id}-kpi-secondary-${field.key}-${field.sourceColumn}`} value={field.key}>
+                                {field.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      ) : null}
+                    </div>
+                    <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_240px]">
+                      <div className="rounded-md border border-line bg-white p-4">
+                        <p className="text-sm font-semibold text-ink">Apercu KPI</p>
+                        <p className="mt-2 text-2xl font-semibold text-brand-700">{kpiPreview.value}</p>
+                        <p className="mt-1 text-sm text-slate-600">
+                          {kpiPreview.rowCount} ligne(s) utilisee(s). Champ : {kpiPreview.sourceField?.label ?? "Toutes les lignes"}.
+                        </p>
+                        {[...kpiValidation.errors, ...kpiPreview.warnings].length > 0 ? (
+                          <p className="mt-2 text-xs leading-5 text-amber-700">
+                            {[...kpiValidation.errors, ...kpiPreview.warnings].join(" ")}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="flex flex-col justify-end gap-2">
+                        <Button onClick={() => generateKpi(dataset)} disabled={!kpiValidation.valid}>
+                          <TableProperties className="h-4 w-4" aria-hidden="true" />
+                          Generer KPI local
+                        </Button>
+                        <p className="text-xs leading-5 text-brand-700">
+                          Le KPI sera stocke localement et reutilise par Pilotage, Alertes, Priorites et Dashboard.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             );
