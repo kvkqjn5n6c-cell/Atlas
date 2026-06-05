@@ -9,11 +9,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getDatasetStatistics, summarizeDataset, validateDataset } from "@/lib/datasets/atlas-dataset-engine";
 import { applyDatasetFilters, summarizeDatasetFilters, validateDatasetFilters } from "@/lib/datasets/dataset-filter-engine";
 import type { DatasetFilter, DatasetFilterOperator, DatasetFilterSet } from "@/lib/datasets/dataset-filter-types";
+import { groupDataset, summarizeGroupBy, supportedGroupFields, validateGroupBy } from "@/lib/datasets/dataset-groupby-engine";
+import type { DatasetGroupByAggregation, DatasetGroupByAnalysis } from "@/lib/datasets/dataset-groupby-types";
 import { convertToLocalKpi, createDatasetKpi, previewDatasetKpi, validateDatasetKpi } from "@/lib/datasets/dataset-kpi-engine";
 import type { AtlasDataset } from "@/lib/datasets/atlas-dataset-types";
 import type { DatasetKpiAggregation, DatasetKpiDefinition } from "@/lib/datasets/dataset-kpi-types";
 import { getDatasets } from "@/lib/local/atlas-datasets-store";
 import { getDatasetFilterSetsByDatasetId, saveDatasetFilterSet } from "@/lib/local/dataset-filters-store";
+import { getDatasetGroupByAnalysesByDatasetId, saveDatasetGroupByAnalysis } from "@/lib/local/dataset-groupby-store";
 import { saveDatasetKpi } from "@/lib/local/dataset-kpi-store";
 import { saveLocalKpiHistoryPoint } from "@/lib/local/local-kpi-history-store";
 import { saveLocalKpiResult } from "@/lib/local/local-kpi-results-store";
@@ -35,6 +38,12 @@ const aggregationLabels: Record<DatasetKpiAggregation, string> = {
   sum: "SUM - Somme",
   average: "AVERAGE - Moyenne",
   ratio: "RATIO - Ratio"
+};
+
+const groupByAggregationLabels: Record<DatasetGroupByAggregation, string> = {
+  count: "COUNT",
+  sum: "SUM",
+  average: "AVERAGE"
 };
 
 const operatorLabels: Record<DatasetFilterOperator, string> = {
@@ -63,6 +72,12 @@ export function AtlasDatasetsPage() {
   const [mounted, setMounted] = useState(false);
   const [datasets, setDatasets] = useState<AtlasDataset[]>([]);
   const [filterSets, setFilterSets] = useState<Record<string, DatasetFilterSet>>({});
+  const [groupByDrafts, setGroupByDrafts] = useState<Record<string, {
+    aggregation: DatasetGroupByAggregation;
+    field: string;
+    groupedByField: string;
+  }>>({});
+  const [groupByAnalyses, setGroupByAnalyses] = useState<Record<string, DatasetGroupByAnalysis[]>>({});
   const [drafts, setDrafts] = useState<Record<string, {
     name: string;
     aggregation: DatasetKpiAggregation;
@@ -152,6 +167,57 @@ export function AtlasDatasetsPage() {
       field: firstNumericField?.key ?? "",
       secondaryField: dataset.fields.find((field) => field.atlasType === "number" && field.key !== firstNumericField?.key)?.key ?? ""
     };
+  }
+
+  function getGroupByDraft(dataset: AtlasDataset) {
+    const groupField = supportedGroupFields(dataset)[0] ?? dataset.fields[0];
+    const metricField = dataset.fields.find((field) => field.atlasType === "number") ?? dataset.fields[0];
+
+    return groupByDrafts[dataset.id] ?? {
+      aggregation: "count" as DatasetGroupByAggregation,
+      field: metricField?.key ?? "",
+      groupedByField: groupField?.key ?? ""
+    };
+  }
+
+  function updateGroupByDraft(dataset: AtlasDataset, patch: Partial<ReturnType<typeof getGroupByDraft>>) {
+    setGroupByDrafts((items) => ({ ...items, [dataset.id]: { ...getGroupByDraft(dataset), ...patch } }));
+    setMessage("");
+  }
+
+  function savedAnalyses(dataset: AtlasDataset) {
+    return groupByAnalyses[dataset.id] ?? getDatasetGroupByAnalysesByDatasetId(dataset.id);
+  }
+
+  function runGroupBy(dataset: AtlasDataset, filteredDataset: AtlasDataset) {
+    const draft = getGroupByDraft(dataset);
+    const analysis = groupDataset({
+      dataset: filteredDataset,
+      aggregation: draft.aggregation,
+      field: draft.aggregation === "count" ? undefined : draft.field,
+      groupedByField: draft.groupedByField
+    });
+    const validation = validateGroupBy({
+      dataset: filteredDataset,
+      aggregation: draft.aggregation,
+      field: draft.aggregation === "count" ? undefined : draft.field,
+      groupedByField: draft.groupedByField
+    });
+
+    if (!validation.valid) {
+      setMessage(validation.errors.join(" "));
+      return;
+    }
+
+    const saved = saveDatasetGroupByAnalysis({
+      ...analysis,
+      datasetId: dataset.id
+    });
+    setGroupByAnalyses((items) => ({
+      ...items,
+      [dataset.id]: [saved, ...savedAnalyses(dataset).filter((item) => item.id !== saved.id)]
+    }));
+    setMessage(`Analyse comparative ${saved.groupedBy.label} sauvegardee localement.`);
   }
 
   function updateDraft(dataset: AtlasDataset, patch: Partial<ReturnType<typeof getDraft>>) {
@@ -264,6 +330,23 @@ export function AtlasDatasetsPage() {
             const filtered = applyDatasetFilters(dataset, filterSet);
             const filterValidation = validateDatasetFilters(dataset, filterSet);
             const filterSummary = summarizeDatasetFilters(dataset, filtered.dataset, filterSet);
+            const groupByDraft = getGroupByDraft(dataset);
+            const groupByValidation = validateGroupBy({
+              dataset: filtered.dataset,
+              aggregation: groupByDraft.aggregation,
+              field: groupByDraft.aggregation === "count" ? undefined : groupByDraft.field,
+              groupedByField: groupByDraft.groupedByField
+            });
+            const currentGroupByAnalysis = groupByValidation.valid
+              ? groupDataset({
+                  dataset: filtered.dataset,
+                  aggregation: groupByDraft.aggregation,
+                  field: groupByDraft.aggregation === "count" ? undefined : groupByDraft.field,
+                  groupedByField: groupByDraft.groupedByField
+                })
+              : undefined;
+            const currentGroupBySummary = currentGroupByAnalysis ? summarizeGroupBy(currentGroupByAnalysis) : undefined;
+            const previousAnalyses = savedAnalyses(dataset);
             const draft = getDraft(dataset);
             const definition = buildDefinition(dataset);
             const kpiPreview = previewDatasetKpi(dataset, definition, filterSet.filters.length > 0 ? filterSet : undefined);
@@ -396,6 +479,118 @@ export function AtlasDatasetsPage() {
                         Aucun filtre actif : le KPI sera calcule sur l&apos;ensemble du dataset.
                       </p>
                     )}
+                  </div>
+
+                  <div className="rounded-lg border border-line bg-white p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="brand">Analyse comparative</Badge>
+                      <Badge>{filtered.dataset.rowCount} ligne(s) filtrees</Badge>
+                      <Badge>{currentGroupBySummary?.groupCount ?? 0} groupe(s)</Badge>
+                    </div>
+                    <div className="mt-4 grid gap-3 lg:grid-cols-3">
+                      <label className="space-y-1 text-sm">
+                        <span className="font-medium text-slate-700">Aggregation</span>
+                        <select
+                          className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none transition focus:border-brand-300"
+                          value={groupByDraft.aggregation}
+                          onChange={(event) => updateGroupByDraft(dataset, { aggregation: event.target.value as DatasetGroupByAggregation })}
+                        >
+                          {Object.entries(groupByAggregationLabels).map(([value, label]) => (
+                            <option key={value} value={value}>{label}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="space-y-1 text-sm">
+                        <span className="font-medium text-slate-700">Champ KPI</span>
+                        <select
+                          className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none transition focus:border-brand-300"
+                          value={groupByDraft.field}
+                          disabled={groupByDraft.aggregation === "count"}
+                          onChange={(event) => updateGroupByDraft(dataset, { field: event.target.value })}
+                        >
+                          {dataset.fields.filter((field) => field.atlasType === "number").map((field) => (
+                            <option key={`${dataset.id}-groupby-metric-${field.key}-${field.sourceColumn}`} value={field.key}>
+                              {field.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="space-y-1 text-sm">
+                        <span className="font-medium text-slate-700">Regrouper par</span>
+                        <select
+                          className="h-10 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none transition focus:border-brand-300"
+                          value={groupByDraft.groupedByField}
+                          onChange={(event) => updateGroupByDraft(dataset, { groupedByField: event.target.value })}
+                        >
+                          {(supportedGroupFields(dataset).length > 0 ? supportedGroupFields(dataset) : dataset.fields).map((field) => (
+                            <option key={`${dataset.id}-groupby-field-${field.key}-${field.sourceColumn}`} value={field.key}>
+                              {field.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+
+                    {currentGroupBySummary ? (
+                      <div className="mt-4 grid gap-3 lg:grid-cols-4">
+                        <div className="rounded-md border border-line bg-slate-50 p-3">
+                          <p className="text-xs text-slate-500">Meilleur groupe</p>
+                          <p className="mt-1 text-sm font-semibold text-ink">{currentGroupBySummary.bestGroup?.groupValue ?? "-"}</p>
+                          <p className="mt-1 text-xs text-slate-500">{currentGroupBySummary.bestGroup?.value ?? 0}</p>
+                        </div>
+                        <div className="rounded-md border border-line bg-slate-50 p-3">
+                          <p className="text-xs text-slate-500">Moins bon groupe</p>
+                          <p className="mt-1 text-sm font-semibold text-ink">{currentGroupBySummary.worstGroup?.groupValue ?? "-"}</p>
+                          <p className="mt-1 text-xs text-slate-500">{currentGroupBySummary.worstGroup?.value ?? 0}</p>
+                        </div>
+                        <div className="rounded-md border border-line bg-slate-50 p-3">
+                          <p className="text-xs text-slate-500">Ecart</p>
+                          <p className="mt-1 text-sm font-semibold text-ink">{currentGroupBySummary.gap ?? 0}</p>
+                        </div>
+                        <div className="rounded-md border border-line bg-slate-50 p-3">
+                          <p className="text-xs text-slate-500">Dispersion</p>
+                          <p className="mt-1 text-sm font-semibold text-ink">{currentGroupBySummary.dispersion ?? 0}</p>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {currentGroupByAnalysis && currentGroupByAnalysis.results.length > 0 ? (
+                      <div className="mt-4 overflow-x-auto rounded-lg border border-line">
+                        <table className="min-w-[720px] w-full border-collapse text-left text-sm">
+                          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                            <tr>
+                              <th className="px-4 py-3 font-medium">Groupe</th>
+                              <th className="px-4 py-3 font-medium">Lignes</th>
+                              <th className="px-4 py-3 font-medium">Valeur</th>
+                              <th className="px-4 py-3 font-medium">% lignes</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-line bg-white">
+                            {currentGroupByAnalysis.results.slice(0, 8).map((result) => (
+                              <tr key={`${dataset.id}-groupby-${result.groupValue}`} className="align-top transition hover:bg-slate-50">
+                                <td className="px-4 py-3 font-medium text-ink">{result.groupValue}</td>
+                                <td className="px-4 py-3 text-slate-600">{result.rowCount}</td>
+                                <td className="px-4 py-3 text-slate-600">{result.value}</td>
+                                <td className="px-4 py-3 text-slate-600">{result.percentage ?? 0}%</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : null}
+
+                    {[...groupByValidation.errors, ...groupByValidation.warnings].length > 0 ? (
+                      <p className="mt-3 text-xs leading-5 text-amber-700">
+                        {[...groupByValidation.errors, ...groupByValidation.warnings].join(" ")}
+                      </p>
+                    ) : null}
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Button onClick={() => runGroupBy(dataset, filtered.dataset)} disabled={!groupByValidation.valid}>
+                        Sauvegarder analyse comparative
+                      </Button>
+                      <Badge>{previousAnalyses.length} analyse(s) historique(s)</Badge>
+                    </div>
                   </div>
 
                   {[...validation.errors, ...statistics.warnings].length > 0 ? (
