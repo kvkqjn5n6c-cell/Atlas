@@ -216,6 +216,8 @@ function buildPriorityItem(context: ScoreContext, organizationId: string): Local
     ...(context.recommendation?.relatedGroupByInsightIds ?? []),
     ...(context.groupByInsight ? [context.groupByInsight.id] : [])
   ]);
+  const groupValue = context.recommendation?.groupValue ?? context.groupByInsight?.groupValue;
+  const datasetSourceLabel = context.recommendation?.datasetSourceLabel ?? (context.groupByInsight ? `Dataset ${context.groupByInsight.datasetId}` : undefined);
   const title = context.recommendation?.title ?? context.alert?.title ?? context.kpiResult?.name ?? "Priorité Atlas";
   const summary = context.recommendation?.summary ?? context.alert?.cause ?? `KPI ${context.kpiResult?.name ?? "local"} à examiner.`;
   const nextAction =
@@ -242,6 +244,8 @@ function buildPriorityItem(context: ScoreContext, organizationId: string): Local
     relatedActionPlanIds,
     relatedDatasetIds,
     relatedGroupByInsightIds,
+    groupValue,
+    datasetSourceLabel,
     relatedMemoryReferences: context.recommendation?.relatedMemoryReferences ?? [],
     recommendedNextAction: nextAction,
     reasons,

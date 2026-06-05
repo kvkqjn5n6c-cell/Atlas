@@ -82,6 +82,34 @@ describe("local action plans store", () => {
     expect(plan.persisted).toBe(false);
   });
 
+  it("cree un plan local depuis une recommandation Group By Dataset", () => {
+    const recommendation = buildRecommendation({
+      id: "recommendation-groupby-1",
+      title: "Analyser la concentration observee sur Region Est",
+      summary: "La region Est concentre une part importante des couts.",
+      sourceType: "dataset_groupby_insight",
+      category: "risk",
+      relatedKpiIds: [],
+      relatedAlertIds: [],
+      relatedInsightIds: [],
+      relatedDatasetIds: ["dataset-1"],
+      relatedGroupByInsightIds: ["groupby-insight-1"],
+      groupValue: "Region Est",
+      datasetSourceLabel: "Dataset dataset-1",
+      evidence: [{ type: "dataset_groupby_insight", label: "Concentration", value: 62 }]
+    });
+
+    const plan = buildLocalActionPlanFromRecommendation(recommendation);
+    saveLocalActionPlan(plan);
+
+    expect(plan.sourceType).toBe("dataset_groupby_insight");
+    expect(plan.relatedDatasetIds).toEqual(["dataset-1"]);
+    expect(plan.relatedGroupByInsightIds).toEqual(["groupby-insight-1"]);
+    expect(plan.groupValue).toBe("Region Est");
+    expect(plan.description).toContain("Groupe concerne : Region Est");
+    expect(getLocalActionPlansByRecommendationId(recommendation.id)).toHaveLength(1);
+  });
+
   it("sauvegarde et recupere les plans locaux", () => {
     const plan = buildLocalActionPlanFromRecommendation(buildRecommendation());
 

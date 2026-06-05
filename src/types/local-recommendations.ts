@@ -38,6 +38,8 @@ export type LocalRecommendation = {
   relatedInsightIds: string[];
   relatedDatasetIds?: string[];
   relatedGroupByInsightIds?: string[];
+  groupValue?: string;
+  datasetSourceLabel?: string;
   relatedMemoryReferences: string[];
   evidence: RecommendationEvidence[];
   recommendedActions: RecommendationAction[];

@@ -12,6 +12,12 @@ function taskId(recommendationId: string, index: number) {
 export function buildLocalActionPlanFromRecommendation(recommendation: LocalRecommendation): LocalActionPlan {
   const createdAt = now();
   const firstAlertId = recommendation.relatedAlertIds[0];
+  const isDatasetGroupByRecommendation = recommendation.sourceType === "dataset_groupby_insight";
+  const description = [
+    recommendation.summary,
+    recommendation.groupValue ? `Groupe concerne : ${recommendation.groupValue}.` : "",
+    recommendation.datasetSourceLabel ? `Source Dataset : ${recommendation.datasetSourceLabel}.` : ""
+  ].filter(Boolean).join("\n");
   const tasks = recommendation.recommendedActions.length > 0
     ? recommendation.recommendedActions.map((action, index) => ({
         id: taskId(recommendation.id, index),
@@ -32,11 +38,16 @@ export function buildLocalActionPlanFromRecommendation(recommendation: LocalReco
     id: `local-plan-${recommendation.id}`,
     organizationId: recommendation.organizationId,
     title: recommendation.title,
-    description: recommendation.summary,
+    description,
+    sourceType: recommendation.sourceType,
     sourceRecommendationId: recommendation.id,
     sourceAlertId: firstAlertId,
     relatedKpiIds: recommendation.relatedKpiIds,
     relatedInsightIds: recommendation.relatedInsightIds,
+    relatedDatasetIds: recommendation.relatedDatasetIds ?? [],
+    relatedGroupByInsightIds: recommendation.relatedGroupByInsightIds ?? [],
+    groupValue: recommendation.groupValue,
+    datasetSourceLabel: recommendation.datasetSourceLabel,
     priority: recommendation.priority,
     status: "todo",
     owner: recommendation.recommendedActions[0]?.ownerSuggestion ?? "Responsable à définir",

@@ -16,10 +16,15 @@ export type LocalActionPlan = {
   organizationId: string;
   title: string;
   description: string;
+  sourceType?: "kpi" | "alert" | "rule" | "insight" | "memory" | "summary" | "dataset_groupby_insight";
   sourceRecommendationId?: string;
   sourceAlertId?: string;
   relatedKpiIds: string[];
   relatedInsightIds: string[];
+  relatedDatasetIds?: string[];
+  relatedGroupByInsightIds?: string[];
+  groupValue?: string;
+  datasetSourceLabel?: string;
   priority: RecommendationPriority;
   status: LocalActionPlanStatus;
   owner: string;

@@ -341,6 +341,8 @@ export function generateGroupByInsightRecommendations(input: RecommendationInput
         relatedInsightIds: [],
         relatedDatasetIds: [insight.datasetId],
         relatedGroupByInsightIds: [insight.id],
+        groupValue: insight.groupValue,
+        datasetSourceLabel: `Dataset ${insight.datasetId}`,
         relatedMemoryReferences: [],
         evidence: [
           groupByInsightEvidence(insight),

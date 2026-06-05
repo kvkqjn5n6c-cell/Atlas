@@ -65,6 +65,8 @@ function PriorityCard({ priority }: { priority: LocalPriorityItem }) {
             {priority.relatedActionPlanIds.length > 0 ? <Badge>{priority.relatedActionPlanIds.length} plan(s)</Badge> : null}
             {(priority.relatedGroupByInsightIds?.length ?? 0) > 0 ? <Badge>{priority.relatedGroupByInsightIds?.length} insight(s) comparatif(s)</Badge> : null}
             {(priority.relatedDatasetIds?.length ?? 0) > 0 ? <Badge>{priority.relatedDatasetIds?.length} dataset(s)</Badge> : null}
+            {priority.groupValue ? <Badge>Groupe {priority.groupValue}</Badge> : null}
+            {priority.datasetSourceLabel ? <Badge>{priority.datasetSourceLabel}</Badge> : null}
             {priority.relatedMemoryReferences.length > 0 ? <Badge>{priority.relatedMemoryReferences.length} mémoire</Badge> : null}
           </div>
           {priority.warnings.length > 0 ? (

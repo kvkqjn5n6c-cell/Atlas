@@ -17,7 +17,8 @@ export type DecisionJournalSourceType =
   | "impact"
   | "feedback"
   | "confidence"
-  | "memory";
+  | "memory"
+  | "dataset_groupby_insight";
 
 export type DecisionJournalMemoryReference = {
   sourceDocument?: string;
@@ -42,6 +43,8 @@ export type DecisionJournalEntry = {
   relatedKpiIds: string[];
   relatedRecommendationIds: string[];
   relatedActionPlanIds: string[];
+  relatedDatasetIds?: string[];
+  relatedGroupByInsightIds?: string[];
   relatedMemoryReferences: DecisionJournalMemoryReference[];
   metadata: Record<string, DecisionJournalMetadataValue>;
 };

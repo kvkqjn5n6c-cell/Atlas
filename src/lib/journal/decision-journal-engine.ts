@@ -42,12 +42,16 @@ export function recordRecommendationCreated(recommendation: LocalRecommendation)
     relatedKpiIds: recommendation.relatedKpiIds,
     relatedRecommendationIds: [recommendation.id],
     relatedActionPlanIds: [],
+    relatedDatasetIds: recommendation.relatedDatasetIds,
+    relatedGroupByInsightIds: recommendation.relatedGroupByInsightIds,
     relatedMemoryReferences: memoryReferencesFromLabels(recommendation.relatedMemoryReferences),
     metadata: {
       category: recommendation.category,
       effort: recommendation.effort,
       urgency: recommendation.urgency,
-      expectedImpact: recommendation.expectedImpact
+      expectedImpact: recommendation.expectedImpact,
+      groupValue: recommendation.groupValue,
+      datasetSourceLabel: recommendation.datasetSourceLabel
     }
   });
 }
@@ -66,12 +70,17 @@ export function recordActionPlanCreated(plan: LocalActionPlan) {
     relatedKpiIds: plan.relatedKpiIds,
     relatedRecommendationIds: plan.sourceRecommendationId ? [plan.sourceRecommendationId] : [],
     relatedActionPlanIds: [plan.id],
+    relatedDatasetIds: plan.relatedDatasetIds,
+    relatedGroupByInsightIds: plan.relatedGroupByInsightIds,
     relatedMemoryReferences: [],
     metadata: {
       owner: plan.owner,
       dueDate: plan.dueDate,
       expectedImpact: plan.expectedImpact,
-      taskCount: plan.actions.length
+      taskCount: plan.actions.length,
+      sourceType: plan.sourceType,
+      groupValue: plan.groupValue,
+      datasetSourceLabel: plan.datasetSourceLabel
     }
   });
 }
@@ -90,6 +99,8 @@ export function recordActionPlanUpdated(plan: LocalActionPlan, description?: str
     relatedKpiIds: plan.relatedKpiIds,
     relatedRecommendationIds: plan.sourceRecommendationId ? [plan.sourceRecommendationId] : [],
     relatedActionPlanIds: [plan.id],
+    relatedDatasetIds: plan.relatedDatasetIds,
+    relatedGroupByInsightIds: plan.relatedGroupByInsightIds,
     relatedMemoryReferences: [],
     metadata: {
       owner: plan.owner,

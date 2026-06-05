@@ -32,6 +32,8 @@ export type LocalPriorityItem = {
   relatedActionPlanIds: string[];
   relatedDatasetIds?: string[];
   relatedGroupByInsightIds?: string[];
+  groupValue?: string;
+  datasetSourceLabel?: string;
   relatedMemoryReferences: string[];
   recommendedNextAction: string;
   reasons: string[];

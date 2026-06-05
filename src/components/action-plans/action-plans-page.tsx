@@ -166,6 +166,7 @@ function LocalActionPlansSection() {
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="brand">Plan local</Badge>
                   <Badge variant="success">Depuis recommandation Atlas</Badge>
+                  {plan.sourceType === "dataset_groupby_insight" ? <Badge variant="brand">Dataset</Badge> : null}
                   <Badge variant={priorityVariant(plan.priority)}>{localPriorityLabels[plan.priority]}</Badge>
                   <Badge variant={statusVariant(plan.status)}>{localStatusLabels[plan.status]}</Badge>
                 </div>
@@ -176,6 +177,9 @@ function LocalActionPlansSection() {
                   <p>Échéance : <span className="font-medium text-ink">{plan.dueDate ?? "À définir"}</span></p>
                   <p>KPI liés : <span className="font-medium text-ink">{plan.relatedKpiIds.length}</span></p>
                   <p>Impact : <span className="font-medium text-ink">{plan.expectedImpact}</span></p>
+                  {plan.datasetSourceLabel ? <p>Dataset : <span className="font-medium text-ink">{plan.datasetSourceLabel}</span></p> : null}
+                  {plan.groupValue ? <p>Groupe : <span className="font-medium text-ink">{plan.groupValue}</span></p> : null}
+                  {(plan.relatedGroupByInsightIds?.length ?? 0) > 0 ? <p>Insight comparatif : <span className="font-medium text-ink">{plan.relatedGroupByInsightIds?.[0]}</span></p> : null}
                 </div>
                 <div className="mt-4 space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tâches</p>

@@ -255,6 +255,8 @@ function RecommendedActionPlan({
                 <Badge variant={recommendationPriorityVariant[recommendation.priority]}>{recommendation.priority}</Badge>
                 <Badge>{recommendation.category}</Badge>
                 <Badge>Effort {recommendation.effort}</Badge>
+                {recommendation.sourceType === "dataset_groupby_insight" ? <Badge variant="brand">Dataset / Group By</Badge> : null}
+                {recommendation.groupValue ? <Badge>Groupe {recommendation.groupValue}</Badge> : null}
                 {knownRecommendationIds.has(recommendation.id) ? <Badge variant="success">Plan créé</Badge> : null}
                 {feedbackItems.some((feedback) => feedback.recommendationId === recommendation.id) ? <Badge variant="success">Feedback enregistré</Badge> : null}
               </div>

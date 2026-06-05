@@ -88,6 +88,32 @@ Les objets produits conservent les liens vers :
 - l'analyse Group By source ;
 - les raisons explicables de l'insight.
 
+## Passage a l'action
+
+Depuis la Phase 67, une recommandation issue d'un insight comparatif peut etre transformee explicitement en plan d'action local.
+
+La boucle couverte est :
+
+Dataset Atlas
+-> Analyse Group By
+-> Insight comparatif
+-> Recommandation Atlas
+-> Plan d'action local
+-> Journal decisionnel
+
+Le plan cree depuis une recommandation `dataset_groupby_insight` conserve :
+
+- le ou les `relatedDatasetIds` ;
+- le ou les `relatedGroupByInsightIds` ;
+- le groupe concerne (`groupValue`) ;
+- le libelle de source dataset (`datasetSourceLabel`) ;
+- les actions proposees par la recommandation ;
+- l'impact attendu.
+
+La creation reste volontaire : Atlas propose le plan, mais l'utilisateur clique explicitement sur "Creer un plan d'action".
+
+Le journal decisionnel enregistre aussi ces references afin de retracer pourquoi le plan a ete lance et quel signal comparatif l'a declenche.
+
 ## Stockage
 
 Les insights sont stockes localement via `dataset-groupby-insights-store.ts`.

@@ -78,6 +78,25 @@ function recommendation(): LocalRecommendation {
   };
 }
 
+function groupByRecommendation(): LocalRecommendation {
+  return {
+    ...recommendation(),
+    id: "recommendation-groupby-1",
+    title: "Analyser la concentration observee sur Region Est",
+    summary: "La region Est concentre une part importante des couts.",
+    sourceType: "dataset_groupby_insight",
+    category: "risk",
+    relatedKpiIds: [],
+    relatedAlertIds: [],
+    relatedInsightIds: [],
+    relatedDatasetIds: ["dataset-1"],
+    relatedGroupByInsightIds: ["groupby-insight-1"],
+    groupValue: "Region Est",
+    datasetSourceLabel: "Dataset dataset-1",
+    evidence: [{ type: "dataset_groupby_insight", label: "Concentration", value: 62 }]
+  };
+}
+
 function feedback(): LocalRecommendationFeedback {
   return {
     id: "feedback-1",
@@ -149,6 +168,19 @@ describe("decision journal", () => {
 
     expect(getJournalEntriesByType("recommendation_created")).toHaveLength(1);
     expect(getJournalEntriesByType("action_plan_created")[0].relatedRecommendationIds).toEqual(["recommendation-1"]);
+  });
+
+  it("journalise les plans issus d'un insight comparatif Dataset", () => {
+    const recommendationItem = groupByRecommendation();
+    const plan = buildLocalActionPlanFromRecommendation(recommendationItem);
+
+    recordActionPlanCreated(plan);
+
+    const entry = getJournalEntriesByType("action_plan_created")[0];
+    expect(entry.relatedDatasetIds).toEqual(["dataset-1"]);
+    expect(entry.relatedGroupByInsightIds).toEqual(["groupby-insight-1"]);
+    expect(entry.metadata.groupValue).toBe("Region Est");
+    expect(entry.metadata.datasetSourceLabel).toBe("Dataset dataset-1");
   });
 
   it("alimente automatiquement le journal depuis le feedback et la memoire", () => {

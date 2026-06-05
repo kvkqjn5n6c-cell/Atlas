@@ -465,6 +465,8 @@ function RecommendationsSection({
                   <Badge>{recommendation.category}</Badge>
                   <Badge>Effort {recommendation.effort}</Badge>
                   <Badge>Urgence {recommendation.urgency}</Badge>
+                  {recommendation.sourceType === "dataset_groupby_insight" ? <Badge variant="brand">Dataset / Group By</Badge> : null}
+                  {recommendation.groupValue ? <Badge>Groupe {recommendation.groupValue}</Badge> : null}
                   {knownRecommendationIds.has(recommendation.id) ? <Badge variant="success">Plan créé</Badge> : null}
                 </div>
                 <h3 className="mt-3 font-semibold text-ink">{recommendation.title}</h3>
