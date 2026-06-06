@@ -12,6 +12,8 @@ import type { LocalRecommendationFeedback } from "@/types/local-recommendation-f
 import type { LocalRecommendation } from "@/types/local-recommendations";
 import type { RecommendationConfidence } from "@/types/recommendation-confidence";
 import type { DatasetGroupByInsight } from "@/lib/datasets/dataset-groupby-insight-types";
+import type { AtlasDataset } from "@/lib/datasets/atlas-dataset-types";
+import type { DatasetGroupByAnalysis } from "@/lib/datasets/dataset-groupby-types";
 
 type LocalCopilBriefInput = {
   organizationId: string;
@@ -29,6 +31,8 @@ type LocalCopilBriefInput = {
   memoryReferences?: LocalInsightMemoryReference[];
   decisionJournalEntries?: DecisionJournalEntry[];
   copilContextPack?: AtlasContextPack;
+  datasets?: AtlasDataset[];
+  datasetGroupByAnalyses?: DatasetGroupByAnalysis[];
   datasetGroupByInsights?: DatasetGroupByInsight[];
 };
 
@@ -170,6 +174,42 @@ function generateKeyKpis(results: LocalKpiResult[] = []) {
   ), 6);
 }
 
+function generateDatasetHighlights(input: {
+  datasets?: AtlasDataset[];
+  datasetGroupByAnalyses?: DatasetGroupByAnalysis[];
+  datasetGroupByInsights?: DatasetGroupByInsight[];
+  recommendations?: LocalRecommendation[];
+  actionPlans?: LocalActionPlan[];
+}) {
+  const datasets = input.datasets ?? [];
+  const analyses = input.datasetGroupByAnalyses ?? [];
+  const insights = input.datasetGroupByInsights ?? [];
+  const datasetRecommendations = (input.recommendations ?? []).filter((recommendation) => recommendation.sourceType === "dataset_groupby_insight");
+  const datasetPlans = (input.actionPlans ?? []).filter((plan) => plan.sourceType === "dataset_groupby_insight");
+  const bestGroups = insights
+    .filter((insight) => insight.insightType === "best_group")
+    .map((insight) => `Meilleur groupe : ${insight.groupValue} (${insight.title}).`);
+  const weakGroups = insights
+    .filter((insight) => insight.insightType === "weak_group")
+    .map((insight) => `Groupe faible : ${insight.groupValue} (${insight.title}).`);
+  const concentrations = insights
+    .filter((insight) => insight.insightType === "concentration")
+    .map((insight) => `Concentration a arbitrer : ${insight.groupValue} (${insight.value}).`);
+  const actions = datasetPlans.map((plan) =>
+    `Action engagee depuis Dataset : ${plan.title}${plan.groupValue ? ` pour ${plan.groupValue}` : ""}.`
+  );
+
+  return limit([
+    datasets.length > 0 ? `${datasets.length} dataset(s) Atlas exploite(s) pour preparer le COPIL.` : "",
+    analyses.length > 0 ? `${analyses.length} analyse(s) comparative(s) Group By disponible(s).` : "",
+    ...bestGroups,
+    ...weakGroups,
+    ...concentrations,
+    datasetRecommendations.length > 0 ? `${datasetRecommendations.length} recommandation(s) issue(s) Dataset.` : "",
+    ...actions
+  ], 8);
+}
+
 function buildSection(title: string, summary: string, items: string[]): LocalCopilSection {
   return {
     title,
@@ -186,6 +226,13 @@ export function generateLocalCopilBrief(input: LocalCopilBriefInput): LocalCopil
   const impacts = input.impacts ?? [];
   const decisionJournalEntries = input.decisionJournalEntries ?? [];
   const datasetGroupByInsights = input.datasetGroupByInsights ?? [];
+  const datasetHighlights = generateDatasetHighlights({
+    datasets: input.datasets,
+    datasetGroupByAnalyses: input.datasetGroupByAnalyses,
+    datasetGroupByInsights,
+    recommendations,
+    actionPlans
+  });
   const globalSituation =
     input.executiveSummary?.globalSituation ??
     (kpiResults.length > 0
@@ -251,10 +298,12 @@ export function generateLocalCopilBrief(input: LocalCopilBriefInput): LocalCopil
     risks,
     nextActions,
     comparativeInsights,
+    datasetHighlights,
     memoryReferences,
     confidenceNotes,
     sections: [
       buildSection("Situation", globalSituation, keyKpis),
+      buildSection("Faits marquants issus des donnees", `${datasetHighlights.length} fait(s) Dataset.`, datasetHighlights),
       buildSection("Priorités", `${mainPriorities.length} priorité(s) à traiter.`, mainPriorities),
       buildSection("Risques", `${risks.length} risque(s) à examiner.`, risks),
       buildSection("Arbitrages", `${arbitrationPoints.length} point(s) à décider.`, arbitrationPoints),
@@ -284,6 +333,9 @@ export function generateLocalCopilBriefMarkdown(brief: LocalCopilBrief) {
     "",
     "## KPI à examiner",
     markdownList(brief.keyKpis),
+    "",
+    "## Faits marquants issus des donnees",
+    markdownList(brief.datasetHighlights ?? []),
     "",
     "## Risques",
     markdownList(brief.risks),

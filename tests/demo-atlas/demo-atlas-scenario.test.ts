@@ -8,9 +8,9 @@ describe("demo atlas scenario", () => {
     expect(demoAtlasScenario.promise).toContain("voir");
   });
 
-  it("contient les dix etapes du parcours guide", () => {
-    expect(demoAtlasScenario.steps).toHaveLength(10);
-    expect(demoAtlasScenario.steps.map((step) => step.order)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  it("contient les onze etapes du parcours guide", () => {
+    expect(demoAtlasScenario.steps).toHaveLength(11);
+    expect(demoAtlasScenario.steps.map((step) => step.order)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
   });
 
   it("couvre les moments cles de la demonstration", () => {
@@ -18,6 +18,7 @@ describe("demo atlas scenario", () => {
 
     expect(stepTitles).toContain("Situation initiale");
     expect(stepTitles).toContain("Détection Atlas");
+    expect(demoAtlasScenario.steps.some((step) => step.id === "dataset-flow")).toBe(true);
     expect(stepTitles).toContain("Priorités Atlas");
     expect(stepTitles).toContain("Recommandations Atlas");
     expect(stepTitles).toContain("Plan d'action proposé");
@@ -38,6 +39,8 @@ describe("demo atlas scenario", () => {
 
     expect(markdown).toContain("# Démonstration Atlas - Nova Services Maintenance");
     expect(markdown).toContain("## Détection Atlas");
+    expect(markdown).toContain("## Flux donnee vers action");
+    expect(markdown).toContain("Dataset Atlas");
     expect(markdown).toContain("## Priorité principale");
     expect(markdown).toContain("## Recommandation");
     expect(markdown).toContain("## Plan d'action");

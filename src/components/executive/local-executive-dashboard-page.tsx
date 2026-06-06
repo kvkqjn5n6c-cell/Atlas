@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useLocalKpiWorkspace } from "@/hooks/use-local-kpi-workspace";
-import type { ExecutiveDashboardCard, ExecutiveGlobalStatus } from "@/types/local-executive-dashboard";
+import type { ExecutiveDashboardCard, ExecutiveDatasetSignal, ExecutiveGlobalStatus } from "@/types/local-executive-dashboard";
 import type { ConfidenceLevel } from "@/types/recommendation-confidence";
 
 const statusLabels: Record<ExecutiveGlobalStatus, string> = {
@@ -95,6 +95,40 @@ function SimpleListCard({ title, items, emptyLabel }: { title: string; items: st
   );
 }
 
+function DatasetDecisionFlowCard({ signals, flow }: { signals: ExecutiveDatasetSignal[]; flow: string[] }) {
+  return (
+    <Card className="border-brand-100">
+      <CardHeader>
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle>Décisions issues des données</CardTitle>
+          <Badge variant="brand">Dataset → Analyse → Action</Badge>
+        </div>
+        <p className="mt-1 text-sm text-slate-500">
+          Lecture synthétique des signaux issus des Datasets Atlas et des analyses comparatives.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          {signals.map((signal) => (
+            <div key={signal.label} className="rounded-md border border-line bg-slate-50 p-3">
+              <Badge variant={statusVariants[signal.status]}>{signal.label}</Badge>
+              <p className="mt-2 text-2xl font-semibold text-ink">{signal.value}</p>
+              <p className="mt-1 text-xs leading-5 text-slate-600">{signal.summary}</p>
+            </div>
+          ))}
+        </div>
+        <div className="grid gap-2 md:grid-cols-5">
+          {flow.map((item, index) => (
+            <div key={`dataset-flow-${index}-${item}`} className="rounded-md border border-brand-100 bg-brand-50 p-3 text-xs leading-5 text-brand-800">
+              {item}
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function LocalExecutiveDashboardPage() {
   const [mounted, setMounted] = useState(false);
   const { data: workspace } = useLocalKpiWorkspace();
@@ -104,7 +138,10 @@ export function LocalExecutiveDashboardPage() {
     workspace.alerts.length > 0 ||
     workspace.recommendations.length > 0 ||
     workspace.priorities.length > 0 ||
-    workspace.actionPlans.length > 0;
+    workspace.actionPlans.length > 0 ||
+    workspace.datasets.length > 0 ||
+    workspace.datasetGroupByAnalyses.length > 0 ||
+    workspace.datasetGroupByInsights.length > 0;
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => setMounted(true), 0);
@@ -184,6 +221,11 @@ export function LocalExecutiveDashboardPage() {
         title="À traiter en priorité"
         emptyLabel="Aucune priorité particulière détectée."
         cards={dashboard.topPriorities}
+      />
+
+      <DatasetDecisionFlowCard
+        signals={dashboard.datasetSignals ?? []}
+        flow={dashboard.datasetDecisionFlow ?? []}
       />
 
       <div className="grid gap-6 xl:grid-cols-2">

@@ -24,7 +24,10 @@ export type AtlasContextSource = {
     | "action_plan_impact"
     | "decision_history"
     | "priority"
-    | "executive_dashboard";
+    | "executive_dashboard"
+    | "dataset"
+    | "dataset_groupby_analysis"
+    | "dataset_groupby_insight";
   id: string;
   title: string;
   sourceDocument?: AtlasMemoryDocumentKey;
@@ -51,6 +54,7 @@ export type AtlasContextPack = {
   includedDecisionHistory: AtlasContextSource[];
   includedPriorities: AtlasContextSource[];
   includedExecutiveDashboard: AtlasContextSource[];
+  includedDatasetSignals: AtlasContextSource[];
   summary: string;
   limitations: string[];
   persisted: false;

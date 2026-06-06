@@ -23,7 +23,10 @@ test.describe("demo Atlas guidee", () => {
     await expect(page.getByRole("heading", { name: /Situation initiale/i })).toBeVisible();
     await expect(previousButton).toBeEnabled();
 
-    await page.getByRole("button", { name: /10\./ }).click();
+    await page.getByRole("button", { name: /4\./ }).click();
+    await expect(page.getByRole("heading", { name: /donnees operationnelles/i })).toBeVisible();
+
+    await page.getByRole("button", { name: /11\./ }).click();
     await expect(page.getByRole("heading", { name: /Valeur globale/i })).toBeVisible();
     await expect(nextButton).toBeDisabled();
     await expect(page.getByText(/Conclusion/i).first()).toBeVisible();

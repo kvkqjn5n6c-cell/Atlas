@@ -7,6 +7,7 @@ import {
   BarChart3,
   CheckCircle2,
   ClipboardCopy,
+  Database,
   FileText,
   Gauge,
   ListChecks,
@@ -28,7 +29,7 @@ import {
   type DemoAtlasStep
 } from "@/lib/mock/demo-atlas-scenario";
 
-const stepIcons = [Users, TrendingDown, ShieldAlert, Target, CheckCircle2, ListChecks, BarChart3, Gauge, Presentation, FileText];
+const stepIcons = [Users, TrendingDown, ShieldAlert, Database, Target, CheckCircle2, ListChecks, BarChart3, Gauge, Presentation, FileText];
 
 const metricVariant: Record<DemoAtlasSeverity, "success" | "warning" | "danger"> = {
   stable: "success",

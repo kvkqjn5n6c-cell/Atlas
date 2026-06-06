@@ -24,6 +24,7 @@ export type LocalCopilBrief = {
   risks: string[];
   nextActions: string[];
   comparativeInsights?: string[];
+  datasetHighlights?: string[];
   memoryReferences: LocalInsightMemoryReference[];
   confidenceNotes: string[];
   sections: LocalCopilSection[];

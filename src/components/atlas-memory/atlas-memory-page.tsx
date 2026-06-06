@@ -273,6 +273,7 @@ function ContextPacksSection({
               <ContextSourceList title="Historique décisionnel inclus" sources={selectedPack.includedDecisionHistory} />
               <ContextSourceList title="Priorités Atlas incluses" sources={selectedPack.includedPriorities} />
               <ContextSourceList title="Dashboard dirigeant inclus" sources={selectedPack.includedExecutiveDashboard} />
+              <ContextSourceList title="Signaux Dataset inclus" sources={selectedPack.includedDatasetSignals} />
             </div>
             <div className="mt-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Limites et exclusions</p>

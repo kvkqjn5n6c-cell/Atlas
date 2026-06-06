@@ -101,6 +101,7 @@ function CopilContextCard({ pack }: { pack?: AtlasContextPack }) {
           <ContextSourceList title="KPI et alertes" sources={[...pack.includedKpis, ...pack.includedAlerts]} />
           <ContextSourceList title="Priorités Atlas" sources={pack.includedPriorities} />
           <ContextSourceList title="Dashboard dirigeant" sources={pack.includedExecutiveDashboard} />
+          <ContextSourceList title="Signaux Dataset" sources={pack.includedDatasetSignals} />
           <ContextSourceList title="Décisions récentes" sources={pack.includedDecisionHistory} />
         </div>
         <div>
@@ -139,7 +140,10 @@ function buildCopilContextPack(
     actionPlanImpacts: workspace.actionPlanImpacts,
     decisionJournalEntries: workspace.decisionJournalEntries,
     priorities: workspace.priorities,
-    executiveDashboard: workspace.executiveDashboard
+    executiveDashboard: workspace.executiveDashboard,
+    datasets: workspace.datasets,
+    datasetGroupByAnalyses: workspace.datasetGroupByAnalyses,
+    datasetGroupByInsights: workspace.datasetGroupByInsights
   });
 }
 
@@ -184,6 +188,8 @@ export function LocalCopilPage() {
         memoryReferences: workspace.usedMemoryReferences,
         decisionJournalEntries: workspace.decisionJournalEntries,
         copilContextPack,
+        datasets: workspace.datasets,
+        datasetGroupByAnalyses: workspace.datasetGroupByAnalyses,
         datasetGroupByInsights: workspace.datasetGroupByInsights
       }),
     [copilContextPack, workspace]
@@ -256,6 +262,7 @@ export function LocalCopilPage() {
         <ListBlock title="Plans d'action actifs" items={brief.activeActionPlans} />
         <ListBlock title="Impacts mesurés" items={brief.measuredImpacts} />
         <ListBlock title="Décisions récentes" items={brief.recentDecisions} />
+        <ListBlock title="Faits marquants issus des données" items={brief.datasetHighlights ?? []} />
         <ListBlock title="Signaux comparatifs Dataset" items={brief.comparativeInsights ?? []} />
         <ListBlock title="Points à arbitrer" items={brief.arbitrationPoints} />
         <ListBlock title="Prochaines actions" items={brief.nextActions} />

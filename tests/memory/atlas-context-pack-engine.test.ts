@@ -11,6 +11,9 @@ import { extractAtlasKnowledgeItems } from "@/lib/memory/atlas-memory-engine";
 import { calculateRecommendationsConfidence } from "@/lib/recommendations/recommendation-confidence-engine";
 import { generateLocalRecommendations } from "@/lib/recommendations/local-recommendations-engine";
 import { getAtlasMemoryMockByOrganization } from "@/lib/mock/atlas-memory";
+import type { AtlasDataset } from "@/lib/datasets/atlas-dataset-types";
+import type { DatasetGroupByAnalysis } from "@/lib/datasets/dataset-groupby-types";
+import type { DatasetGroupByInsight } from "@/lib/datasets/dataset-groupby-insight-types";
 import { buildAlertRule, buildKpiResult } from "../fixtures/local-engine-fixtures";
 
 const organizationId = "org-atlas-demo";
@@ -21,6 +24,58 @@ const approvedKnowledge = detectedKnowledge.map((item) => ({
   status: "approved" as const,
   approvedAt: "2026-06-01T10:00:00.000Z"
 }));
+
+function dataset(): AtlasDataset {
+  return {
+    id: "dataset-1",
+    sourceId: "prepared-source-1",
+    displayName: "Interventions maintenance",
+    rowCount: 100,
+    fields: [{ key: "cost", label: "Coût", sourceColumn: "cost", sourceType: "number", atlasType: "number" }],
+    records: [],
+    qualityScore: 82,
+    warnings: [],
+    createdAt: "2026-06-01T10:00:00.000Z"
+  };
+}
+
+function groupByAnalysis(): DatasetGroupByAnalysis {
+  return {
+    id: "analysis-1",
+    datasetId: "dataset-1",
+    aggregation: "sum",
+    field: "cost",
+    groupedBy: {
+      id: "group-region",
+      datasetId: "dataset-1",
+      field: "region",
+      label: "Région",
+      createdAt: "2026-06-01T10:00:00.000Z"
+    },
+    results: [{ groupValue: "Region Est", rowCount: 62, value: 62000, percentage: 62 }],
+    generatedAt: "2026-06-01T10:00:00.000Z",
+    warnings: [],
+    persisted: false
+  };
+}
+
+function groupByInsight(): DatasetGroupByInsight {
+  return {
+    id: "groupby-insight-1",
+    datasetId: "dataset-1",
+    groupByAnalysisId: "analysis-1",
+    title: "Concentration couts region Est",
+    summary: "La region Est concentre 62 % des couts.",
+    insightType: "concentration",
+    severity: "critical",
+    groupValue: "Region Est",
+    value: 62,
+    reasons: ["Concentration superieure a 50 %."],
+    recommendedAction: "Analyser les causes de concentration",
+    createdAt: "2026-06-01T10:00:00.000Z",
+    persisted: false
+  };
+}
 
 describe("atlas context pack engine", () => {
   it("cree un pack analyse KPI avec documents, connaissances et KPI", () => {
@@ -211,7 +266,31 @@ describe("atlas context pack engine", () => {
     });
 
     expect(pack.includedDecisionHistory).toHaveLength(1);
-    expect(pack.summary).toContain("décisionnel");
+    expect(pack.summary).toContain("decisionnel");
+  });
+
+  it("expose les signaux Dataset dans les packs executive et COPIL", () => {
+    const executivePack = buildAtlasContextPack("executive_summary", {
+      organizationId,
+      documents,
+      knowledgeItems: approvedKnowledge,
+      datasets: [dataset()],
+      datasetGroupByAnalyses: [groupByAnalysis()],
+      datasetGroupByInsights: [groupByInsight()]
+    });
+    const copilPack = buildAtlasContextPack("copil_preparation", {
+      organizationId,
+      documents,
+      knowledgeItems: approvedKnowledge,
+      datasets: [dataset()],
+      datasetGroupByAnalyses: [groupByAnalysis()],
+      datasetGroupByInsights: [groupByInsight()]
+    });
+
+    expect(executivePack.includedDatasetSignals.map((source) => source.type)).toEqual(
+      expect.arrayContaining(["dataset", "dataset_groupby_analysis", "dataset_groupby_insight"])
+    );
+    expect(copilPack.includedDatasetSignals.some((source) => source.id === "groupby-insight-1")).toBe(true);
   });
 
   it("ignore les connaissances detectees et rejetees", () => {

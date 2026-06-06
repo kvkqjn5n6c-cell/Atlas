@@ -15,6 +15,8 @@ import { getLocalKpiConfigurations } from "@/lib/local/local-kpi-store";
 import { getRecommendationFeedback } from "@/lib/local/local-recommendation-feedback-store";
 import { getJournalEntries } from "@/lib/local/decision-journal-store";
 import { getGroupByInsights } from "@/lib/local/dataset-groupby-insights-store";
+import { getDatasets } from "@/lib/local/atlas-datasets-store";
+import { getDatasetGroupByAnalyses } from "@/lib/local/dataset-groupby-store";
 import {
   recordConfidenceCalculated,
   recordRecommendationCreated
@@ -40,6 +42,8 @@ import type { DecisionJournalEntry } from "@/types/decision-journal";
 import type { LocalPriorityItem } from "@/types/local-priorities";
 import type { LocalExecutiveDashboard } from "@/types/local-executive-dashboard";
 import type { DatasetGroupByInsight } from "@/lib/datasets/dataset-groupby-insight-types";
+import type { AtlasDataset } from "@/lib/datasets/atlas-dataset-types";
+import type { DatasetGroupByAnalysis } from "@/lib/datasets/dataset-groupby-types";
 
 export type LocalKpiWorkspaceData = {
   configurations: LocalKpiConfiguration[];
@@ -56,6 +60,8 @@ export type LocalKpiWorkspaceData = {
   actionPlanImpacts: LocalActionPlanImpact[];
   recommendationFeedback: LocalRecommendationFeedback[];
   decisionJournalEntries: DecisionJournalEntry[];
+  datasets: AtlasDataset[];
+  datasetGroupByAnalyses: DatasetGroupByAnalysis[];
   datasetGroupByInsights: DatasetGroupByInsight[];
   priorities: LocalPriorityItem[];
   executiveDashboard: LocalExecutiveDashboard;
@@ -93,6 +99,8 @@ export const emptyLocalKpiWorkspaceData: LocalKpiWorkspaceData = {
   actionPlanImpacts: [],
   recommendationFeedback: [],
   decisionJournalEntries: [],
+  datasets: [],
+  datasetGroupByAnalyses: [],
   datasetGroupByInsights: [],
   priorities: [],
   executiveDashboard: {
@@ -110,6 +118,8 @@ export const emptyLocalKpiWorkspaceData: LocalKpiWorkspaceData = {
     recentDecisions: [],
     memorySignals: [],
     comparativeSignals: [],
+    datasetSignals: [],
+    datasetDecisionFlow: [],
     dataReliabilityNotes: ["Aucune donnée locale suffisante."],
     nextBestActions: [],
     persisted: false
@@ -167,6 +177,8 @@ export function getLocalKpiWorkspaceData(): LocalDataResult<LocalKpiWorkspaceDat
   const actionPlans = getLocalActionPlans();
   const actionPlanImpacts = getLocalActionPlanImpacts();
   const recommendationFeedback = getRecommendationFeedback();
+  const datasets = getDatasets();
+  const datasetGroupByAnalyses = getDatasetGroupByAnalyses();
   const datasetGroupByInsights = getGroupByInsights();
   const memoryDocuments = getAtlasMemoryDocuments(activeOrganizationId);
   const detectedKnowledge = extractAtlasKnowledgeItems(memoryDocuments, activeOrganizationId);
@@ -237,6 +249,8 @@ export function getLocalKpiWorkspaceData(): LocalDataResult<LocalKpiWorkspaceDat
     approvedMemoryKnowledge,
     confidenceScores: recommendationConfidence,
     histories: history,
+    datasets,
+    datasetGroupByAnalyses,
     datasetGroupByInsights
   });
 
@@ -256,6 +270,8 @@ export function getLocalKpiWorkspaceData(): LocalDataResult<LocalKpiWorkspaceDat
       actionPlanImpacts,
       recommendationFeedback,
       decisionJournalEntries,
+      datasets,
+      datasetGroupByAnalyses,
       datasetGroupByInsights,
       priorities,
       executiveDashboard,

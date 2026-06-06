@@ -9,7 +9,9 @@ export type DecisionJournalEntryType =
   | "feedback_recorded"
   | "confidence_calculated"
   | "memory_knowledge_approved"
-  | "memory_knowledge_rejected";
+  | "memory_knowledge_rejected"
+  | "dataset_analysis"
+  | "groupby_insight";
 
 export type DecisionJournalSourceType =
   | "recommendation"

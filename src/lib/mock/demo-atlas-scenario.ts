@@ -237,8 +237,19 @@ export const demoAtlasScenario: DemoAtlasScenario = {
       cardItems: ["Risque marge", "Risque coût", "Risque qualité", "Fiabilité explicitée"]
     },
     {
-      id: "priorities",
+      id: "dataset-flow",
       order: 4,
+      title: "Des donnees operationnelles aux decisions",
+      summary:
+        "Atlas part d'une table SQL ou d'un export, construit un Dataset Atlas, compare les groupes et transforme les ecarts en recommandations actionnables.",
+      leaderMessage: "Atlas transforme vos donnees operationnelles en decisions actionnables, sans requete SQL live ni boite noire.",
+      proofPoints: ["SQL en lecture seule", "Dataset Atlas", "Analyse comparative", "Insight", "Recommandation", "Plan d'action"],
+      cardTitle: "Flux donnee vers action",
+      cardItems: ["SQL", "Dataset Atlas", "Group By region", "Insight comparatif", "Recommandation", "Plan pilotable"]
+    },
+    {
+      id: "priorities",
+      order: 5,
       title: "Priorités Atlas",
       summary:
         "Atlas classe les sujets selon urgence, impact, confiance, alertes et plans existants.",
@@ -249,7 +260,7 @@ export const demoAtlasScenario: DemoAtlasScenario = {
     },
     {
       id: "recommendations",
-      order: 5,
+      order: 6,
       title: "Recommandations Atlas",
       summary:
         "Les recommandations sont déterministes, expliquées et associées à un score de confiance.",
@@ -260,7 +271,7 @@ export const demoAtlasScenario: DemoAtlasScenario = {
     },
     {
       id: "action-plan",
-      order: 6,
+      order: 7,
       title: "Plan d'action proposé",
       summary:
         "Atlas transforme une recommandation en plan d'action local avec tâches, responsable et échéance.",
@@ -271,7 +282,7 @@ export const demoAtlasScenario: DemoAtlasScenario = {
     },
     {
       id: "impact",
-      order: 7,
+      order: 8,
       title: "Impact observé",
       summary:
         "Atlas compare l'avant et l'après sur les KPI liés au plan pour mesurer un premier effet observable.",
@@ -282,7 +293,7 @@ export const demoAtlasScenario: DemoAtlasScenario = {
     },
     {
       id: "executive-dashboard",
-      order: 8,
+      order: 9,
       title: "Dashboard dirigeant",
       summary:
         "La situation est consolidée en une page : score, risques, priorités, actions en cours et décisions récentes.",
@@ -293,7 +304,7 @@ export const demoAtlasScenario: DemoAtlasScenario = {
     },
     {
       id: "copil",
-      order: 9,
+      order: 10,
       title: "Préparation COPIL",
       summary:
         "Atlas transforme les signaux en ordre du jour : points d'arbitrage, décisions à prendre et actions suivantes.",
@@ -304,7 +315,7 @@ export const demoAtlasScenario: DemoAtlasScenario = {
     },
     {
       id: "value",
-      order: 10,
+      order: 11,
       title: "Valeur globale d'Atlas",
       summary:
         "Atlas relie données, mémoire, moteur métier et exécution pour aider une PME à piloter ses décisions.",
@@ -331,6 +342,14 @@ export function generateDemoAtlasMarkdown(scenario: DemoAtlasScenario = demoAtla
     "",
     `## Détection Atlas`,
     ...scenario.alerts.map((alert) => `- ${alert}`),
+    "",
+    `## Flux donnee vers action`,
+    "- SQL en lecture seule",
+    "- Dataset Atlas",
+    "- Analyse comparative Group By",
+    "- Insight comparatif",
+    "- Recommandation",
+    "- Plan d'action pilotable",
     "",
     `## Priorité principale`,
     `- ${topPriority.title} (${topPriority.score}/100, urgence ${topPriority.urgency}, impact ${topPriority.impact})`,

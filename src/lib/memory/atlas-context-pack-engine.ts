@@ -14,6 +14,9 @@ import type { LocalPriorityItem } from "@/types/local-priorities";
 import type { LocalRecommendationFeedback } from "@/types/local-recommendation-feedback";
 import type { LocalRecommendation } from "@/types/local-recommendations";
 import type { RecommendationConfidence } from "@/types/recommendation-confidence";
+import type { AtlasDataset } from "@/lib/datasets/atlas-dataset-types";
+import type { DatasetGroupByAnalysis } from "@/lib/datasets/dataset-groupby-types";
+import type { DatasetGroupByInsight } from "@/lib/datasets/dataset-groupby-insight-types";
 
 type ContextPackInput = {
   organizationId: string;
@@ -32,6 +35,9 @@ type ContextPackInput = {
   decisionJournalEntries?: DecisionJournalEntry[];
   priorities?: LocalPriorityItem[];
   executiveDashboard?: LocalExecutiveDashboard;
+  datasets?: AtlasDataset[];
+  datasetGroupByAnalyses?: DatasetGroupByAnalysis[];
+  datasetGroupByInsights?: DatasetGroupByInsight[];
 };
 
 const purposeConfig: Record<AtlasContextPurpose, {
@@ -232,6 +238,35 @@ function executiveDashboardSource(dashboard: LocalExecutiveDashboard): AtlasCont
   };
 }
 
+function datasetSource(dataset: AtlasDataset): AtlasContextSource {
+  return {
+    type: "dataset",
+    id: dataset.id,
+    title: dataset.displayName,
+    excerpt: `${dataset.rowCount} ligne(s), ${dataset.fields.length} champ(s), qualite ${dataset.qualityScore}/100.`
+  };
+}
+
+function datasetGroupByAnalysisSource(analysis: DatasetGroupByAnalysis): AtlasContextSource {
+  return {
+    type: "dataset_groupby_analysis",
+    id: analysis.id,
+    title: `Analyse ${analysis.aggregation} par ${analysis.groupedBy.label}`,
+    excerpt: `${analysis.results.length} groupe(s) compares sur le dataset ${analysis.datasetId}.`,
+    status: analysis.results.length > 0 ? "active" : undefined
+  };
+}
+
+function datasetGroupByInsightSource(insight: DatasetGroupByInsight): AtlasContextSource {
+  return {
+    type: "dataset_groupby_insight",
+    id: insight.id,
+    title: insight.title,
+    excerpt: `${insight.summary} Groupe : ${insight.groupValue}.`,
+    status: insight.severity === "critical" ? "critical" : insight.severity === "watch" ? "warning" : "active"
+  };
+}
+
 function filterKnowledge(
   approvedKnowledge: AtlasKnowledgeItem[],
   config: typeof purposeConfig[AtlasContextPurpose]
@@ -322,6 +357,28 @@ function filterExecutiveDashboard(purpose: AtlasContextPurpose, dashboard?: Loca
   return [];
 }
 
+function filterDatasetSignals(
+  purpose: AtlasContextPurpose,
+  datasets: AtlasDataset[],
+  analyses: DatasetGroupByAnalysis[],
+  insights: DatasetGroupByInsight[]
+) {
+  if (
+    purpose !== "executive_summary" &&
+    purpose !== "copil_preparation" &&
+    purpose !== "risk_review" &&
+    purpose !== "operational_recommendations"
+  ) {
+    return [];
+  }
+
+  return [
+    ...datasets.slice(0, 5).map(datasetSource),
+    ...analyses.slice(0, 5).map(datasetGroupByAnalysisSource),
+    ...insights.slice(0, 8).map(datasetGroupByInsightSource)
+  ];
+}
+
 function buildLimitations(input: {
   approvedKnowledge: AtlasKnowledgeItem[];
   includedKnowledge: AtlasContextSource[];
@@ -336,6 +393,7 @@ function buildLimitations(input: {
   includedDecisionHistory: AtlasContextSource[];
   includedPriorities: AtlasContextSource[];
   includedExecutiveDashboard: AtlasContextSource[];
+  includedDatasetSignals: AtlasContextSource[];
   rawKnowledgeItems: AtlasKnowledgeItem[];
 }) {
   const limitations: string[] = [];
@@ -358,6 +416,7 @@ function buildLimitations(input: {
 
   if (input.includedPriorities.length === 0) limitations.push("Aucune prioritÃ© Atlas incluse dans ce contexte.");
   if (input.includedExecutiveDashboard.length === 0) limitations.push("Aucun dashboard dirigeant inclus dans ce contexte.");
+  if (input.includedDatasetSignals.length === 0) limitations.push("Aucun signal Dataset inclus dans ce contexte.");
 
   return limitations;
 }
@@ -374,8 +433,9 @@ function buildSummary(title: string, counts: {
   actionPlans: number;
   actionPlanImpacts: number;
   decisionHistory: number;
+  datasetSignals: number;
 }) {
-  return `${title} préparé avec ${counts.documents} document(s), ${counts.knowledge} connaissance(s) validée(s), ${counts.kpis} KPI, ${counts.alerts} alerte(s), ${counts.rules} règle(s), ${counts.recommendations} recommandation(s), ${counts.recommendationFeedback} feedback(s), ${counts.recommendationConfidence} score(s) de confiance, ${counts.actionPlans} plan(s) d'action, ${counts.actionPlanImpacts} impact(s) mesuré(s) et ${counts.decisionHistory} événement(s) décisionnel(s).`;
+  return `${title} prepare avec ${counts.documents} document(s), ${counts.knowledge} connaissance(s) validee(s), ${counts.kpis} KPI, ${counts.alerts} alerte(s), ${counts.rules} regle(s), ${counts.recommendations} recommandation(s), ${counts.recommendationFeedback} feedback(s), ${counts.recommendationConfidence} score(s) de confiance, ${counts.actionPlans} plan(s) d'action, ${counts.actionPlanImpacts} impact(s) mesure(s), ${counts.decisionHistory} evenement(s) decisionnel(s) et ${counts.datasetSignals} signal(aux) Dataset.`;
 }
 
 export function buildAtlasContextPack(
@@ -402,6 +462,12 @@ export function buildAtlasContextPack(
   const includedDecisionHistory = filterDecisionHistory(purpose, input.decisionJournalEntries ?? []).map(decisionHistorySource);
   const includedPriorities = filterPriorities(purpose, input.priorities ?? []).map(prioritySource);
   const includedExecutiveDashboard = filterExecutiveDashboard(purpose, input.executiveDashboard).map(executiveDashboardSource);
+  const includedDatasetSignals = filterDatasetSignals(
+    purpose,
+    input.datasets ?? [],
+    input.datasetGroupByAnalyses ?? [],
+    input.datasetGroupByInsights ?? []
+  );
   const limitations = buildLimitations({
     approvedKnowledge,
     includedKnowledge,
@@ -416,6 +482,7 @@ export function buildAtlasContextPack(
     includedDecisionHistory,
     includedPriorities,
     includedExecutiveDashboard,
+    includedDatasetSignals,
     rawKnowledgeItems: input.knowledgeItems
   });
 
@@ -438,6 +505,7 @@ export function buildAtlasContextPack(
     includedDecisionHistory,
     includedPriorities,
     includedExecutiveDashboard,
+    includedDatasetSignals,
     summary: buildSummary(config.title, {
       documents: includedDocuments.length,
       knowledge: includedKnowledge.length,
@@ -449,7 +517,8 @@ export function buildAtlasContextPack(
       recommendationConfidence: includedRecommendationConfidence.length,
       actionPlans: includedActionPlans.length,
       actionPlanImpacts: includedActionPlanImpacts.length,
-      decisionHistory: includedDecisionHistory.length
+      decisionHistory: includedDecisionHistory.length,
+      datasetSignals: includedDatasetSignals.length
     }),
     limitations,
     persisted: false

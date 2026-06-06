@@ -12,6 +12,8 @@ import type { LocalKpiAlert } from "@/lib/kpi-engine/local-kpi-alerts";
 import type { LocalPriorityItem } from "@/types/local-priorities";
 import type { LocalRecommendation } from "@/types/local-recommendations";
 import type { RecommendationConfidence } from "@/types/recommendation-confidence";
+import type { AtlasDataset } from "@/lib/datasets/atlas-dataset-types";
+import type { DatasetGroupByAnalysis } from "@/lib/datasets/dataset-groupby-types";
 import type { DatasetGroupByInsight } from "@/lib/datasets/dataset-groupby-insight-types";
 import { buildKpiResult } from "../fixtures/local-engine-fixtures";
 
@@ -173,6 +175,42 @@ function buildGroupByInsight(overrides: Partial<DatasetGroupByInsight> = {}): Da
   };
 }
 
+function buildDataset(overrides: Partial<AtlasDataset> = {}): AtlasDataset {
+  return {
+    id: "dataset-1",
+    sourceId: "prepared-source-1",
+    displayName: "Interventions maintenance",
+    rowCount: 100,
+    fields: [{ key: "cost", label: "Coût", sourceColumn: "cost", sourceType: "number", atlasType: "number" }],
+    records: [],
+    qualityScore: 82,
+    warnings: [],
+    createdAt: now,
+    ...overrides
+  };
+}
+
+function buildGroupByAnalysis(overrides: Partial<DatasetGroupByAnalysis> = {}): DatasetGroupByAnalysis {
+  return {
+    id: "analysis-1",
+    datasetId: "dataset-1",
+    aggregation: "sum",
+    field: "cost",
+    groupedBy: {
+      id: "group-region",
+      datasetId: "dataset-1",
+      field: "region",
+      label: "Région",
+      createdAt: now
+    },
+    results: [{ groupValue: "Region Est", rowCount: 62, value: 62000, percentage: 62 }],
+    generatedAt: now,
+    warnings: [],
+    persisted: false,
+    ...overrides
+  };
+}
+
 describe("local executive dashboard engine", () => {
   it("cree un dashboard avec une priorite critique", () => {
     const dashboard = generateLocalExecutiveDashboard({
@@ -266,5 +304,36 @@ describe("local executive dashboard engine", () => {
     expect(dashboard.criticalRisks.some((risk) => risk.sourceIds.includes("groupby-insight-1"))).toBe(true);
     expect(dashboard.comparativeSignals?.[0].title).toContain("Concentration");
     expect(dashboard.dataReliabilityNotes.some((note) => note.includes("comparatifs Dataset"))).toBe(true);
+  });
+
+  it("expose les signaux Dataset dans le dashboard dirigeant", () => {
+    const dashboard = generateLocalExecutiveDashboard({
+      organizationId,
+      datasets: [buildDataset()],
+      datasetGroupByAnalyses: [buildGroupByAnalysis()],
+      datasetGroupByInsights: [buildGroupByInsight()],
+      recommendations: [
+        buildRecommendation({
+          id: "recommendation-dataset",
+          sourceType: "dataset_groupby_insight",
+          relatedDatasetIds: ["dataset-1"],
+          relatedGroupByInsightIds: ["groupby-insight-1"]
+        })
+      ],
+      actionPlans: [
+        buildActionPlan({
+          id: "plan-dataset",
+          sourceType: "dataset_groupby_insight",
+          sourceRecommendationId: "recommendation-dataset",
+          relatedDatasetIds: ["dataset-1"],
+          relatedGroupByInsightIds: ["groupby-insight-1"]
+        })
+      ]
+    });
+
+    expect(dashboard.datasetSignals?.some((signal) => signal.label === "Datasets exploites" && signal.value === 1)).toBe(true);
+    expect(dashboard.datasetSignals?.some((signal) => signal.label === "Analyses comparatives" && signal.value === 1)).toBe(true);
+    expect(dashboard.datasetSignals?.some((signal) => signal.label === "Plans Dataset" && signal.value === 1)).toBe(true);
+    expect(dashboard.datasetDecisionFlow?.join(" ")).toContain("plan(s) Dataset");
   });
 });

@@ -94,7 +94,9 @@ const journalEntryTypeLabels: Record<DecisionJournalEntryType, string> = {
   feedback_recorded: "Feedback",
   confidence_calculated: "Confiance",
   memory_knowledge_approved: "Mémoire validée",
-  memory_knowledge_rejected: "Mémoire rejetée"
+  memory_knowledge_rejected: "Mémoire rejetée",
+  dataset_analysis: "Analyse Dataset",
+  groupby_insight: "Insight comparatif"
 };
 
 function formatJournalDate(value: string) {

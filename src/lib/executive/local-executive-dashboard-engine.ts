@@ -2,7 +2,7 @@ import type { AtlasKnowledgeItem } from "@/types/atlas-memory-knowledge";
 import type { DecisionJournalEntry } from "@/types/decision-journal";
 import type { LocalActionPlan } from "@/types/local-action-plans";
 import type { LocalActionPlanImpact } from "@/types/local-action-plan-impact";
-import type { LocalExecutiveDashboard, ExecutiveDashboardCard, ExecutiveGlobalStatus } from "@/types/local-executive-dashboard";
+import type { LocalExecutiveDashboard, ExecutiveDashboardCard, ExecutiveDatasetSignal, ExecutiveGlobalStatus } from "@/types/local-executive-dashboard";
 import type { LocalExecutiveSummary } from "@/types/local-executive-summary";
 import type { LocalInsight } from "@/types/local-insights";
 import type { LocalKpiAlert } from "@/lib/kpi-engine/local-kpi-alerts";
@@ -13,6 +13,8 @@ import type { LocalRecommendationFeedback } from "@/types/local-recommendation-f
 import type { LocalRecommendation } from "@/types/local-recommendations";
 import type { ConfidenceLevel, RecommendationConfidence } from "@/types/recommendation-confidence";
 import type { DatasetGroupByInsight } from "@/lib/datasets/dataset-groupby-insight-types";
+import type { AtlasDataset } from "@/lib/datasets/atlas-dataset-types";
+import type { DatasetGroupByAnalysis } from "@/lib/datasets/dataset-groupby-types";
 
 type LocalExecutiveDashboardInput = {
   organizationId: string;
@@ -29,6 +31,8 @@ type LocalExecutiveDashboardInput = {
   approvedMemoryKnowledge?: AtlasKnowledgeItem[];
   confidenceScores?: RecommendationConfidence[];
   histories?: LocalKpiHistoryPoint[];
+  datasets?: AtlasDataset[];
+  datasetGroupByAnalyses?: DatasetGroupByAnalysis[];
   datasetGroupByInsights?: DatasetGroupByInsight[];
 };
 
@@ -237,6 +241,67 @@ function comparativeCards(insights: DatasetGroupByInsight[] = []): ExecutiveDash
   }));
 }
 
+function datasetSignals(input: LocalExecutiveDashboardInput): ExecutiveDatasetSignal[] {
+  const datasets = input.datasets ?? [];
+  const analyses = input.datasetGroupByAnalyses ?? [];
+  const insights = input.datasetGroupByInsights ?? [];
+  const datasetRecommendations = (input.recommendations ?? []).filter((recommendation) => recommendation.sourceType === "dataset_groupby_insight");
+  const datasetActionPlans = (input.actionPlans ?? []).filter((plan) => plan.sourceType === "dataset_groupby_insight");
+
+  return [
+    {
+      label: "Datasets exploites",
+      value: datasets.length,
+      summary: `${datasets.length} dataset(s) Atlas disponible(s) pour analyse locale.`,
+      status: datasets.length > 0 ? "healthy" : "watch"
+    },
+    {
+      label: "Analyses comparatives",
+      value: analyses.length,
+      summary: `${analyses.length} analyse(s) Group By realisee(s).`,
+      status: analyses.length > 0 ? "healthy" : "watch"
+    },
+    {
+      label: "Insights comparatifs",
+      value: insights.length,
+      summary: `${insights.length} signal(aux) comparatif(s) detecte(s).`,
+      status: insights.some((insight) => insight.severity === "critical") ? "critical" : insights.length > 0 ? "watch" : "healthy"
+    },
+    {
+      label: "Recommandations Dataset",
+      value: datasetRecommendations.length,
+      summary: `${datasetRecommendations.length} recommandation(s) issue(s) d'une analyse Dataset.`,
+      status: datasetRecommendations.length > 0 ? "watch" : "healthy"
+    },
+    {
+      label: "Plans Dataset",
+      value: datasetActionPlans.length,
+      summary: `${datasetActionPlans.length} plan(s) d'action lance(s) depuis un insight Dataset.`,
+      status: datasetActionPlans.length > 0 ? "healthy" : "watch"
+    }
+  ];
+}
+
+function datasetDecisionFlow(input: LocalExecutiveDashboardInput) {
+  const datasets = input.datasets ?? [];
+  const analyses = input.datasetGroupByAnalyses ?? [];
+  const insights = input.datasetGroupByInsights ?? [];
+  const datasetRecommendations = (input.recommendations ?? []).filter((recommendation) => recommendation.sourceType === "dataset_groupby_insight");
+  const datasetActionPlans = (input.actionPlans ?? []).filter((plan) => plan.sourceType === "dataset_groupby_insight");
+
+  if (datasets.length === 0 && analyses.length === 0 && insights.length === 0 && datasetRecommendations.length === 0 && datasetActionPlans.length === 0) {
+    return ["Aucun flux Dataset complet disponible pour l'instant."];
+  }
+
+  return [
+    `${datasets.length} dataset(s) prepare(s) servent de base d'analyse.`,
+    `${analyses.length} analyse(s) comparative(s) transforment la donnee en ecarts metier.`,
+    `${insights.length} insight(s) comparatif(s) font emerger les signaux prioritaires.`,
+    `${datasetRecommendations.length} recommandation(s) Dataset proposent une action explicable.`,
+    `${datasetActionPlans.length} plan(s) Dataset pilotent l'execution locale.`
+  ];
+}
+
 export function generateLocalExecutiveDashboard(input: LocalExecutiveDashboardInput): LocalExecutiveDashboard {
   const globalScore = calculateExecutiveGlobalScore(input);
   const confidenceAverage = averageConfidence(input.confidenceScores);
@@ -256,6 +321,8 @@ export function generateLocalExecutiveDashboard(input: LocalExecutiveDashboardIn
     recentDecisions: decisionCards(input.decisionJournalEntries),
     memorySignals: memoryCards(input.approvedMemoryKnowledge),
     comparativeSignals: comparativeCards(input.datasetGroupByInsights),
+    datasetSignals: datasetSignals(input),
+    datasetDecisionFlow: datasetDecisionFlow(input),
     dataReliabilityNotes: generateExecutiveReliabilityNotes(input),
     nextBestActions: generateExecutiveNextBestActions(input),
     persisted: false

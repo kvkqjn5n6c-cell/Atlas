@@ -138,7 +138,9 @@ const journalEntryTypeLabels: Record<DecisionJournalEntryType, string> = {
   feedback_recorded: "Feedback",
   confidence_calculated: "Confiance",
   memory_knowledge_approved: "Mémoire validée",
-  memory_knowledge_rejected: "Mémoire rejetée"
+  memory_knowledge_rejected: "Mémoire rejetée",
+  dataset_analysis: "Analyse Dataset",
+  groupby_insight: "Insight comparatif"
 };
 
 function formatDate(value: string) {
@@ -715,6 +717,59 @@ function ExecutiveDashboardLinkCard() {
   );
 }
 
+function DatasetActivityCard({
+  datasetCount,
+  analysisCount,
+  insightCount,
+  recommendationCount,
+  planCount,
+  topSignals
+}: {
+  datasetCount: number;
+  analysisCount: number;
+  insightCount: number;
+  recommendationCount: number;
+  planCount: number;
+  topSignals: string[];
+}) {
+  return (
+    <Card className="border-brand-100">
+      <CardHeader>
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle>Activité Dataset</CardTitle>
+          <Badge variant="brand">Donnée → Décision</Badge>
+          <Badge>{insightCount} signal(aux)</Badge>
+        </div>
+        <p className="mt-1 text-sm text-slate-500">
+          Synthèse des données externes transformées en analyses, recommandations et plans.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-2 sm:grid-cols-5">
+          <Badge>{datasetCount} dataset(s)</Badge>
+          <Badge>{analysisCount} analyse(s)</Badge>
+          <Badge>{insightCount} insight(s)</Badge>
+          <Badge>{recommendationCount} recommandation(s)</Badge>
+          <Badge>{planCount} plan(s)</Badge>
+        </div>
+        {topSignals.length === 0 ? (
+          <p className="rounded-md border border-line bg-slate-50 p-3 text-sm text-slate-600">
+            Aucun signal Dataset exploitable pour l&apos;instant.
+          </p>
+        ) : (
+          <div className="grid gap-2 lg:grid-cols-3">
+            {topSignals.map((signal, index) => (
+              <p key={`dataset-signal-${index}-${signal}`} className="rounded-md border border-line bg-slate-50 p-3 text-sm leading-5 text-slate-700">
+                {signal}
+              </p>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
   const [mounted, setMounted] = useState(false);
   const { data: workspace, refresh } = useLocalKpiWorkspace();
@@ -749,11 +804,24 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
   const recommendationConfidence = workspace.recommendationConfidence;
   const decisionJournalEntries = workspace.decisionJournalEntries;
   const priorities = workspace.priorities;
+  const datasetRecommendationCount = recommendations.filter((recommendation) => recommendation.sourceType === "dataset_groupby_insight").length;
+  const datasetPlanCount = actionPlans.filter((plan) => plan.sourceType === "dataset_groupby_insight").length;
+  const topDatasetSignals = workspace.datasetGroupByInsights.slice(0, 3).map((insight) =>
+    `${insight.title} - ${insight.groupValue}`
+  );
 
   if (results.length === 0) {
     return (
       <div className="space-y-6">
         <ExecutiveDashboardLinkCard />
+        <DatasetActivityCard
+          datasetCount={workspace.datasets.length}
+          analysisCount={workspace.datasetGroupByAnalyses.length}
+          insightCount={workspace.datasetGroupByInsights.length}
+          recommendationCount={datasetRecommendationCount}
+          planCount={datasetPlanCount}
+          topSignals={topDatasetSignals}
+        />
         <Card>
           <CardHeader>
             <CardTitle>KPI personnalisés</CardTitle>
@@ -777,6 +845,14 @@ export function LocalKpiPilotageSection({ baseScore }: { baseScore: number }) {
   return (
     <div className="space-y-6">
       <ExecutiveDashboardLinkCard />
+      <DatasetActivityCard
+        datasetCount={workspace.datasets.length}
+        analysisCount={workspace.datasetGroupByAnalyses.length}
+        insightCount={workspace.datasetGroupByInsights.length}
+        recommendationCount={datasetRecommendationCount}
+        planCount={datasetPlanCount}
+        topSignals={topDatasetSignals}
+      />
       <section className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
         <Card className="border-brand-100">
           <CardContent className="p-5">

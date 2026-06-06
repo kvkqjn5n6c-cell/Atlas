@@ -8,10 +8,13 @@ import { buildLocalActionPlanFromRecommendation } from "@/lib/action-plans/local
 import { generateLocalKpiAlerts } from "@/lib/kpi-engine/local-kpi-alerts";
 import { generateLocalRecommendations } from "@/lib/recommendations/local-recommendations-engine";
 import type { DecisionJournalEntry } from "@/types/decision-journal";
+import type { AtlasDataset } from "@/lib/datasets/atlas-dataset-types";
+import type { DatasetGroupByAnalysis } from "@/lib/datasets/dataset-groupby-types";
 import type { DatasetGroupByInsight } from "@/lib/datasets/dataset-groupby-insight-types";
 import { buildAlertRule, buildKpiResult } from "../fixtures/local-engine-fixtures";
 
 const organizationId = "org-atlas-demo";
+const now = "2026-06-01T10:00:00.000Z";
 
 function journalEntry(): DecisionJournalEntry {
   return {
@@ -45,7 +48,43 @@ function groupByInsight(overrides: Partial<DatasetGroupByInsight> = {}): Dataset
     value: 62,
     reasons: ["Concentration superieure a 50 %."],
     recommendedAction: "Analyser les causes de concentration",
-    createdAt: "2026-06-01T10:00:00.000Z",
+    createdAt: now,
+    persisted: false,
+    ...overrides
+  };
+}
+
+function dataset(overrides: Partial<AtlasDataset> = {}): AtlasDataset {
+  return {
+    id: "dataset-1",
+    sourceId: "prepared-source-1",
+    displayName: "Interventions maintenance",
+    rowCount: 100,
+    fields: [{ key: "cost", label: "Coût", sourceColumn: "cost", sourceType: "number", atlasType: "number" }],
+    records: [],
+    qualityScore: 82,
+    warnings: [],
+    createdAt: now,
+    ...overrides
+  };
+}
+
+function groupByAnalysis(overrides: Partial<DatasetGroupByAnalysis> = {}): DatasetGroupByAnalysis {
+  return {
+    id: "analysis-1",
+    datasetId: "dataset-1",
+    aggregation: "sum",
+    field: "cost",
+    groupedBy: {
+      id: "group-region",
+      datasetId: "dataset-1",
+      field: "region",
+      label: "Région",
+      createdAt: now
+    },
+    results: [{ groupValue: "Region Est", rowCount: 62, value: 62000, percentage: 62 }],
+    generatedAt: now,
+    warnings: [],
     persisted: false,
     ...overrides
   };
@@ -107,6 +146,24 @@ describe("local copil brief engine", () => {
     expect(points.some((point) => point.includes("Region Est"))).toBe(true);
     expect(brief.comparativeInsights?.[0]).toContain("Region Est");
     expect(brief.risks.some((risk) => risk.includes("Region Est"))).toBe(true);
+  });
+
+  it("inclut les faits marquants Dataset dans le brief COPIL", () => {
+    const recommendations = generateLocalRecommendations({ kpiResults: [], datasetGroupByInsights: [groupByInsight()] });
+    const actionPlan = buildLocalActionPlanFromRecommendation(recommendations[0]);
+    const brief = generateLocalCopilBrief({
+      organizationId,
+      periodLabel: "Mai 2026",
+      datasets: [dataset()],
+      datasetGroupByAnalyses: [groupByAnalysis()],
+      datasetGroupByInsights: [groupByInsight()],
+      recommendations,
+      actionPlans: [actionPlan]
+    });
+
+    expect(brief.datasetHighlights?.some((highlight) => highlight.includes("1 dataset"))).toBe(true);
+    expect(brief.datasetHighlights?.some((highlight) => highlight.includes("Region Est"))).toBe(true);
+    expect(brief.sections.some((section) => section.title.includes("donnees"))).toBe(true);
   });
 
   it("inclut les plans d'action actifs", () => {

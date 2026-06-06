@@ -11,6 +11,13 @@ export type ExecutiveDashboardCard = {
   actionLabel?: string;
 };
 
+export type ExecutiveDatasetSignal = {
+  label: string;
+  value: number;
+  summary: string;
+  status: ExecutiveGlobalStatus;
+};
+
 export type LocalExecutiveDashboard = {
   id: string;
   organizationId: string;
@@ -26,6 +33,8 @@ export type LocalExecutiveDashboard = {
   recentDecisions: ExecutiveDashboardCard[];
   memorySignals: ExecutiveDashboardCard[];
   comparativeSignals?: ExecutiveDashboardCard[];
+  datasetSignals?: ExecutiveDatasetSignal[];
+  datasetDecisionFlow?: string[];
   dataReliabilityNotes: string[];
   nextBestActions: string[];
   persisted: false;
