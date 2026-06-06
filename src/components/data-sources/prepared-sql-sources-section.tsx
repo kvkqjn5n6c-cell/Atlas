@@ -128,12 +128,18 @@ export function PreparedSqlSourcesSection() {
               >
                 Gerer les mappings SQL
               </Link>
-              <Link
-                href="/datasets"
-                className="inline-flex h-9 items-center justify-center rounded-md bg-brand-600 px-3 text-sm font-medium text-white transition hover:bg-brand-700"
-              >
-                Voir les datasets
-              </Link>
+            <Link
+              href="/datasets"
+              className="inline-flex h-9 items-center justify-center rounded-md bg-brand-600 px-3 text-sm font-medium text-white transition hover:bg-brand-700"
+            >
+              Voir les datasets
+            </Link>
+            <Link
+              href="/dataset-pipeline"
+              className="inline-flex h-9 items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            >
+              Voir le pipeline Dataset
+            </Link>
             </div>
           </>
         )}

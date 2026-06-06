@@ -59,6 +59,7 @@ const dataNavigation = [
   { name: "Connexions SQL", href: "/sql-connections", icon: Database },
   { name: "Mapping SQL", href: "/sql-mappings", icon: UploadCloud },
   { name: "Datasets Atlas", href: "/datasets", icon: FileSpreadsheet },
+  { name: "Pipeline Dataset", href: "/dataset-pipeline", icon: Network },
   { name: "Imports & mappings", href: "/imports-mappings", icon: UploadCloud },
   { name: "Dictionnaire métier", href: "/business-dictionary", icon: BookOpenText },
   { name: "Mémoire Atlas", href: "/atlas-memory", icon: BrainCircuit }
@@ -77,7 +78,7 @@ export function Sidebar() {
   const activeOrganization = getActiveOrganization();
 
   const visibleDataNavigation = dataNavigation.filter((item) => {
-    if (item.href === "/data-sources" || item.href === "/sql-connections" || item.href === "/sql-mappings" || item.href === "/datasets" || item.href === "/imports-mappings") {
+    if (item.href === "/data-sources" || item.href === "/sql-connections" || item.href === "/sql-mappings" || item.href === "/datasets" || item.href === "/dataset-pipeline" || item.href === "/imports-mappings") {
       return canManageDataSources(activeUser);
     }
     if (item.href === "/business-dictionary" || item.href === "/atlas-memory") {

@@ -321,6 +321,12 @@ export function AtlasDatasetsPage() {
           >
             Retour sources de donnees
           </Link>
+          <Link
+            href="/dataset-pipeline"
+            className="inline-flex h-9 items-center justify-center rounded-md bg-brand-600 px-3 text-sm font-medium text-white transition hover:bg-brand-700"
+          >
+            Voir le pipeline Dataset
+          </Link>
         </div>
       </section>
 
