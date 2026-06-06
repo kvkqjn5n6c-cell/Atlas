@@ -50,6 +50,10 @@ export function deleteGroupByInsightsByAnalysisId(analysisId: string) {
   writeInsights(getGroupByInsights().filter((insight) => insight.groupByAnalysisId !== analysisId));
 }
 
+export function deleteGroupByInsight(id: string) {
+  writeInsights(getGroupByInsights().filter((insight) => insight.id !== id));
+}
+
 export function clearGroupByInsights() {
   if (!canUseStorage()) return;
   window.localStorage.removeItem(DATASET_GROUPBY_INSIGHTS_KEY);

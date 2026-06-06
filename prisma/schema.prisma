@@ -180,6 +180,10 @@ model Organization {
   localActionPlans  LocalActionPlan[]
   localRecommendationFeedback LocalRecommendationFeedback[]
   decisionJournalEntries DecisionJournalEntry[]
+  preparedSqlSources PreparedSqlSource[]
+  atlasDatasets AtlasDataset[]
+  datasetGroupByAnalyses DatasetGroupByAnalysis[]
+  datasetGroupByInsights DatasetGroupByInsight[]
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
@@ -714,4 +718,112 @@ model DecisionJournalEntry {
   @@index([type])
   @@index([sourceType, sourceId])
   @@index([createdAt])
+}
+
+model PreparedSqlSource {
+  id                   String       @id
+  organizationId       String
+  connectionId         String
+  tableName            String
+  schema               String?
+  displayName          String
+  mappingId            String
+  mappedFields         Json
+  qualityScore         Int
+  rowPreviewCount      Int
+  availableAtlasFields Json
+  warnings             String[]
+  preview              Json
+  persistedSource      String       @default("prisma")
+  metadata             Json?
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  datasets             AtlasDataset[]
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([connectionId])
+  @@index([mappingId])
+  @@index([tableName])
+  @@index([updatedAt])
+}
+
+model AtlasDataset {
+  id                String             @id
+  organizationId    String
+  sourceId          String
+  displayName       String
+  rowCount          Int
+  fields            Json
+  records           Json
+  qualityScore      Int
+  warnings          String[]
+  persistedSource   String             @default("prisma")
+  metadata          Json?
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  preparedSqlSource PreparedSqlSource  @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  groupByAnalyses   DatasetGroupByAnalysis[]
+  groupByInsights   DatasetGroupByInsight[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([organizationId])
+  @@index([sourceId])
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model DatasetGroupByAnalysis {
+  id              String       @id
+  organizationId  String
+  datasetId       String
+  aggregation     String
+  field           String?
+  groupedBy       Json
+  results         Json
+  summary         Json?
+  warnings        String[]
+  generatedAt     DateTime
+  persistedSource String       @default("prisma")
+  metadata        Json?
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dataset         AtlasDataset @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  insights        DatasetGroupByInsight[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([datasetId])
+  @@index([aggregation])
+  @@index([generatedAt])
+}
+
+model DatasetGroupByInsight {
+  id                String                 @id
+  organizationId    String
+  datasetId         String
+  groupByAnalysisId String
+  title             String
+  summary           String
+  insightType       String
+  severity          String
+  groupValue        String
+  value             Float
+  comparisonValue   Float?
+  gap               Float?
+  reasons           String[]
+  recommendedAction String?
+  persistedSource   String                 @default("prisma")
+  metadata          Json?
+  organization      Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dataset           AtlasDataset           @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  groupByAnalysis   DatasetGroupByAnalysis @relation(fields: [groupByAnalysisId], references: [id], onDelete: Cascade)
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  @@index([organizationId])
+  @@index([datasetId])
+  @@index([groupByAnalysisId])
+  @@index([severity])
+  @@index([insightType])
 }

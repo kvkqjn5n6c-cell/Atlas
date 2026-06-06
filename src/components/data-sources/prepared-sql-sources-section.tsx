@@ -6,6 +6,7 @@ import { DatabaseZap, TableProperties } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { saveAtlasDatasetAction } from "@/lib/actions/dataset-persistence-actions";
 import type { PreparedSqlSourceBundle } from "@/lib/connectors/sql/sql-prepared-source-types";
 import { createDatasetFromPreparedSource, summarizeDataset } from "@/lib/datasets/atlas-dataset-engine";
 import type { AtlasDataset } from "@/lib/datasets/atlas-dataset-types";
@@ -38,6 +39,10 @@ export function PreparedSqlSourcesSection() {
   function generateDataset(bundle: PreparedSqlSourceBundle) {
     const dataset = createDatasetFromPreparedSource(bundle);
     const saved = saveDataset(dataset);
+    void saveAtlasDatasetAction({
+      dataset: saved,
+      organizationId: bundle.source.organizationId
+    });
     recordDatasetGenerated(saved);
     setDatasets(getDatasets());
     setMessage(`${saved.displayName} genere localement depuis la preview SQL.`);

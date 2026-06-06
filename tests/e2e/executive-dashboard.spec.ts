@@ -7,7 +7,7 @@ test.describe("dashboard dirigeant", () => {
 
     await page.goto("/executive");
 
-    await expect(page.getByRole("heading", { name: /Dashboard dirigeant/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Lecture ex/i })).toBeVisible();
     await expect(page.getByText(/Lecture ex/i)).toBeVisible();
     await expect(page.getByText(/Score/i).first()).toBeVisible();
     await expect(page.getByText(/traiter en priorit/i)).toBeVisible();

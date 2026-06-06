@@ -6,6 +6,8 @@ import { TableProperties } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { saveDatasetGroupByAnalysisAction } from "@/lib/actions/dataset-groupby-persistence-actions";
+import { saveDatasetGroupByInsightsAction } from "@/lib/actions/dataset-groupby-insights-persistence-actions";
 import { getDatasetStatistics, summarizeDataset, validateDataset } from "@/lib/datasets/atlas-dataset-engine";
 import { applyDatasetFilters, summarizeDatasetFilters, validateDatasetFilters } from "@/lib/datasets/dataset-filter-engine";
 import type { DatasetFilter, DatasetFilterOperator, DatasetFilterSet } from "@/lib/datasets/dataset-filter-types";
@@ -59,6 +61,8 @@ const groupByAggregationLabels: Record<DatasetGroupByAggregation, string> = {
   sum: "SUM",
   average: "AVERAGE"
 };
+
+const DEFAULT_ORGANIZATION_ID = "org-atlas-demo";
 
 const operatorLabels: Record<DatasetFilterOperator, string> = {
   EQUALS: "egal a",
@@ -229,6 +233,8 @@ export function AtlasDatasetsPage() {
       datasetId: dataset.id
     });
     const insights = saveGroupByInsights(generateGroupByInsights(saved));
+    void saveDatasetGroupByAnalysisAction({ analysis: saved, organizationId: DEFAULT_ORGANIZATION_ID });
+    void saveDatasetGroupByInsightsAction({ insights, organizationId: DEFAULT_ORGANIZATION_ID });
     recordDatasetAnalysis(dataset, saved);
     insights.forEach((insight) => recordGroupByInsight(dataset, insight));
     setGroupByAnalyses((items) => ({

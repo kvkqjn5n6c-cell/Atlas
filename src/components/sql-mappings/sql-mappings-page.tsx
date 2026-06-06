@@ -6,6 +6,7 @@ import { CheckCircle2, Database, Save, Wand2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { savePreparedSqlSourceAction } from "@/lib/actions/prepared-source-persistence-actions";
 import { atlasFieldCatalog, getAtlasFieldById } from "@/lib/connectors/sql/atlas-field-catalog";
 import { createMapping, suggestSqlMappings, updateMapping, validateMapping } from "@/lib/connectors/sql/sql-mapping-engine";
 import type { SqlMappingBundle } from "@/lib/connectors/sql/sql-mapping-types";
@@ -124,6 +125,7 @@ export function SqlMappingsPage() {
     const preview = await readTablePreview(selectedConnection, selectedTable.name, selectedTable.schema, connector);
     const prepared = createPreparedSqlSource(currentMapping, selectedTable, preview);
     const saved = savePreparedSqlSource(prepared);
+    void savePreparedSqlSourceAction(saved);
     setLastPreparedSource(saved);
     setPreparedSources(getPreparedSqlSources());
     setMessage("Source SQL preparee localement. Atlas conserve uniquement le mapping et un apercu limite.");
