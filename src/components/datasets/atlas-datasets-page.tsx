@@ -16,6 +16,11 @@ import type { DatasetGroupByAggregation, DatasetGroupByAnalysis } from "@/lib/da
 import { convertToLocalKpi, createDatasetKpi, previewDatasetKpi, validateDatasetKpi } from "@/lib/datasets/dataset-kpi-engine";
 import type { AtlasDataset } from "@/lib/datasets/atlas-dataset-types";
 import type { DatasetKpiAggregation, DatasetKpiDefinition } from "@/lib/datasets/dataset-kpi-types";
+import {
+  recordDatasetAnalysis,
+  recordDatasetKpiCreated,
+  recordGroupByInsight
+} from "@/lib/journal/decision-journal-engine";
 import { getDatasets } from "@/lib/local/atlas-datasets-store";
 import { getDatasetFilterSetsByDatasetId, saveDatasetFilterSet } from "@/lib/local/dataset-filters-store";
 import { getDatasetGroupByAnalysesByDatasetId, saveDatasetGroupByAnalysis } from "@/lib/local/dataset-groupby-store";
@@ -224,6 +229,8 @@ export function AtlasDatasetsPage() {
       datasetId: dataset.id
     });
     const insights = saveGroupByInsights(generateGroupByInsights(saved));
+    recordDatasetAnalysis(dataset, saved);
+    insights.forEach((insight) => recordGroupByInsight(dataset, insight));
     setGroupByAnalyses((items) => ({
       ...items,
       [dataset.id]: [saved, ...savedAnalyses(dataset).filter((item) => item.id !== saved.id)]
@@ -275,6 +282,7 @@ export function AtlasDatasetsPage() {
     saveLocalKpiConfiguration(kpi);
     saveLocalKpiResult(result);
     saveLocalKpiHistoryPoint(historyPoint);
+    recordDatasetKpiCreated({ dataset, definition, kpiId: kpi.id, value: result.value });
     setMessage(`${kpi.name} genere comme KPI local Atlas. Il apparaitra dans KPI Configuration et Pilotage.`);
   }
 

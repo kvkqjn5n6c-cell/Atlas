@@ -81,7 +81,17 @@ Visible dans :
 
 ### 8. Journal decisionnel
 
-Les actions issues du flux Dataset sont tracables dans le journal decisionnel. Les types `dataset_analysis` et `groupby_insight` preparent une lecture plus claire de l'origine des evenements.
+Les actions issues du flux Dataset sont tracables dans le journal decisionnel.
+
+Evenements journalises automatiquement :
+
+- `dataset_generated` : un Dataset Atlas est genere depuis une source SQL preparee.
+- `dataset_kpi_created` : un KPI local est cree depuis un Dataset Atlas.
+- `dataset_analysis` : une analyse comparative Group By est sauvegardee.
+- `groupby_insight` : un insight comparatif est genere depuis une analyse Group By.
+- `dataset_action_plan_created` : un plan d'action est cree depuis une recommandation Dataset / Group By.
+
+Chaque entree conserve les liens utiles : dataset, analyse, insight, recommandation, plan, groupe concerne et metadonnees simples.
 
 Visible dans :
 - `/decision-journal`
@@ -107,4 +117,4 @@ Visible dans :
 
 ## Prochaine etape
 
-La prochaine evolution utile sera de renforcer la tracabilite du flux Dataset dans le journal : creation explicite d'evenements `dataset_analysis` et `groupby_insight` au moment ou les analyses et insights sont sauvegardes.
+La prochaine evolution utile sera d'exposer des liens de navigation directs depuis chaque entree du journal vers le Dataset, l'analyse Group By ou le plan d'action concerne.

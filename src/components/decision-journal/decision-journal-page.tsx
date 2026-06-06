@@ -19,8 +19,11 @@ const typeLabels: Record<DecisionJournalEntryType, string> = {
   confidence_calculated: "Confiance calculée",
   memory_knowledge_approved: "Connaissance validée",
   memory_knowledge_rejected: "Connaissance rejetée",
+  dataset_generated: "Dataset généré",
+  dataset_kpi_created: "KPI Dataset",
   dataset_analysis: "Analyse Dataset",
-  groupby_insight: "Insight comparatif"
+  groupby_insight: "Insight comparatif",
+  dataset_action_plan_created: "Plan Dataset"
 };
 
 const typeOptions: Array<DecisionJournalEntryType | "all"> = [
@@ -33,8 +36,11 @@ const typeOptions: Array<DecisionJournalEntryType | "all"> = [
   "confidence_calculated",
   "memory_knowledge_approved",
   "memory_knowledge_rejected",
+  "dataset_generated",
+  "dataset_kpi_created",
   "dataset_analysis",
-  "groupby_insight"
+  "groupby_insight",
+  "dataset_action_plan_created"
 ];
 
 const priorityOptions = ["all", "low", "medium", "high", "critical"] as const;

@@ -10,8 +10,11 @@ export type DecisionJournalEntryType =
   | "confidence_calculated"
   | "memory_knowledge_approved"
   | "memory_knowledge_rejected"
+  | "dataset_generated"
+  | "dataset_kpi_created"
   | "dataset_analysis"
-  | "groupby_insight";
+  | "groupby_insight"
+  | "dataset_action_plan_created";
 
 export type DecisionJournalSourceType =
   | "recommendation"
@@ -20,6 +23,9 @@ export type DecisionJournalSourceType =
   | "feedback"
   | "confidence"
   | "memory"
+  | "dataset"
+  | "dataset_kpi"
+  | "dataset_analysis"
   | "dataset_groupby_insight";
 
 export type DecisionJournalMemoryReference = {

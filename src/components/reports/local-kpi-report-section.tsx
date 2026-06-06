@@ -14,7 +14,7 @@ import { generateExecutiveLocalSummary } from "@/lib/insights/local-insights-eng
 import { formatKpiDirection } from "@/lib/kpi-engine/local-kpi-direction";
 import { formatVariation } from "@/lib/kpi-engine/local-kpi-trends";
 import { saveLocalActionPlan } from "@/lib/local/local-action-plans-store";
-import { recordActionPlanCreated } from "@/lib/journal/decision-journal-engine";
+import { recordActionPlanCreated, recordDatasetActionPlanCreated } from "@/lib/journal/decision-journal-engine";
 import { getAvailableApprovedMemoryKnowledge } from "@/lib/services/local-data/local-kpis-data.service";
 import type { AtlasKnowledgeItem, AtlasKnowledgeType } from "@/types/atlas-memory-knowledge";
 import type { LocalActionPlan } from "@/types/local-action-plans";
@@ -95,8 +95,11 @@ const journalEntryTypeLabels: Record<DecisionJournalEntryType, string> = {
   confidence_calculated: "Confiance",
   memory_knowledge_approved: "Mémoire validée",
   memory_knowledge_rejected: "Mémoire rejetée",
+  dataset_generated: "Dataset généré",
+  dataset_kpi_created: "KPI Dataset",
   dataset_analysis: "Analyse Dataset",
-  groupby_insight: "Insight comparatif"
+  groupby_insight: "Insight comparatif",
+  dataset_action_plan_created: "Plan Dataset"
 };
 
 function formatJournalDate(value: string) {
@@ -228,8 +231,12 @@ function RecommendedActionPlan({
 
     const plan = saveLocalActionPlan(buildLocalActionPlanFromRecommendation(recommendation));
     const journalEntry = recordActionPlanCreated(plan);
+    const datasetJournalEntry = plan.sourceType === "dataset_groupby_insight" ? recordDatasetActionPlanCreated(plan) : undefined;
     void saveLocalActionPlanAction(plan);
     void saveDecisionJournalEntryAction({ organizationId: plan.organizationId, entry: journalEntry });
+    if (datasetJournalEntry) {
+      void saveDecisionJournalEntryAction({ organizationId: plan.organizationId, entry: datasetJournalEntry });
+    }
     setCreatedRecommendationIds((current) => [...current, recommendation.id]);
     setMessage(`Plan d'action local créé : ${plan.title}`);
   }

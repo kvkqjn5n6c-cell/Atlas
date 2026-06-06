@@ -23,7 +23,12 @@ Le journal est alimenté localement lors de ces événements :
 - mise à jour d'un plan d'action ;
 - mesure d'impact d'un plan ;
 - enregistrement d'un feedback sur une recommandation ;
-- validation ou rejet d'une connaissance Atlas Memory.
+- validation ou rejet d'une connaissance Atlas Memory ;
+- generation d'un Dataset Atlas depuis une source SQL preparee ;
+- creation d'un KPI local depuis un Dataset Atlas ;
+- sauvegarde d'une analyse comparative Group By ;
+- generation d'un insight comparatif ;
+- creation d'un plan d'action depuis une recommandation Dataset / Group By.
 
 Chaque événement contient une date, un type, une source, des liens vers les KPI, recommandations, plans d'action ou références mémoire concernées, et des métadonnées simples.
 
@@ -49,6 +54,24 @@ La route `/decision-journal` affiche :
 
 Le cockpit affiche les 5 derniers événements dans “Activité Atlas récente”.
 Les rapports affichent “Historique décisionnel récent”.
+
+## Evenements Dataset
+
+La chaine Dataset ajoute cinq types d'evenements :
+
+- `dataset_generated` : badge "Dataset genere".
+- `dataset_kpi_created` : badge "KPI Dataset".
+- `dataset_analysis` : badge "Analyse Dataset".
+- `groupby_insight` : badge "Insight comparatif".
+- `dataset_action_plan_created` : badge "Plan Dataset".
+
+Ces evenements apparaissent dans `/decision-journal`, dans l'activite recente du cockpit et dans l'historique decisionnel des rapports. Ils permettent de retracer :
+
+```text
+Dataset -> Group By -> Insight -> Recommandation -> Plan
+```
+
+La deduplication locale repose sur l'identifiant d'evenement. Par exemple, regenerer le meme Dataset depuis la meme source preparee remplace l'entree `dataset_generated` existante au lieu d'ajouter un doublon.
 
 ## Context packs
 

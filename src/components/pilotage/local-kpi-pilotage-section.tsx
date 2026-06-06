@@ -19,7 +19,7 @@ import { calculateScoreWithLocalKpis } from "@/lib/kpi-engine/local-kpi-results"
 import { formatVariation } from "@/lib/kpi-engine/local-kpi-trends";
 import { saveLocalActionPlan } from "@/lib/local/local-action-plans-store";
 import { saveRecommendationFeedback } from "@/lib/local/local-recommendation-feedback-store";
-import { recordActionPlanCreated, recordFeedbackRecorded } from "@/lib/journal/decision-journal-engine";
+import { recordActionPlanCreated, recordDatasetActionPlanCreated, recordFeedbackRecorded } from "@/lib/journal/decision-journal-engine";
 import {
   buildEmptyRecommendationFeedback,
   calculateRecommendationFeedbackStats
@@ -139,8 +139,11 @@ const journalEntryTypeLabels: Record<DecisionJournalEntryType, string> = {
   confidence_calculated: "Confiance",
   memory_knowledge_approved: "Mémoire validée",
   memory_knowledge_rejected: "Mémoire rejetée",
+  dataset_generated: "Dataset généré",
+  dataset_kpi_created: "KPI Dataset",
   dataset_analysis: "Analyse Dataset",
-  groupby_insight: "Insight comparatif"
+  groupby_insight: "Insight comparatif",
+  dataset_action_plan_created: "Plan Dataset"
 };
 
 function formatDate(value: string) {
@@ -427,8 +430,12 @@ function RecommendationsSection({
 
     const plan = saveLocalActionPlan(buildLocalActionPlanFromRecommendation(recommendation));
     const journalEntry = recordActionPlanCreated(plan);
+    const datasetJournalEntry = plan.sourceType === "dataset_groupby_insight" ? recordDatasetActionPlanCreated(plan) : undefined;
     void saveLocalActionPlanAction(plan);
     void saveDecisionJournalEntryAction({ organizationId: plan.organizationId, entry: journalEntry });
+    if (datasetJournalEntry) {
+      void saveDecisionJournalEntryAction({ organizationId: plan.organizationId, entry: datasetJournalEntry });
+    }
     setCreatedRecommendationIds((current) => [...current, recommendation.id]);
     setMessage(`Plan d'action local créé : ${plan.title}`);
     onDataChanged();

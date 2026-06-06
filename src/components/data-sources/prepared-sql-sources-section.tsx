@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { PreparedSqlSourceBundle } from "@/lib/connectors/sql/sql-prepared-source-types";
 import { createDatasetFromPreparedSource, summarizeDataset } from "@/lib/datasets/atlas-dataset-engine";
 import type { AtlasDataset } from "@/lib/datasets/atlas-dataset-types";
+import { recordDatasetGenerated } from "@/lib/journal/decision-journal-engine";
 import { getDatasets, saveDataset } from "@/lib/local/atlas-datasets-store";
 import { getPreparedSqlSources } from "@/lib/local/sql-prepared-sources-store";
 
@@ -37,6 +38,7 @@ export function PreparedSqlSourcesSection() {
   function generateDataset(bundle: PreparedSqlSourceBundle) {
     const dataset = createDatasetFromPreparedSource(bundle);
     const saved = saveDataset(dataset);
+    recordDatasetGenerated(saved);
     setDatasets(getDatasets());
     setMessage(`${saved.displayName} genere localement depuis la preview SQL.`);
   }
