@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useLocalActionPlansWorkspace } from "@/hooks/use-local-action-plans-workspace";
+import type { HybridReadSource } from "@/hooks/use-decision-journal-workspace";
 import { useLocalKpiWorkspace } from "@/hooks/use-local-kpi-workspace";
 import { measureActionPlanImpact } from "@/lib/action-plans/local-action-plan-impact-engine";
 import {
@@ -14,7 +16,7 @@ import {
 import { formatActionPriority, formatActionStatus } from "@/lib/formatters/status-labels";
 import { recordActionPlanUpdated, recordImpactMeasured } from "@/lib/journal/decision-journal-engine";
 import { getLocalActionPlanImpacts, saveLocalActionPlanImpact } from "@/lib/local/local-action-plan-impact-store";
-import { deleteLocalActionPlan, getLocalActionPlans, updateLocalActionPlan } from "@/lib/local/local-action-plans-store";
+import { deleteLocalActionPlan, updateLocalActionPlan } from "@/lib/local/local-action-plans-store";
 import { actionPlansMock } from "@/lib/mock/action-plans";
 import { alertsMock } from "@/lib/mock/alerts";
 import { performanceKpisMock } from "@/lib/mock/kpis";
@@ -66,6 +68,12 @@ function impactVariant(status: ImpactStatus): BadgeVariant {
   return "default";
 }
 
+function sourceLabel(source: HybridReadSource) {
+  if (source === "prisma") return "Source Prisma";
+  if (source === "fallback") return "Fallback local";
+  return "Source locale";
+}
+
 function formatVariationValue(value?: number) {
   if (value === undefined) return "Non disponible";
   return `${value > 0 ? "+" : ""}${value.toFixed(1)}%`;
@@ -79,12 +87,11 @@ function nextStatus(status: LocalActionPlanStatus): LocalActionPlanStatus {
 
 function LocalActionPlansSection() {
   const [mounted, setMounted] = useState(false);
-  const [plans, setPlans] = useState<LocalActionPlan[]>([]);
+  const { data: plans, source, isLoading, warnings, reload } = useLocalActionPlansWorkspace();
   const [impacts, setImpacts] = useState<LocalActionPlanImpact[]>([]);
   const { data: workspace, refresh: refreshWorkspace } = useLocalKpiWorkspace();
 
   function refresh() {
-    setPlans(getLocalActionPlans());
     setImpacts(getLocalActionPlanImpacts());
   }
 
@@ -97,29 +104,32 @@ function LocalActionPlansSection() {
     return () => window.clearTimeout(timeoutId);
   }, []);
 
-  function updateStatus(plan: LocalActionPlan, status: LocalActionPlanStatus) {
+  async function updateStatus(plan: LocalActionPlan, status: LocalActionPlanStatus) {
     const updatedPlan = updateLocalActionPlan({ ...plan, status });
     const journalEntry = recordActionPlanUpdated(updatedPlan, `Statut passé à ${localStatusLabels[status]}.`);
-    void updateLocalActionPlanAction(updatedPlan);
-    void saveDecisionJournalEntryAction({ organizationId: updatedPlan.organizationId, entry: journalEntry });
+    await updateLocalActionPlanAction(updatedPlan);
+    await saveDecisionJournalEntryAction({ organizationId: updatedPlan.organizationId, entry: journalEntry });
     refresh();
+    await reload();
   }
 
-  function markTaskDone(plan: LocalActionPlan, taskId: string) {
+  async function markTaskDone(plan: LocalActionPlan, taskId: string) {
     const updatedPlan = updateLocalActionPlan({
       ...plan,
       actions: plan.actions.map((task) => task.id === taskId ? { ...task, status: "done" } : task)
     });
     const journalEntry = recordActionPlanUpdated(updatedPlan, "Une tâche du plan a été marquée comme terminée.");
-    void updateLocalActionPlanAction(updatedPlan);
-    void saveDecisionJournalEntryAction({ organizationId: updatedPlan.organizationId, entry: journalEntry });
+    await updateLocalActionPlanAction(updatedPlan);
+    await saveDecisionJournalEntryAction({ organizationId: updatedPlan.organizationId, entry: journalEntry });
     refresh();
+    await reload();
   }
 
-  function deletePlan(id: string) {
+  async function deletePlan(id: string) {
     deleteLocalActionPlan(id);
-    void deleteLocalActionPlanAction(id);
+    await deleteLocalActionPlanAction(id);
     refresh();
+    await reload();
   }
 
   function measureImpact(plan: LocalActionPlan) {
@@ -149,12 +159,18 @@ function LocalActionPlansSection() {
       <CardHeader>
         <div className="flex flex-wrap items-center gap-2">
           <CardTitle>Plans locaux issus des recommandations Atlas</CardTitle>
-          <Badge variant="brand">Local</Badge>
+          <Badge variant="brand">{sourceLabel(source)}</Badge>
+          {isLoading ? <Badge>Chargement</Badge> : null}
           <Badge>Non persisté</Badge>
           <Badge>{plans.length} plan(s)</Badge>
         </div>
       </CardHeader>
       <CardContent>
+        {warnings.length > 0 ? (
+          <p className="mb-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+            {warnings[0]}
+          </p>
+        ) : null}
         {plans.length === 0 ? (
           <p className="rounded-md border border-line bg-slate-50 p-4 text-sm text-slate-600">
             Aucun plan local pour l&apos;instant. Créez un plan depuis une recommandation dans Pilotage ou Rapports.
@@ -191,7 +207,7 @@ function LocalActionPlansSection() {
                       </div>
                       {task.description ? <p className="mt-1 text-xs leading-5 text-slate-600">{task.description}</p> : null}
                       {task.status !== "done" ? (
-                        <Button className="mt-3" onClick={() => markTaskDone(plan, task.id)}>
+                        <Button className="mt-3" onClick={() => void markTaskDone(plan, task.id)}>
                           Marquer terminée
                         </Button>
                       ) : null}
@@ -229,11 +245,11 @@ function LocalActionPlansSection() {
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {plan.status !== "done" && plan.status !== "cancelled" ? (
-                    <Button onClick={() => updateStatus(plan, nextStatus(plan.status))}>
+                    <Button onClick={() => void updateStatus(plan, nextStatus(plan.status))}>
                       Passer à {localStatusLabels[nextStatus(plan.status)]}
                     </Button>
                   ) : null}
-                  <Button variant="ghost" onClick={() => deletePlan(plan.id)}>
+                  <Button variant="ghost" onClick={() => void deletePlan(plan.id)}>
                     Supprimer
                   </Button>
                 </div>

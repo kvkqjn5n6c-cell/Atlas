@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useDecisionJournalWorkspace, type HybridReadSource } from "@/hooks/use-decision-journal-workspace";
 import { deleteDecisionJournalEntryAction } from "@/lib/actions/decision-engine-persistence-actions";
-import { deleteJournalEntry, getJournalEntries } from "@/lib/local/decision-journal-store";
+import { deleteJournalEntry } from "@/lib/local/decision-journal-store";
 import type { DecisionJournalEntry, DecisionJournalEntryType } from "@/types/decision-journal";
 
 type PeriodFilter = "all" | "today" | "seven_days" | "thirty_days";
@@ -83,21 +84,22 @@ function periodLabel(period: PeriodFilter) {
   return "Toute la période";
 }
 
+function sourceLabel(source: HybridReadSource) {
+  if (source === "prisma") return "Source Prisma";
+  if (source === "fallback") return "Fallback local";
+  return "Source locale";
+}
+
 export function DecisionJournalPage() {
   const [mounted, setMounted] = useState(false);
-  const [entries, setEntries] = useState<DecisionJournalEntry[]>([]);
+  const { data: entries, source, isLoading, warnings, reload } = useDecisionJournalWorkspace();
   const [typeFilter, setTypeFilter] = useState<DecisionJournalEntryType | "all">("all");
   const [priorityFilter, setPriorityFilter] = useState<(typeof priorityOptions)[number]>("all");
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("all");
 
-  function refresh() {
-    setEntries(getJournalEntries());
-  }
-
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       setMounted(true);
-      refresh();
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
@@ -113,10 +115,10 @@ export function DecisionJournalPage() {
     [entries, periodFilter, priorityFilter, typeFilter]
   );
 
-  function deleteEntry(id: string) {
+  async function deleteEntry(id: string) {
     deleteJournalEntry(id);
-    void deleteDecisionJournalEntryAction(id);
-    refresh();
+    await deleteDecisionJournalEntryAction(id);
+    await reload();
   }
 
   return (
@@ -126,7 +128,8 @@ export function DecisionJournalPage() {
           <div className="max-w-3xl">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="brand">Journal décisionnel</Badge>
-              <Badge>Local</Badge>
+              <Badge>{sourceLabel(source)}</Badge>
+              {isLoading ? <Badge>Chargement</Badge> : null}
               <Badge>Non persisté</Badge>
             </div>
             <h2 className="mt-4 text-3xl font-semibold tracking-tight text-ink">
@@ -138,7 +141,8 @@ export function DecisionJournalPage() {
           </div>
           <div className="rounded-md border border-line bg-slate-50 p-4 text-sm text-slate-600">
             <p className="font-semibold text-ink">{entries.length} événement(s)</p>
-            <p className="mt-1">Stockage local navigateur, sans Prisma ni serveur.</p>
+            <p className="mt-1">Lecture hybride Prisma/localStorage avec fallback local.</p>
+            {warnings.length > 0 ? <p className="mt-1 text-xs text-amber-700">{warnings[0]}</p> : null}
           </div>
         </div>
       </section>
@@ -229,7 +233,7 @@ export function DecisionJournalPage() {
                         {entry.relatedMemoryReferences.length > 0 ? <Badge>{entry.relatedMemoryReferences.length} référence(s) mémoire</Badge> : null}
                       </div>
                     </div>
-                    <Button variant="ghost" onClick={() => deleteEntry(entry.id)}>
+                    <Button variant="ghost" onClick={() => void deleteEntry(entry.id)}>
                       Supprimer
                     </Button>
                   </div>

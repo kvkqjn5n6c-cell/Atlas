@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { saveDecisionJournalEntryData } from "@/lib/services/decision-journal.service";
-import { saveLocalActionPlanData } from "@/lib/services/local-action-plans.service";
-import { saveRecommendationFeedbackData } from "@/lib/services/recommendation-feedback.service";
+import { getDecisionJournalData, saveDecisionJournalEntryData } from "@/lib/services/decision-journal.service";
+import { getLocalActionPlansData, saveLocalActionPlanData } from "@/lib/services/local-action-plans.service";
+import {
+  getRecommendationFeedbackData,
+  saveRecommendationFeedbackData
+} from "@/lib/services/recommendation-feedback.service";
 import { getJournalEntries } from "@/lib/local/decision-journal-store";
 import { getLocalActionPlans } from "@/lib/local/local-action-plans-store";
 import { getRecommendationFeedback } from "@/lib/local/local-recommendation-feedback-store";
@@ -198,5 +201,38 @@ describe("decision engine persistence v1", () => {
 
     expect(result.source).toBe("fallback");
     expect(getRecommendationFeedback()).toHaveLength(1);
+  });
+
+  it("lit le journal en mode local", async () => {
+    await saveDecisionJournalEntryData(journalEntry(), organizationId);
+
+    const result = await getDecisionJournalData(organizationId);
+
+    expect(result.source).toBe("local");
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].id).toBe("journal-1");
+  });
+
+  it("lit les plans en mode prisma simule", async () => {
+    process.env.DATA_MODE = "prisma";
+    prismaMock.localActionPlan.findMany.mockResolvedValueOnce([prismaPlanRecord(plan())]);
+
+    const result = await getLocalActionPlansData(organizationId);
+
+    expect(result.source).toBe("prisma");
+    expect(prismaMock.localActionPlan.findMany).toHaveBeenCalledOnce();
+    expect(result.data[0].id).toBe("plan-1");
+  });
+
+  it("retombe sur le feedback local si la lecture Prisma echoue", async () => {
+    await saveRecommendationFeedbackData(feedback(), organizationId);
+    process.env.DATA_MODE = "prisma";
+    prismaMock.localRecommendationFeedback.findMany.mockRejectedValueOnce(new Error("DB unavailable"));
+
+    const result = await getRecommendationFeedbackData(organizationId);
+
+    expect(result.source).toBe("fallback");
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].id).toBe("feedback-1");
   });
 });
