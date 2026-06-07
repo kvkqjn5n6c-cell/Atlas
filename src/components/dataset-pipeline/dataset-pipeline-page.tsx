@@ -5,16 +5,17 @@ import Link from "next/link";
 import { ArrowRight, GitBranch, Network } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAtlasDatasetsWorkspace } from "@/hooks/use-atlas-datasets-workspace";
+import type { HybridReadSource } from "@/hooks/use-decision-journal-workspace";
+import { usePreparedSqlSourcesWorkspace } from "@/hooks/use-prepared-sql-sources-workspace";
 import { buildDatasetPipelineView, summarizePipeline } from "@/lib/datasets/dataset-pipeline-engine";
 import { generateLocalPriorities } from "@/lib/priorities/local-priorities-engine";
 import { generateLocalRecommendations } from "@/lib/recommendations/local-recommendations-engine";
-import { getDatasets } from "@/lib/local/atlas-datasets-store";
 import { getDatasetGroupByAnalyses } from "@/lib/local/dataset-groupby-store";
 import { getDatasetKpis } from "@/lib/local/dataset-kpi-store";
 import { getGroupByInsights } from "@/lib/local/dataset-groupby-insights-store";
 import { getJournalEntries } from "@/lib/local/decision-journal-store";
 import { getLocalActionPlans } from "@/lib/local/local-action-plans-store";
-import { getPreparedSqlSources } from "@/lib/local/sql-prepared-sources-store";
 import { getSqlConnections } from "@/lib/local/sql-connections-store";
 import { getSqlMappings } from "@/lib/local/sql-mappings-store";
 import type { DatasetPipelineNode, DatasetPipelineNodeStatus } from "@/types/dataset-pipeline";
@@ -55,6 +56,12 @@ function formatDate(value?: string) {
     dateStyle: "short",
     timeStyle: "short"
   }).format(new Date(value));
+}
+
+function sourceLabel(source: HybridReadSource) {
+  if (source === "prisma") return "Source Prisma";
+  if (source === "fallback") return "Fallback local";
+  return "Source locale";
 }
 
 function PipelineNodeCard({ node, index }: { node: DatasetPipelineNode; index: number }) {
@@ -99,6 +106,16 @@ function PipelineNodeCard({ node, index }: { node: DatasetPipelineNode; index: n
 export function DatasetPipelinePage() {
   const [mounted, setMounted] = useState(false);
   const [, setRefreshKey] = useState(0);
+  const {
+    data: preparedSources,
+    source: preparedSourcesSource,
+    reload: reloadPreparedSources
+  } = usePreparedSqlSourcesWorkspace(organizationId);
+  const {
+    data: datasets,
+    source: datasetsSource,
+    reload: reloadDatasets
+  } = useAtlasDatasetsWorkspace();
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => setMounted(true), 0);
@@ -127,8 +144,8 @@ export function DatasetPipelinePage() {
     return buildDatasetPipelineView({
       sqlConnections: getSqlConnections(),
       sqlMappings: getSqlMappings(),
-      preparedSources: getPreparedSqlSources(),
-      datasets: getDatasets(),
+      preparedSources,
+      datasets,
       datasetKpis: getDatasetKpis(),
       groupByAnalyses: getDatasetGroupByAnalyses(),
       groupByInsights,
@@ -160,7 +177,8 @@ export function DatasetPipelinePage() {
           <div className="max-w-3xl">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="brand">Pipeline Dataset</Badge>
-              <Badge>Local</Badge>
+              <Badge>{sourceLabel(preparedSourcesSource)}</Badge>
+              <Badge>Datasets {sourceLabel(datasetsSource)}</Badge>
               <Badge>Sans IA</Badge>
               <Badge>{completedCount}/{view.nodes.length} étape(s)</Badge>
             </div>
@@ -171,7 +189,11 @@ export function DatasetPipelinePage() {
           </div>
           <button
             type="button"
-            onClick={() => setRefreshKey((value) => value + 1)}
+            onClick={() => {
+              setRefreshKey((value) => value + 1);
+              void reloadPreparedSources();
+              void reloadDatasets();
+            }}
             className="inline-flex h-9 items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
           >
             Actualiser

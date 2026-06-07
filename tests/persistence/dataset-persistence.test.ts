@@ -11,6 +11,7 @@ import {
 import {
   deleteAtlasDatasetData,
   getAtlasDatasetByIdData,
+  getAtlasDatasetsData,
   saveAtlasDatasetData
 } from "@/lib/services/atlas-datasets.service";
 
@@ -100,6 +101,40 @@ describe("atlas dataset persistence v1", () => {
 
     expect(result.source).toBe("local");
     expect(result.data?.id).toBe(saved.id);
+  });
+
+  it("lit les datasets en mode local", async () => {
+    const saved = saveDataset(dataset());
+
+    const result = await getAtlasDatasetsData();
+
+    expect(result.source).toBe("local");
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].id).toBe(saved.id);
+  });
+
+  it("lit les datasets en mode prisma simule", async () => {
+    process.env.DATA_MODE = "prisma";
+    const input = dataset();
+    prismaMock.atlasDataset.findMany.mockResolvedValueOnce([prismaDatasetRecord(input)]);
+
+    const result = await getAtlasDatasetsData();
+
+    expect(result.source).toBe("prisma");
+    expect(prismaMock.atlasDataset.findMany).toHaveBeenCalledOnce();
+    expect(result.data[0].id).toBe(input.id);
+  });
+
+  it("retombe en local si la lecture Prisma des datasets echoue", async () => {
+    const saved = saveDataset(dataset());
+    process.env.DATA_MODE = "prisma";
+    prismaMock.atlasDataset.findMany.mockRejectedValueOnce(new Error("DB unavailable"));
+
+    const result = await getAtlasDatasetsData();
+
+    expect(result.source).toBe("fallback");
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].id).toBe(saved.id);
   });
 
   it("sauvegarde un dataset en mode prisma simule", async () => {

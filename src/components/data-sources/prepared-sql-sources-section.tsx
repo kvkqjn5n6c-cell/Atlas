@@ -6,13 +6,14 @@ import { DatabaseZap, TableProperties } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAtlasDatasetsWorkspace } from "@/hooks/use-atlas-datasets-workspace";
+import type { HybridReadSource } from "@/hooks/use-decision-journal-workspace";
+import { usePreparedSqlSourcesWorkspace } from "@/hooks/use-prepared-sql-sources-workspace";
 import { saveAtlasDatasetAction } from "@/lib/actions/dataset-persistence-actions";
 import type { PreparedSqlSourceBundle } from "@/lib/connectors/sql/sql-prepared-source-types";
 import { createDatasetFromPreparedSource, summarizeDataset } from "@/lib/datasets/atlas-dataset-engine";
-import type { AtlasDataset } from "@/lib/datasets/atlas-dataset-types";
 import { recordDatasetGenerated } from "@/lib/journal/decision-journal-engine";
-import { getDatasets, saveDataset } from "@/lib/local/atlas-datasets-store";
-import { getPreparedSqlSources } from "@/lib/local/sql-prepared-sources-store";
+import { saveDataset } from "@/lib/local/atlas-datasets-store";
 
 function scoreVariant(score: number) {
   if (score >= 80) return "success";
@@ -20,31 +21,45 @@ function scoreVariant(score: number) {
   return "danger";
 }
 
+function sourceLabel(source: HybridReadSource) {
+  if (source === "prisma") return "Source Prisma";
+  if (source === "fallback") return "Fallback local";
+  return "Source locale";
+}
+
 export function PreparedSqlSourcesSection() {
   const [mounted, setMounted] = useState(false);
-  const [sources, setSources] = useState<PreparedSqlSourceBundle[]>([]);
-  const [datasets, setDatasets] = useState<AtlasDataset[]>([]);
+  const {
+    data: sources,
+    source: preparedSourcesSource,
+    isLoading: isLoadingPreparedSources,
+    warnings: preparedSourcesWarnings
+  } = usePreparedSqlSourcesWorkspace();
+  const {
+    data: datasets,
+    source: datasetsSource,
+    warnings: datasetsWarnings,
+    reload: reloadDatasets
+  } = useAtlasDatasetsWorkspace();
   const [message, setMessage] = useState("");
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      setSources(getPreparedSqlSources());
-      setDatasets(getDatasets());
       setMounted(true);
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
   }, []);
 
-  function generateDataset(bundle: PreparedSqlSourceBundle) {
+  async function generateDataset(bundle: PreparedSqlSourceBundle) {
     const dataset = createDatasetFromPreparedSource(bundle);
     const saved = saveDataset(dataset);
-    void saveAtlasDatasetAction({
+    await saveAtlasDatasetAction({
       dataset: saved,
       organizationId: bundle.source.organizationId
     });
     recordDatasetGenerated(saved);
-    setDatasets(getDatasets());
+    await reloadDatasets();
     setMessage(`${saved.displayName} genere localement depuis la preview SQL.`);
   }
 
@@ -54,11 +69,19 @@ export function PreparedSqlSourcesSection() {
         <div className="flex flex-wrap items-center gap-2">
           <CardTitle>Sources SQL preparees</CardTitle>
           <Badge>{mounted ? sources.length : 0}</Badge>
+          <Badge>{sourceLabel(preparedSourcesSource)}</Badge>
+          {isLoadingPreparedSources ? <Badge>Chargement</Badge> : null}
+          <Badge>Datasets {sourceLabel(datasetsSource)}</Badge>
           <Badge>Lecture preview uniquement</Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {message ? <p className="rounded-md border border-line bg-slate-50 p-3 text-sm text-slate-600">{message}</p> : null}
+        {[...preparedSourcesWarnings, ...datasetsWarnings].length > 0 ? (
+          <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+            {[...preparedSourcesWarnings, ...datasetsWarnings][0]}
+          </p>
+        ) : null}
         {!mounted ? (
           <p className="rounded-md border border-line bg-slate-50 p-4 text-sm text-slate-600">
             Chargement des sources SQL preparees locales.
@@ -113,7 +136,7 @@ export function PreparedSqlSourcesSection() {
                     </p>
                   ) : null}
                   <div className="mt-4 flex flex-wrap gap-2">
-                    <Button onClick={() => generateDataset({ source, preview })}>
+                    <Button onClick={() => void generateDataset({ source, preview })}>
                       <TableProperties className="h-4 w-4" aria-hidden="true" />
                       Generer Dataset Atlas
                     </Button>

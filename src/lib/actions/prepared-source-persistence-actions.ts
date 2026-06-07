@@ -2,9 +2,14 @@
 
 import {
   deletePreparedSqlSourceData,
+  getPreparedSqlSourcesData,
   savePreparedSqlSourceData
 } from "@/lib/services/prepared-sql-sources.service";
 import type { PreparedSqlSourceBundle } from "@/lib/connectors/sql/sql-prepared-source-types";
+
+export async function getPreparedSqlSourcesWorkspaceAction(organizationId?: string) {
+  return getPreparedSqlSourcesData(organizationId);
+}
 
 export async function savePreparedSqlSourceAction(bundle: PreparedSqlSourceBundle) {
   const result = await savePreparedSqlSourceData(bundle);

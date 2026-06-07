@@ -6,6 +6,8 @@ import { TableProperties } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAtlasDatasetsWorkspace } from "@/hooks/use-atlas-datasets-workspace";
+import type { HybridReadSource } from "@/hooks/use-decision-journal-workspace";
 import { saveDatasetGroupByAnalysisAction } from "@/lib/actions/dataset-groupby-persistence-actions";
 import { saveDatasetGroupByInsightsAction } from "@/lib/actions/dataset-groupby-insights-persistence-actions";
 import { getDatasetStatistics, summarizeDataset, validateDataset } from "@/lib/datasets/atlas-dataset-engine";
@@ -23,7 +25,6 @@ import {
   recordDatasetKpiCreated,
   recordGroupByInsight
 } from "@/lib/journal/decision-journal-engine";
-import { getDatasets } from "@/lib/local/atlas-datasets-store";
 import { getDatasetFilterSetsByDatasetId, saveDatasetFilterSet } from "@/lib/local/dataset-filters-store";
 import { getDatasetGroupByAnalysesByDatasetId, saveDatasetGroupByAnalysis } from "@/lib/local/dataset-groupby-store";
 import { getGroupByInsightsByAnalysisId, saveGroupByInsights } from "@/lib/local/dataset-groupby-insights-store";
@@ -42,6 +43,12 @@ function insightVariant(severity: DatasetGroupByInsight["severity"]) {
   if (severity === "critical") return "danger";
   if (severity === "watch") return "warning";
   return "success";
+}
+
+function sourceLabel(source: HybridReadSource) {
+  if (source === "prisma") return "Source Prisma";
+  if (source === "fallback") return "Fallback local";
+  return "Source locale";
 }
 
 function valueToText(value: unknown) {
@@ -88,7 +95,7 @@ function defaultKpiName(dataset: AtlasDataset, aggregation: DatasetKpiAggregatio
 
 export function AtlasDatasetsPage() {
   const [mounted, setMounted] = useState(false);
-  const [datasets, setDatasets] = useState<AtlasDataset[]>([]);
+  const { data: datasets, source, isLoading, warnings } = useAtlasDatasetsWorkspace();
   const [filterSets, setFilterSets] = useState<Record<string, DatasetFilterSet>>({});
   const [groupByDrafts, setGroupByDrafts] = useState<Record<string, {
     aggregation: DatasetGroupByAggregation;
@@ -107,7 +114,6 @@ export function AtlasDatasetsPage() {
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      setDatasets(getDatasets());
       setMounted(true);
     }, 0);
 
@@ -312,7 +318,8 @@ export function AtlasDatasetsPage() {
               <Badge variant="brand">Datasets Atlas</Badge>
               <Badge>Temporaire</Badge>
               <Badge>Preview SQL uniquement</Badge>
-              <Badge>LocalStorage</Badge>
+              <Badge>{sourceLabel(source)}</Badge>
+              {isLoading ? <Badge>Chargement</Badge> : null}
             </div>
             <h2 className="mt-4 text-3xl font-semibold tracking-tight text-ink">
               Donnees SQL normalisees pour Atlas
@@ -335,6 +342,12 @@ export function AtlasDatasetsPage() {
           </Link>
         </div>
       </section>
+
+      {warnings.length > 0 ? (
+        <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+          {warnings[0]}
+        </p>
+      ) : null}
 
       {datasets.length === 0 ? (
         <Card>

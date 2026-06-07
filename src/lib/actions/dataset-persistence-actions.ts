@@ -2,9 +2,14 @@
 
 import {
   deleteAtlasDatasetData,
+  getAtlasDatasetsData,
   saveAtlasDatasetData
 } from "@/lib/services/atlas-datasets.service";
 import type { AtlasDataset } from "@/lib/datasets/atlas-dataset-types";
+
+export async function getAtlasDatasetsWorkspaceAction() {
+  return getAtlasDatasetsData();
+}
 
 export async function saveAtlasDatasetAction(input: {
   dataset: AtlasDataset;

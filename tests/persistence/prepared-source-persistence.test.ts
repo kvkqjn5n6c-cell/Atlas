@@ -10,6 +10,7 @@ import {
 import {
   deletePreparedSqlSourceData,
   getPreparedSqlSourceByIdData,
+  getPreparedSqlSourcesData,
   savePreparedSqlSourceData
 } from "@/lib/services/prepared-sql-sources.service";
 
@@ -98,6 +99,40 @@ describe("prepared SQL source persistence v1", () => {
 
     expect(result.source).toBe("local");
     expect(result.data?.source.id).toBe(saved.source.id);
+  });
+
+  it("lit les sources preparees en mode local", async () => {
+    const saved = savePreparedSqlSource(preparedSource());
+
+    const result = await getPreparedSqlSourcesData(saved.source.organizationId);
+
+    expect(result.source).toBe("local");
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].source.id).toBe(saved.source.id);
+  });
+
+  it("lit les sources preparees en mode prisma simule", async () => {
+    process.env.DATA_MODE = "prisma";
+    const bundle = preparedSource();
+    prismaMock.preparedSqlSource.findMany.mockResolvedValueOnce([prismaPreparedSourceRecord(bundle)]);
+
+    const result = await getPreparedSqlSourcesData(bundle.source.organizationId);
+
+    expect(result.source).toBe("prisma");
+    expect(prismaMock.preparedSqlSource.findMany).toHaveBeenCalledOnce();
+    expect(result.data[0].source.id).toBe(bundle.source.id);
+  });
+
+  it("retombe en local si la lecture Prisma des sources preparees echoue", async () => {
+    const saved = savePreparedSqlSource(preparedSource());
+    process.env.DATA_MODE = "prisma";
+    prismaMock.preparedSqlSource.findMany.mockRejectedValueOnce(new Error("DB unavailable"));
+
+    const result = await getPreparedSqlSourcesData(saved.source.organizationId);
+
+    expect(result.source).toBe("fallback");
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].source.id).toBe(saved.source.id);
   });
 
   it("sauvegarde une source preparee en mode prisma simule", async () => {
