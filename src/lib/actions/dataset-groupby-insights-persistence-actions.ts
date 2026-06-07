@@ -4,10 +4,15 @@ import {
   deleteDatasetGroupByInsightData,
   deleteDatasetGroupByInsightsByAnalysisData,
   deleteDatasetGroupByInsightsByDatasetData,
+  getDatasetGroupByInsightsData,
   saveDatasetGroupByInsightData,
   saveDatasetGroupByInsightsData
 } from "@/lib/services/dataset-groupby-insights.service";
 import type { DatasetGroupByInsight } from "@/lib/datasets/dataset-groupby-insight-types";
+
+export async function getDatasetGroupByInsightsWorkspaceAction() {
+  return getDatasetGroupByInsightsData();
+}
 
 export async function saveDatasetGroupByInsightAction(input: {
   insight: DatasetGroupByInsight;

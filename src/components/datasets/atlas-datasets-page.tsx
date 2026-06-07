@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAtlasDatasetsWorkspace } from "@/hooks/use-atlas-datasets-workspace";
+import { useDatasetGroupByInsightsWorkspace } from "@/hooks/use-dataset-groupby-insights-workspace";
+import { useDatasetGroupByWorkspace } from "@/hooks/use-dataset-groupby-workspace";
 import type { HybridReadSource } from "@/hooks/use-decision-journal-workspace";
 import { saveDatasetGroupByAnalysisAction } from "@/lib/actions/dataset-groupby-persistence-actions";
 import { saveDatasetGroupByInsightsAction } from "@/lib/actions/dataset-groupby-insights-persistence-actions";
@@ -26,8 +28,8 @@ import {
   recordGroupByInsight
 } from "@/lib/journal/decision-journal-engine";
 import { getDatasetFilterSetsByDatasetId, saveDatasetFilterSet } from "@/lib/local/dataset-filters-store";
-import { getDatasetGroupByAnalysesByDatasetId, saveDatasetGroupByAnalysis } from "@/lib/local/dataset-groupby-store";
-import { getGroupByInsightsByAnalysisId, saveGroupByInsights } from "@/lib/local/dataset-groupby-insights-store";
+import { saveDatasetGroupByAnalysis } from "@/lib/local/dataset-groupby-store";
+import { saveGroupByInsights } from "@/lib/local/dataset-groupby-insights-store";
 import { saveDatasetKpi } from "@/lib/local/dataset-kpi-store";
 import { saveLocalKpiHistoryPoint } from "@/lib/local/local-kpi-history-store";
 import { saveLocalKpiResult } from "@/lib/local/local-kpi-results-store";
@@ -96,6 +98,20 @@ function defaultKpiName(dataset: AtlasDataset, aggregation: DatasetKpiAggregatio
 export function AtlasDatasetsPage() {
   const [mounted, setMounted] = useState(false);
   const { data: datasets, source, isLoading, warnings } = useAtlasDatasetsWorkspace();
+  const {
+    data: groupByAnalysesData,
+    source: groupBySource,
+    isLoading: isLoadingGroupBy,
+    warnings: groupByWarnings,
+    reload: reloadGroupBy
+  } = useDatasetGroupByWorkspace();
+  const {
+    data: groupByInsightsData,
+    source: groupByInsightsSource,
+    isLoading: isLoadingGroupByInsights,
+    warnings: groupByInsightsWarnings,
+    reload: reloadGroupByInsights
+  } = useDatasetGroupByInsightsWorkspace();
   const [filterSets, setFilterSets] = useState<Record<string, DatasetFilterSet>>({});
   const [groupByDrafts, setGroupByDrafts] = useState<Record<string, {
     aggregation: DatasetGroupByAggregation;
@@ -211,10 +227,14 @@ export function AtlasDatasetsPage() {
   }
 
   function savedAnalyses(dataset: AtlasDataset) {
-    return groupByAnalyses[dataset.id] ?? getDatasetGroupByAnalysesByDatasetId(dataset.id);
+    return groupByAnalyses[dataset.id] ?? groupByAnalysesData.filter((analysis) => analysis.datasetId === dataset.id);
   }
 
-  function runGroupBy(dataset: AtlasDataset, filteredDataset: AtlasDataset) {
+  function savedInsightsByAnalysisId(analysisId: string) {
+    return groupByInsights[analysisId] ?? groupByInsightsData.filter((insight) => insight.groupByAnalysisId === analysisId);
+  }
+
+  async function runGroupBy(dataset: AtlasDataset, filteredDataset: AtlasDataset) {
     const draft = getGroupByDraft(dataset);
     const analysis = groupDataset({
       dataset: filteredDataset,
@@ -239,8 +259,8 @@ export function AtlasDatasetsPage() {
       datasetId: dataset.id
     });
     const insights = saveGroupByInsights(generateGroupByInsights(saved));
-    void saveDatasetGroupByAnalysisAction({ analysis: saved, organizationId: DEFAULT_ORGANIZATION_ID });
-    void saveDatasetGroupByInsightsAction({ insights, organizationId: DEFAULT_ORGANIZATION_ID });
+    await saveDatasetGroupByAnalysisAction({ analysis: saved, organizationId: DEFAULT_ORGANIZATION_ID });
+    await saveDatasetGroupByInsightsAction({ insights, organizationId: DEFAULT_ORGANIZATION_ID });
     recordDatasetAnalysis(dataset, saved);
     insights.forEach((insight) => recordGroupByInsight(dataset, insight));
     setGroupByAnalyses((items) => ({
@@ -251,6 +271,8 @@ export function AtlasDatasetsPage() {
       ...items,
       [saved.id]: insights
     }));
+    await reloadGroupBy();
+    await reloadGroupByInsights();
     setMessage(`Analyse comparative ${saved.groupedBy.label} sauvegardee localement avec ${insights.length} insight(s).`);
   }
 
@@ -320,6 +342,9 @@ export function AtlasDatasetsPage() {
               <Badge>Preview SQL uniquement</Badge>
               <Badge>{sourceLabel(source)}</Badge>
               {isLoading ? <Badge>Chargement</Badge> : null}
+              <Badge>GroupBy {sourceLabel(groupBySource)}</Badge>
+              <Badge>Insights {sourceLabel(groupByInsightsSource)}</Badge>
+              {isLoadingGroupBy || isLoadingGroupByInsights ? <Badge>Analyses en chargement</Badge> : null}
             </div>
             <h2 className="mt-4 text-3xl font-semibold tracking-tight text-ink">
               Donnees SQL normalisees pour Atlas
@@ -346,6 +371,11 @@ export function AtlasDatasetsPage() {
       {warnings.length > 0 ? (
         <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
           {warnings[0]}
+        </p>
+      ) : null}
+      {[...groupByWarnings, ...groupByInsightsWarnings].length > 0 ? (
+        <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+          {[...groupByWarnings, ...groupByInsightsWarnings][0]}
         </p>
       ) : null}
 
@@ -635,7 +665,7 @@ export function AtlasDatasetsPage() {
                     ) : null}
 
                     <div className="mt-4 flex flex-wrap gap-2">
-                      <Button onClick={() => runGroupBy(dataset, filtered.dataset)} disabled={!groupByValidation.valid}>
+                      <Button onClick={() => void runGroupBy(dataset, filtered.dataset)} disabled={!groupByValidation.valid}>
                         Sauvegarder analyse comparative
                       </Button>
                       <Badge>{previousAnalyses.length} analyse(s) historique(s)</Badge>
@@ -683,7 +713,7 @@ export function AtlasDatasetsPage() {
                         <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Derniers insights sauvegardes</p>
                         <div className="mt-2 flex flex-wrap gap-2">
                           {previousAnalyses.slice(0, 3).flatMap((analysis) => {
-                            const insights = groupByInsights[analysis.id] ?? getGroupByInsightsByAnalysisId(analysis.id);
+                            const insights = savedInsightsByAnalysisId(analysis.id);
                             return insights.slice(0, 2).map((insight) => (
                               <Badge key={`${analysis.id}-${insight.id}`} variant={insightVariant(insight.severity)}>
                                 {insight.title}

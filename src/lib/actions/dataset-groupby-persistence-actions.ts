@@ -3,9 +3,14 @@
 import {
   deleteDatasetGroupByAnalysesByDatasetData,
   deleteDatasetGroupByAnalysisData,
+  getDatasetGroupByAnalysesData,
   saveDatasetGroupByAnalysisData
 } from "@/lib/services/dataset-groupby.service";
 import type { DatasetGroupByAnalysis } from "@/lib/datasets/dataset-groupby-types";
+
+export async function getDatasetGroupByWorkspaceAction() {
+  return getDatasetGroupByAnalysesData();
+}
 
 export async function saveDatasetGroupByAnalysisAction(input: {
   analysis: DatasetGroupByAnalysis;

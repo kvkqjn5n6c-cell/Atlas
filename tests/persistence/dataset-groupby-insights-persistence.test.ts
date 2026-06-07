@@ -7,6 +7,7 @@ import {
   deleteDatasetGroupByInsightsByAnalysisData,
   deleteDatasetGroupByInsightsByDatasetData,
   getDatasetGroupByInsightByIdData,
+  getDatasetGroupByInsightsData,
   saveDatasetGroupByInsightData,
   saveDatasetGroupByInsightsData
 } from "@/lib/services/dataset-groupby-insights.service";
@@ -97,6 +98,40 @@ describe("dataset group by insights persistence v1", () => {
 
     expect(result.source).toBe("local");
     expect(result.data?.id).toBe(saved.id);
+  });
+
+  it("lit les insights en mode local", async () => {
+    const saved = saveGroupByInsights([insight()])[0];
+
+    const result = await getDatasetGroupByInsightsData();
+
+    expect(result.source).toBe("local");
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].id).toBe(saved.id);
+  });
+
+  it("lit les insights en mode prisma simule", async () => {
+    process.env.DATA_MODE = "prisma";
+    const input = insight();
+    prismaMock.datasetGroupByInsight.findMany.mockResolvedValueOnce([prismaInsightRecord(input)]);
+
+    const result = await getDatasetGroupByInsightsData();
+
+    expect(result.source).toBe("prisma");
+    expect(prismaMock.datasetGroupByInsight.findMany).toHaveBeenCalledOnce();
+    expect(result.data[0].id).toBe(input.id);
+  });
+
+  it("retombe en local si la lecture Prisma des insights echoue", async () => {
+    const saved = saveGroupByInsights([insight()])[0];
+    process.env.DATA_MODE = "prisma";
+    prismaMock.datasetGroupByInsight.findMany.mockRejectedValueOnce(new Error("DB unavailable"));
+
+    const result = await getDatasetGroupByInsightsData();
+
+    expect(result.source).toBe("fallback");
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].id).toBe(saved.id);
   });
 
   it("sauvegarde plusieurs insights en mode prisma simule", async () => {

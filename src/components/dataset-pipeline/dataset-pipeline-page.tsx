@@ -6,14 +6,14 @@ import { ArrowRight, GitBranch, Network } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAtlasDatasetsWorkspace } from "@/hooks/use-atlas-datasets-workspace";
+import { useDatasetGroupByInsightsWorkspace } from "@/hooks/use-dataset-groupby-insights-workspace";
+import { useDatasetGroupByWorkspace } from "@/hooks/use-dataset-groupby-workspace";
 import type { HybridReadSource } from "@/hooks/use-decision-journal-workspace";
 import { usePreparedSqlSourcesWorkspace } from "@/hooks/use-prepared-sql-sources-workspace";
 import { buildDatasetPipelineView, summarizePipeline } from "@/lib/datasets/dataset-pipeline-engine";
 import { generateLocalPriorities } from "@/lib/priorities/local-priorities-engine";
 import { generateLocalRecommendations } from "@/lib/recommendations/local-recommendations-engine";
-import { getDatasetGroupByAnalyses } from "@/lib/local/dataset-groupby-store";
 import { getDatasetKpis } from "@/lib/local/dataset-kpi-store";
-import { getGroupByInsights } from "@/lib/local/dataset-groupby-insights-store";
 import { getJournalEntries } from "@/lib/local/decision-journal-store";
 import { getLocalActionPlans } from "@/lib/local/local-action-plans-store";
 import { getSqlConnections } from "@/lib/local/sql-connections-store";
@@ -116,6 +116,16 @@ export function DatasetPipelinePage() {
     source: datasetsSource,
     reload: reloadDatasets
   } = useAtlasDatasetsWorkspace();
+  const {
+    data: groupByAnalyses,
+    source: groupBySource,
+    reload: reloadGroupBy
+  } = useDatasetGroupByWorkspace();
+  const {
+    data: groupByInsights,
+    source: groupByInsightsSource,
+    reload: reloadGroupByInsights
+  } = useDatasetGroupByInsightsWorkspace();
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => setMounted(true), 0);
@@ -127,7 +137,6 @@ export function DatasetPipelinePage() {
       return buildDatasetPipelineView({});
     }
 
-    const groupByInsights = getGroupByInsights();
     const actionPlans = getLocalActionPlans();
     const recommendations = generateLocalRecommendations({
       organizationId,
@@ -147,7 +156,7 @@ export function DatasetPipelinePage() {
       preparedSources,
       datasets,
       datasetKpis: getDatasetKpis(),
-      groupByAnalyses: getDatasetGroupByAnalyses(),
+      groupByAnalyses,
       groupByInsights,
       recommendations,
       priorities,
@@ -179,6 +188,8 @@ export function DatasetPipelinePage() {
               <Badge variant="brand">Pipeline Dataset</Badge>
               <Badge>{sourceLabel(preparedSourcesSource)}</Badge>
               <Badge>Datasets {sourceLabel(datasetsSource)}</Badge>
+              <Badge>GroupBy {sourceLabel(groupBySource)}</Badge>
+              <Badge>Insights {sourceLabel(groupByInsightsSource)}</Badge>
               <Badge>Sans IA</Badge>
               <Badge>{completedCount}/{view.nodes.length} étape(s)</Badge>
             </div>
@@ -193,6 +204,8 @@ export function DatasetPipelinePage() {
               setRefreshKey((value) => value + 1);
               void reloadPreparedSources();
               void reloadDatasets();
+              void reloadGroupBy();
+              void reloadGroupByInsights();
             }}
             className="inline-flex h-9 items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
           >
