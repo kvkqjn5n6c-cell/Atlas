@@ -184,6 +184,8 @@ model Organization {
   atlasDatasets AtlasDataset[]
   datasetGroupByAnalyses DatasetGroupByAnalysis[]
   datasetGroupByInsights DatasetGroupByInsight[]
+  datasetFilterSets DatasetFilterSet[]
+  datasetKpiDefinitions DatasetKpiDefinition[]
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
@@ -764,6 +766,8 @@ model AtlasDataset {
   preparedSqlSource PreparedSqlSource  @relation(fields: [sourceId], references: [id], onDelete: Cascade)
   groupByAnalyses   DatasetGroupByAnalysis[]
   groupByInsights   DatasetGroupByInsight[]
+  filterSets        DatasetFilterSet[]
+  kpiDefinitions    DatasetKpiDefinition[]
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
@@ -771,6 +775,52 @@ model AtlasDataset {
   @@index([sourceId])
   @@index([createdAt])
   @@index([updatedAt])
+}
+
+model DatasetFilterSet {
+  id              String       @id
+  organizationId  String
+  datasetId       String?
+  name            String
+  filters         Json
+  persistedSource String       @default("prisma")
+  metadata        Json?
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dataset         AtlasDataset? @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([datasetId])
+  @@index([createdAt])
+}
+
+model DatasetKpiDefinition {
+  id                String       @id
+  organizationId    String
+  datasetId         String
+  name              String
+  description       String
+  type              String
+  field             String
+  secondaryField    String?
+  aggregation       String
+  targetValue       Float?
+  warningThreshold  Float?
+  criticalThreshold Float?
+  filterSet         Json?
+  filteredRowCount  Int?
+  persistedSource   String       @default("prisma")
+  metadata          Json?
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dataset           AtlasDataset @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([datasetId])
+  @@index([aggregation])
+  @@index([createdAt])
 }
 
 model DatasetGroupByAnalysis {

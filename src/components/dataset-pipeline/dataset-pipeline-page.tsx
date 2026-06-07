@@ -6,14 +6,15 @@ import { ArrowRight, GitBranch, Network } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAtlasDatasetsWorkspace } from "@/hooks/use-atlas-datasets-workspace";
+import { useDatasetFiltersWorkspace } from "@/hooks/use-dataset-filters-workspace";
 import { useDatasetGroupByInsightsWorkspace } from "@/hooks/use-dataset-groupby-insights-workspace";
 import { useDatasetGroupByWorkspace } from "@/hooks/use-dataset-groupby-workspace";
+import { useDatasetKpiWorkspace } from "@/hooks/use-dataset-kpi-workspace";
 import type { HybridReadSource } from "@/hooks/use-decision-journal-workspace";
 import { usePreparedSqlSourcesWorkspace } from "@/hooks/use-prepared-sql-sources-workspace";
 import { buildDatasetPipelineView, summarizePipeline } from "@/lib/datasets/dataset-pipeline-engine";
 import { generateLocalPriorities } from "@/lib/priorities/local-priorities-engine";
 import { generateLocalRecommendations } from "@/lib/recommendations/local-recommendations-engine";
-import { getDatasetKpis } from "@/lib/local/dataset-kpi-store";
 import { getJournalEntries } from "@/lib/local/decision-journal-store";
 import { getLocalActionPlans } from "@/lib/local/local-action-plans-store";
 import { getSqlConnections } from "@/lib/local/sql-connections-store";
@@ -126,6 +127,15 @@ export function DatasetPipelinePage() {
     source: groupByInsightsSource,
     reload: reloadGroupByInsights
   } = useDatasetGroupByInsightsWorkspace();
+  const {
+    source: datasetFiltersSource,
+    reload: reloadDatasetFilters
+  } = useDatasetFiltersWorkspace();
+  const {
+    data: datasetKpis,
+    source: datasetKpiSource,
+    reload: reloadDatasetKpi
+  } = useDatasetKpiWorkspace();
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => setMounted(true), 0);
@@ -155,7 +165,7 @@ export function DatasetPipelinePage() {
       sqlMappings: getSqlMappings(),
       preparedSources,
       datasets,
-      datasetKpis: getDatasetKpis(),
+      datasetKpis,
       groupByAnalyses,
       groupByInsights,
       recommendations,
@@ -190,6 +200,8 @@ export function DatasetPipelinePage() {
               <Badge>Datasets {sourceLabel(datasetsSource)}</Badge>
               <Badge>GroupBy {sourceLabel(groupBySource)}</Badge>
               <Badge>Insights {sourceLabel(groupByInsightsSource)}</Badge>
+              <Badge>Filtres {sourceLabel(datasetFiltersSource)}</Badge>
+              <Badge>KPI Dataset {sourceLabel(datasetKpiSource)}</Badge>
               <Badge>Sans IA</Badge>
               <Badge>{completedCount}/{view.nodes.length} étape(s)</Badge>
             </div>
@@ -206,6 +218,8 @@ export function DatasetPipelinePage() {
               void reloadDatasets();
               void reloadGroupBy();
               void reloadGroupByInsights();
+              void reloadDatasetFilters();
+              void reloadDatasetKpi();
             }}
             className="inline-flex h-9 items-center justify-center rounded-md border border-line bg-white px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
           >

@@ -9,9 +9,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAtlasDatasetsWorkspace } from "@/hooks/use-atlas-datasets-workspace";
 import { useDatasetGroupByInsightsWorkspace } from "@/hooks/use-dataset-groupby-insights-workspace";
 import { useDatasetGroupByWorkspace } from "@/hooks/use-dataset-groupby-workspace";
+import { useDatasetFiltersWorkspace } from "@/hooks/use-dataset-filters-workspace";
+import { useDatasetKpiWorkspace } from "@/hooks/use-dataset-kpi-workspace";
 import type { HybridReadSource } from "@/hooks/use-decision-journal-workspace";
+import { saveDatasetFilterSetAction } from "@/lib/actions/dataset-filters-persistence-actions";
 import { saveDatasetGroupByAnalysisAction } from "@/lib/actions/dataset-groupby-persistence-actions";
 import { saveDatasetGroupByInsightsAction } from "@/lib/actions/dataset-groupby-insights-persistence-actions";
+import { saveDatasetKpiDefinitionAction } from "@/lib/actions/dataset-kpi-persistence-actions";
 import { getDatasetStatistics, summarizeDataset, validateDataset } from "@/lib/datasets/atlas-dataset-engine";
 import { applyDatasetFilters, summarizeDatasetFilters, validateDatasetFilters } from "@/lib/datasets/dataset-filter-engine";
 import type { DatasetFilter, DatasetFilterOperator, DatasetFilterSet } from "@/lib/datasets/dataset-filter-types";
@@ -27,7 +31,7 @@ import {
   recordDatasetKpiCreated,
   recordGroupByInsight
 } from "@/lib/journal/decision-journal-engine";
-import { getDatasetFilterSetsByDatasetId, saveDatasetFilterSet } from "@/lib/local/dataset-filters-store";
+import { saveDatasetFilterSet } from "@/lib/local/dataset-filters-store";
 import { saveDatasetGroupByAnalysis } from "@/lib/local/dataset-groupby-store";
 import { saveGroupByInsights } from "@/lib/local/dataset-groupby-insights-store";
 import { saveDatasetKpi } from "@/lib/local/dataset-kpi-store";
@@ -112,6 +116,20 @@ export function AtlasDatasetsPage() {
     warnings: groupByInsightsWarnings,
     reload: reloadGroupByInsights
   } = useDatasetGroupByInsightsWorkspace();
+  const {
+    data: datasetFilterSetsData,
+    source: datasetFiltersSource,
+    isLoading: isLoadingDatasetFilters,
+    warnings: datasetFiltersWarnings,
+    reload: reloadDatasetFilters
+  } = useDatasetFiltersWorkspace();
+  const {
+    data: datasetKpisData,
+    source: datasetKpiSource,
+    isLoading: isLoadingDatasetKpi,
+    warnings: datasetKpiWarnings,
+    reload: reloadDatasetKpi
+  } = useDatasetKpiWorkspace();
   const [filterSets, setFilterSets] = useState<Record<string, DatasetFilterSet>>({});
   const [groupByDrafts, setGroupByDrafts] = useState<Record<string, {
     aggregation: DatasetGroupByAggregation;
@@ -146,7 +164,7 @@ export function AtlasDatasetsPage() {
   }
 
   function getFilterSet(dataset: AtlasDataset): DatasetFilterSet {
-    const saved = getDatasetFilterSetsByDatasetId(dataset.id)[0];
+    const saved = datasetFilterSetsData.find((filterSet) => filterSet.datasetId === dataset.id);
 
     return filterSets[dataset.id] ?? saved ?? {
       id: `dataset-filter-set-${dataset.id}`,
@@ -155,6 +173,10 @@ export function AtlasDatasetsPage() {
       filters: [],
       createdAt: new Date().toISOString()
     };
+  }
+
+  function savedDatasetKpis(dataset: AtlasDataset) {
+    return datasetKpisData.filter((definition) => definition.datasetId === dataset.id);
   }
 
   function updateFilterSet(dataset: AtlasDataset, nextFilterSet: DatasetFilterSet) {
@@ -186,7 +208,7 @@ export function AtlasDatasetsPage() {
     });
   }
 
-  function saveFilters(dataset: AtlasDataset) {
+  async function saveFilters(dataset: AtlasDataset) {
     const current = getFilterSet(dataset);
     const validation = validateDatasetFilters(dataset, current);
 
@@ -196,6 +218,8 @@ export function AtlasDatasetsPage() {
     }
 
     saveDatasetFilterSet(current);
+    await saveDatasetFilterSetAction({ filterSet: current, organizationId: DEFAULT_ORGANIZATION_ID });
+    await reloadDatasetFilters();
     setMessage(`Jeu de filtres "${current.name}" sauvegarde localement.`);
   }
 
@@ -301,7 +325,7 @@ export function AtlasDatasetsPage() {
     });
   }
 
-  function generateKpi(dataset: AtlasDataset) {
+  async function generateKpi(dataset: AtlasDataset) {
     const definition = buildDefinition(dataset);
     const validation = validateDatasetKpi(dataset, definition);
 
@@ -313,10 +337,12 @@ export function AtlasDatasetsPage() {
     const filterSet = getFilterSet(dataset).filters.length > 0 ? getFilterSet(dataset) : undefined;
     const { kpi, result, historyPoint } = convertToLocalKpi({ dataset, definition, filterSet });
     saveDatasetKpi(definition);
+    await saveDatasetKpiDefinitionAction({ definition, organizationId: DEFAULT_ORGANIZATION_ID });
     saveLocalKpiConfiguration(kpi);
     saveLocalKpiResult(result);
     saveLocalKpiHistoryPoint(historyPoint);
     recordDatasetKpiCreated({ dataset, definition, kpiId: kpi.id, value: result.value });
+    await reloadDatasetKpi();
     setMessage(`${kpi.name} genere comme KPI local Atlas. Il apparaitra dans KPI Configuration et Pilotage.`);
   }
 
@@ -344,7 +370,10 @@ export function AtlasDatasetsPage() {
               {isLoading ? <Badge>Chargement</Badge> : null}
               <Badge>GroupBy {sourceLabel(groupBySource)}</Badge>
               <Badge>Insights {sourceLabel(groupByInsightsSource)}</Badge>
+              <Badge>Filtres {sourceLabel(datasetFiltersSource)}</Badge>
+              <Badge>KPI Dataset {sourceLabel(datasetKpiSource)}</Badge>
               {isLoadingGroupBy || isLoadingGroupByInsights ? <Badge>Analyses en chargement</Badge> : null}
+              {isLoadingDatasetFilters || isLoadingDatasetKpi ? <Badge>Pipeline en chargement</Badge> : null}
             </div>
             <h2 className="mt-4 text-3xl font-semibold tracking-tight text-ink">
               Donnees SQL normalisees pour Atlas
@@ -376,6 +405,11 @@ export function AtlasDatasetsPage() {
       {[...groupByWarnings, ...groupByInsightsWarnings].length > 0 ? (
         <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
           {[...groupByWarnings, ...groupByInsightsWarnings][0]}
+        </p>
+      ) : null}
+      {[...datasetFiltersWarnings, ...datasetKpiWarnings].length > 0 ? (
+        <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+          {[...datasetFiltersWarnings, ...datasetKpiWarnings][0]}
         </p>
       ) : null}
 
@@ -426,6 +460,7 @@ export function AtlasDatasetsPage() {
             const currentGroupBySummary = currentGroupByAnalysis ? summarizeGroupBy(currentGroupByAnalysis) : undefined;
             const currentGroupByInsights = currentGroupByAnalysis ? generateGroupByInsights(currentGroupByAnalysis) : [];
             const previousAnalyses = savedAnalyses(dataset);
+            const previousDatasetKpis = savedDatasetKpis(dataset);
             const draft = getDraft(dataset);
             const definition = buildDefinition(dataset);
             const kpiPreview = previewDatasetKpi(dataset, definition, filterSet.filters.length > 0 ? filterSet : undefined);
@@ -493,7 +528,7 @@ export function AtlasDatasetsPage() {
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <Button onClick={() => addFilter(dataset)}>Ajouter filtre</Button>
-                        <Button onClick={() => saveFilters(dataset)} disabled={!filterValidation.valid}>Sauvegarder filtres</Button>
+                        <Button onClick={() => void saveFilters(dataset)} disabled={!filterValidation.valid}>Sauvegarder filtres</Button>
                       </div>
                     </div>
 
@@ -770,6 +805,7 @@ export function AtlasDatasetsPage() {
                       <Badge>SUM</Badge>
                       <Badge>AVERAGE</Badge>
                       <Badge>RATIO</Badge>
+                      <Badge>{previousDatasetKpis.length} KPI sauvegarde(s)</Badge>
                     </div>
                     <div className="mt-4 grid gap-3 lg:grid-cols-4">
                       <label className="space-y-1 text-sm lg:col-span-2">
@@ -841,7 +877,7 @@ export function AtlasDatasetsPage() {
                         ) : null}
                       </div>
                       <div className="flex flex-col justify-end gap-2">
-                        <Button onClick={() => generateKpi(dataset)} disabled={!kpiValidation.valid}>
+                        <Button onClick={() => void generateKpi(dataset)} disabled={!kpiValidation.valid}>
                           <TableProperties className="h-4 w-4" aria-hidden="true" />
                           Generer KPI local
                         </Button>
