@@ -1,6 +1,7 @@
 import { Database, KeyRound, Network, ShieldCheck, SlidersHorizontal, Waypoints } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CoherenceAuditPanel } from "@/components/settings/coherence-audit-panel";
 import { LocalToPrismaMigrationPanel } from "@/components/settings/local-to-prisma-migration-panel";
 
 const settingsBlocks = [
@@ -76,6 +77,7 @@ export function AtlasSettingsPage() {
       </section>
 
       <LocalToPrismaMigrationPanel />
+      <CoherenceAuditPanel />
     </div>
   );
 }
