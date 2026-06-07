@@ -1,4 +1,4 @@
-import { isPrismaMode } from "@/lib/config/data-mode";
+import { isDecisionDomainPrismaPreferred, isPrismaMode } from "@/lib/config/data-mode";
 import {
   deleteLocalActionPlan as deleteLocalActionPlanLocal,
   getLocalActionPlans,
@@ -85,7 +85,7 @@ function localPlansByOrganization(organizationId: string) {
 
 export async function getLocalActionPlansByOrganization(organizationId: string) {
   lastFallbackUsed = false;
-  if (!isPrismaMode()) return localPlansByOrganization(organizationId);
+  if (!isDecisionDomainPrismaPreferred()) return localPlansByOrganization(organizationId);
 
   try {
     const prisma = await getPrisma();
@@ -103,7 +103,7 @@ export async function getLocalActionPlansByOrganization(organizationId: string) 
 
 export async function getLocalActionPlansByRecommendationId(recommendationId: string, organizationId?: string) {
   lastFallbackUsed = false;
-  if (!isPrismaMode()) {
+  if (!isDecisionDomainPrismaPreferred()) {
     return getLocalActionPlansByRecommendationIdLocal(recommendationId)
       .filter((plan) => !organizationId || plan.organizationId === organizationId);
   }

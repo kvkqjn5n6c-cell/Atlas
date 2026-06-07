@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CoherenceAuditPanel } from "@/components/settings/coherence-audit-panel";
 import { LocalToPrismaMigrationPanel } from "@/components/settings/local-to-prisma-migration-panel";
+import { PrimarySourcePanel } from "@/components/settings/primary-source-panel";
 
 const settingsBlocks = [
   {
@@ -77,6 +78,7 @@ export function AtlasSettingsPage() {
       </section>
 
       <LocalToPrismaMigrationPanel />
+      <PrimarySourcePanel />
       <CoherenceAuditPanel />
     </div>
   );

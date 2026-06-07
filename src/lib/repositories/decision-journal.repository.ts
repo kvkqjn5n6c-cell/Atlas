@@ -1,4 +1,4 @@
-import { isPrismaMode } from "@/lib/config/data-mode";
+import { isDecisionDomainPrismaPreferred, isPrismaMode } from "@/lib/config/data-mode";
 import {
   addJournalEntry,
   deleteJournalEntry as deleteJournalEntryLocal,
@@ -84,7 +84,7 @@ function toPrismaData(entry: DecisionJournalEntry, organizationId: string) {
 
 export async function getDecisionJournalEntriesByOrganization(organizationId: string) {
   lastFallbackUsed = false;
-  if (!isPrismaMode()) return getJournalEntries();
+  if (!isDecisionDomainPrismaPreferred()) return getJournalEntries();
 
   try {
     const prisma = await getPrisma();
@@ -102,7 +102,7 @@ export async function getDecisionJournalEntriesByOrganization(organizationId: st
 
 export async function getDecisionJournalEntriesByType(type: DecisionJournalEntryType, organizationId?: string) {
   lastFallbackUsed = false;
-  if (!isPrismaMode()) return getJournalEntriesByTypeLocal(type);
+  if (!isDecisionDomainPrismaPreferred()) return getJournalEntriesByTypeLocal(type);
 
   try {
     const prisma = await getPrisma();

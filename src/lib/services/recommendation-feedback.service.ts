@@ -1,4 +1,4 @@
-import { isPrismaMode } from "@/lib/config/data-mode";
+import { isDecisionDomainPrismaPreferred, isPrismaMode } from "@/lib/config/data-mode";
 import {
   deleteRecommendationFeedback,
   getRecommendationFeedbackByOrganization,
@@ -8,27 +8,32 @@ import {
 } from "@/lib/repositories/recommendation-feedback.repository";
 import type { LocalRecommendationFeedback } from "@/types/local-recommendation-feedback";
 
-function currentSource() {
+function currentReadSource() {
+  if (wasRecommendationFeedbackFallbackUsed()) return "fallback" as const;
+  return isDecisionDomainPrismaPreferred() ? "prisma" as const : "local" as const;
+}
+
+function currentWriteSource() {
   if (wasRecommendationFeedbackFallbackUsed()) return "fallback" as const;
   return isPrismaMode() ? "prisma" as const : "local" as const;
 }
 
 export async function getRecommendationFeedbackData(organizationId: string) {
   const data = await getRecommendationFeedbackByOrganization(organizationId);
-  return { data, source: currentSource() };
+  return { data, source: currentReadSource() };
 }
 
 export async function getRecommendationFeedbackByRecommendationData(recommendationId: string, organizationId?: string) {
   const data = await getRecommendationFeedbackByRecommendationId(recommendationId, organizationId);
-  return { data, source: currentSource() };
+  return { data, source: currentReadSource() };
 }
 
 export async function saveRecommendationFeedbackData(feedback: LocalRecommendationFeedback, organizationId: string) {
   const data = await upsertRecommendationFeedback(feedback, organizationId);
-  return { data, source: currentSource() };
+  return { data, source: currentWriteSource() };
 }
 
 export async function deleteRecommendationFeedbackData(id: string) {
   await deleteRecommendationFeedback(id);
-  return { success: true, source: currentSource() };
+  return { success: true, source: currentWriteSource() };
 }

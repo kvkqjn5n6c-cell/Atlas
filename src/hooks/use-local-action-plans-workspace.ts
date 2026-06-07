@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  getHybridReadModeAction,
+  getDecisionDomainReadModeAction,
   getLocalActionPlansReadAction
 } from "@/lib/actions/hybrid-read-actions";
 import { getLocalActionPlans } from "@/lib/local/local-action-plans-store";
@@ -38,8 +38,8 @@ export function useLocalActionPlansWorkspace(organizationId = DEFAULT_ORGANIZATI
     });
 
     try {
-      const mode = await getHybridReadModeAction();
-      if (!mode.prismaEnabled) {
+      const mode = await getDecisionDomainReadModeAction();
+      if (!mode.prismaPreferred) {
         setState({
           data: localData,
           source: "local",

@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  getDecisionDomainReadModeAction,
   getDecisionJournalReadAction,
-  getHybridReadModeAction
 } from "@/lib/actions/hybrid-read-actions";
 import { getJournalEntries } from "@/lib/local/decision-journal-store";
 import type { DecisionJournalEntry } from "@/types/decision-journal";
@@ -39,8 +39,8 @@ export function useDecisionJournalWorkspace(organizationId = DEFAULT_ORGANIZATIO
     });
 
     try {
-      const mode = await getHybridReadModeAction();
-      if (!mode.prismaEnabled) {
+      const mode = await getDecisionDomainReadModeAction();
+      if (!mode.prismaPreferred) {
         setState({
           data: localData,
           source: "local",

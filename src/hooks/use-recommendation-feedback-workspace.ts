@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  getHybridReadModeAction,
+  getDecisionDomainReadModeAction,
   getRecommendationFeedbackReadAction
 } from "@/lib/actions/hybrid-read-actions";
 import { getRecommendationFeedback } from "@/lib/local/local-recommendation-feedback-store";
@@ -38,8 +38,8 @@ export function useRecommendationFeedbackWorkspace(organizationId = DEFAULT_ORGA
     });
 
     try {
-      const mode = await getHybridReadModeAction();
-      if (!mode.prismaEnabled) {
+      const mode = await getDecisionDomainReadModeAction();
+      if (!mode.prismaPreferred) {
         setState({
           data: localData,
           source: "local",

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { auditDomain } from "@/lib/audit/coherence-audit-engine";
+import { getPrimarySourceCoherenceWarnings } from "@/lib/audit/coherence-guardrails";
 
 describe("coherence audit engine", () => {
   it("detecte un match parfait", () => {
@@ -57,5 +58,35 @@ describe("coherence audit engine", () => {
 
     expect(result.status).toBe("CONTENT_MISMATCH");
     expect(result.differences[0].id).toBe("dataset-kpi-1");
+  });
+
+  it("genere un warning de garde-fou pour un domaine decisionnel en mismatch", () => {
+    const domain = auditDomain({
+      domain: "local_action_plans",
+      localRecords: [{ id: "plan-1" }, { id: "plan-2" }],
+      prismaRecords: [{ id: "plan-1" }]
+    });
+
+    const warnings = getPrimarySourceCoherenceWarnings({
+      id: "coherence-audit-test",
+      generatedAt: "2026-06-01T10:00:00.000Z",
+      summary: {
+        totalDomains: 1,
+        matchingDomains: 0,
+        differenceDomains: 1,
+        localOnly: 0,
+        prismaOnly: 0,
+        countMismatches: 1,
+        contentMismatches: 0,
+        score: 0
+      },
+      domains: [domain],
+      warnings: [],
+      errors: []
+    });
+
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].status).toBe("COUNT_MISMATCH");
+    expect(warnings[0].message).toContain("fallback local");
   });
 });

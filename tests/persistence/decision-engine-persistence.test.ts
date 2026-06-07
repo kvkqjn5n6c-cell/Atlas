@@ -140,6 +140,7 @@ function prismaJournalRecord(input: DecisionJournalEntry) {
 
 beforeEach(() => {
   process.env.DATA_MODE = "local";
+  process.env.PRIMARY_SOURCE = "local";
   vi.clearAllMocks();
   vi.stubGlobal("window", { localStorage: createLocalStorageMock() });
 });
@@ -222,6 +223,51 @@ describe("decision engine persistence v1", () => {
     expect(result.source).toBe("prisma");
     expect(prismaMock.localActionPlan.findMany).toHaveBeenCalledOnce();
     expect(result.data[0].id).toBe("plan-1");
+  });
+
+  it("lit les plans depuis Prisma quand PRIMARY_SOURCE=prisma meme si DATA_MODE=local", async () => {
+    process.env.PRIMARY_SOURCE = "prisma";
+    prismaMock.localActionPlan.findMany.mockResolvedValueOnce([prismaPlanRecord(plan({ id: "plan-prisma" }))]);
+
+    const result = await getLocalActionPlansData(organizationId);
+
+    expect(result.source).toBe("prisma");
+    expect(prismaMock.localActionPlan.findMany).toHaveBeenCalledOnce();
+    expect(result.data[0].id).toBe("plan-prisma");
+  });
+
+  it("lit le journal depuis Prisma quand PRIMARY_SOURCE=prisma", async () => {
+    process.env.PRIMARY_SOURCE = "prisma";
+    prismaMock.decisionJournalEntry.findMany.mockResolvedValueOnce([prismaJournalRecord(journalEntry({ id: "journal-prisma" }))]);
+
+    const result = await getDecisionJournalData(organizationId);
+
+    expect(result.source).toBe("prisma");
+    expect(prismaMock.decisionJournalEntry.findMany).toHaveBeenCalledOnce();
+    expect(result.data[0].id).toBe("journal-prisma");
+  });
+
+  it("lit le feedback depuis Prisma quand PRIMARY_SOURCE=prisma", async () => {
+    process.env.PRIMARY_SOURCE = "prisma";
+    prismaMock.localRecommendationFeedback.findMany.mockResolvedValueOnce([prismaFeedbackRecord(feedback({ id: "feedback-prisma" }))]);
+
+    const result = await getRecommendationFeedbackData(organizationId);
+
+    expect(result.source).toBe("prisma");
+    expect(prismaMock.localRecommendationFeedback.findMany).toHaveBeenCalledOnce();
+    expect(result.data[0].id).toBe("feedback-prisma");
+  });
+
+  it("retombe sur le plan local si PRIMARY_SOURCE=prisma et la lecture Prisma echoue", async () => {
+    await saveLocalActionPlanData(plan({ id: "plan-local" }));
+    process.env.PRIMARY_SOURCE = "prisma";
+    prismaMock.localActionPlan.findMany.mockRejectedValueOnce(new Error("DB unavailable"));
+
+    const result = await getLocalActionPlansData(organizationId);
+
+    expect(result.source).toBe("fallback");
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].id).toBe("plan-local");
   });
 
   it("retombe sur le feedback local si la lecture Prisma echoue", async () => {

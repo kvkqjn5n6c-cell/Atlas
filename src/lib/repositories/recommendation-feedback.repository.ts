@@ -1,4 +1,4 @@
-import { isPrismaMode } from "@/lib/config/data-mode";
+import { isDecisionDomainPrismaPreferred, isPrismaMode } from "@/lib/config/data-mode";
 import {
   deleteRecommendationFeedback as deleteRecommendationFeedbackLocal,
   getRecommendationFeedback,
@@ -61,7 +61,7 @@ function toPrismaData(feedback: LocalRecommendationFeedback, organizationId: str
 
 export async function getRecommendationFeedbackByOrganization(organizationId: string) {
   lastFallbackUsed = false;
-  if (!isPrismaMode()) return getRecommendationFeedback();
+  if (!isDecisionDomainPrismaPreferred()) return getRecommendationFeedback();
 
   try {
     const prisma = await getPrisma();
@@ -79,7 +79,7 @@ export async function getRecommendationFeedbackByOrganization(organizationId: st
 
 export async function getRecommendationFeedbackByRecommendationId(recommendationId: string, organizationId?: string) {
   lastFallbackUsed = false;
-  if (!isPrismaMode()) return getRecommendationFeedbackByRecommendationIdLocal(recommendationId);
+  if (!isDecisionDomainPrismaPreferred()) return getRecommendationFeedbackByRecommendationIdLocal(recommendationId);
 
   try {
     const prisma = await getPrisma();
